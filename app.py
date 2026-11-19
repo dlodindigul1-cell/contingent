@@ -839,12 +839,13 @@ IMPORT_ORDER = ["libraries", "newspapers", "map", "holidays", "leave", "rent", "
 with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f:
     ADMIN_HTML = _f.read()
 
-# மாதிரி Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
+# Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
+# ஏற்கனவே பதிவு உள்ளவற்றை நிரப்பித் தரும்; பதிவு இல்லையெனில் மட்டும் மாதிரி வரி வரும்.
 TEMPLATE_XLSX = {
     "libraries": ("libraries_template.xlsx",
-                  [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை"]],
-                  ["எடுத்துக்காட்டு நூலகம்", "TNDPL00001", "library@example.com", "கிளை நூலகம்"],
-                  [38, 18, 32, 24]),
+                  [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை", "ஊதிய மையம்"]],
+                  ["எடுத்துக்காட்டு நூலகம்", "TNDPL00001", "library@example.com", "கிளை நூலகம்", "எடுத்துக்காட்டு ஊதிய மையம்"],
+                  [38, 18, 32, 24, 30]),
     "holidays": ("holidays_template.xlsx",
                  [["விடுமுறை தேதி (dd/mm/yyyy)", "விடுமுறை பெயர்"]],
                  ["26/01/2026", "குடியரசு தினம்"],
@@ -854,35 +855,65 @@ TEMPLATE_XLSX = {
               ["எடுத்துக்காட்டு நூலகம்", 0],
               [38, 18]),
     "dailywage": ("dailywage_template.xlsx",
-                  [["தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்கள்"]],
-                  ["எடுத்துக்காட்டு நூலகம்"],
-                  [44]),
+                  [["தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்கள்", "பணியாளர் எண்ணிக்கை"]],
+                  ["எடுத்துக்காட்டு நூலகம்", 1],
+                  [44, 22]),
 }
+
+
+def _template_rows(kind):
+    """தரவுத்தளத்தில் உள்ள பதிவுகளை Excel வரிகளாகத் தரும் (இல்லையெனில் [])."""
+    try:
+        if kind == "libraries":
+            return [[r["name"], r["code"] or "", r["emails"], r["lib_type"], r["pay_center"]] for r in
+                    db.fetch_all("SELECT name, code, emails, lib_type, pay_center FROM libraries ORDER BY id")]
+        if kind == "holidays":
+            return [[r["holiday_date"].strftime("%d/%m/%Y"), r["name"]] for r in
+                    db.fetch_all("SELECT holiday_date, name FROM holidays ORDER BY holiday_date")]
+        if kind == "leave":
+            return [[r["name"], jnum(r["leave_days"])] for r in
+                    db.fetch_all("SELECT l.name, s.leave_days FROM staff_leave_days s "
+                                 "JOIN libraries l ON l.id = s.library_id ORDER BY l.id")]
+        if kind == "dailywage":
+            return [[r["name"], int(r["workers"])] for r in
+                    db.fetch_all("SELECT l.name, d.workers FROM daily_wage_permission d "
+                                 "JOIN libraries l ON l.id = d.library_id ORDER BY l.id")]
+    except Exception:
+        app.logger.exception("template data %s", kind)
+    return []
 
 
 def build_template(kind):
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
     fname, heads, sample, widths = TEMPLATE_XLSX[kind]
+    data = _template_rows(kind)
     wb = Workbook()
     ws = wb.active
     ws.title = "தரவு"
     for h in heads:
         ws.append(h)
-    ws.append(sample)
+    if data:
+        for row in data:
+            ws.append(row)
+    else:
+        ws.append(sample)               # பதிவு இல்லையெனில் மட்டும் மாதிரி வரி
     for r in range(1, len(heads) + 1):
         for c in ws[r]:
             c.font = Font(name="Nirmala UI", bold=True, color="FFFFFF", size=12)
             c.fill = PatternFill("solid", fgColor="12306B")
             c.alignment = Alignment(vertical="center", wrap_text=True)
-    for c in ws[len(heads) + 1]:
-        c.font = Font(name="Nirmala UI", italic=True, color="808080")
+    if not data:
+        for c in ws[len(heads) + 1]:
+            c.font = Font(name="Nirmala UI", italic=True, color="808080")
     for i, w in enumerate(widths):
-        ws.column_dimensions[chr(65 + i)].width = w
-    # குறியீடு, எண் புலங்கள் உரையாக இருக்க (முன் பூஜ்யம் போகாமல்)
+        ws.column_dimensions[get_column_letter(i + 1)].width = w
+    ws.freeze_panes = ws.cell(len(heads) + 1, 1)
+    # குறியீடு உரையாக இருக்க (முன் பூஜ்யம் போகாமல்); தேதி உரையாகவே இருக்கும்
     if kind == "libraries":
-        for r in range(2, 400):
+        for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             ws.cell(r, 2).number_format = "@"
     buf = io.BytesIO()
     wb.save(buf)
@@ -927,11 +958,12 @@ def admin_libraries():
     if denied:
         return denied
     try:
-        rows = db.fetch_all("SELECT name, code, emails, lib_type FROM libraries ORDER BY id")
+        rows = db.fetch_all("SELECT id, name, code, emails, lib_type, pay_center FROM libraries ORDER BY id")
     except Exception:
         return jsonify({"success": False, "message": "நூலகப் பட்டியலைப் படிக்க முடியவில்லை"})
     return jsonify({"success": True, "rows": [
-        {"name": r["name"], "code": r["code"] or "", "emails": r["emails"], "type": r["lib_type"]} for r in rows]})
+        {"id": r["id"], "name": r["name"], "code": r["code"] or "", "emails": r["emails"],
+         "type": r["lib_type"], "payCenter": r["pay_center"]} for r in rows]})
 
 
 @app.get("/admin/template/<kind>.xlsx")
@@ -979,6 +1011,159 @@ def admin_import_run(kind):
         hint = "libraries அட்டவணை இல்லையெனில் முதலில் 'Database அட்டவணைகளை உருவாக்கு' அழுத்தவும்." \
             if "does not exist" in str(e) else ""
         return jsonify({"success": False, "message": "இறக்கம் தோல்வி. " + hint + " (" + type(e).__name__ + ")"})
+
+
+# ------------------------------------------------------------------
+#  Admin — நூலகம் / வகை / ஊதிய மையம்: சேர்க்க · திருத்த · நீக்க
+# ------------------------------------------------------------------
+LIST_TABLES = {"types": ("library_types", "lib_type"), "paycenters": ("pay_centers", "pay_center")}
+
+
+def _ok(**kw):
+    return jsonify({"success": True, **kw})
+
+
+def _bad(msg):
+    return jsonify({"success": False, "message": msg})
+
+
+def _clean(v):
+    return " ".join(str(v or "").split())
+
+
+@app.get("/admin/api/lists")
+def admin_lists():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    out = {}
+    for key, (table, col) in LIST_TABLES.items():
+        rows = db.fetch_all(
+            f"SELECT t.id, t.name, (SELECT COUNT(*) FROM libraries l WHERE btrim(l.{col}) = t.name) AS n "
+            f"FROM {table} t ORDER BY t.id")
+        out[key] = [{"id": r["id"], "name": r["name"], "count": r["n"]} for r in rows]
+    return _ok(**out)
+
+
+@app.post("/admin/api/list/<kind>/save")
+def admin_list_save(kind):
+    denied = admin_required_json()
+    if denied:
+        return denied
+    if kind not in LIST_TABLES:
+        return _bad("தெரியாத பட்டியல்")
+    table, col = LIST_TABLES[kind]
+    j = request.get_json(silent=True) or {}
+    name = _clean(j.get("name"))
+    if not name:
+        return _bad("பெயரை உள்ளிடவும்.")
+    lid = j.get("id")
+    try:
+        if lid:
+            old = db.fetch_one(f"SELECT name FROM {table} WHERE id = %s", (int(lid),))
+            if not old:
+                return _bad("பதிவு கிடைக்கவில்லை.")
+
+            def f(conn):
+                with conn.cursor() as cur:
+                    cur.execute(f"UPDATE {table} SET name = %s WHERE id = %s", (name, int(lid)))
+                    # பெயர் மாற்றம் அந்த நூலகங்கள் அனைத்துக்கும் பொருந்தும்
+                    cur.execute(f"UPDATE libraries SET {col} = %s WHERE btrim({col}) = %s", (name, old["name"]))
+                    if kind == "types":
+                        cur.execute("UPDATE claims SET library_type = %s WHERE btrim(library_type) = %s",
+                                    (name, old["name"]))
+            db.run(f)
+        else:
+            db.execute(f"INSERT INTO {table} (name) VALUES (%s)", (name,))
+    except Exception as e:
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            return _bad("இந்தப் பெயர் ஏற்கனவே உள்ளது.")
+        app.logger.exception("list save")
+        return _bad("சேமிக்க முடியவில்லை.")
+    return _ok()
+
+
+@app.post("/admin/api/list/<kind>/delete")
+def admin_list_delete(kind):
+    denied = admin_required_json()
+    if denied:
+        return denied
+    if kind not in LIST_TABLES:
+        return _bad("தெரியாத பட்டியல்")
+    table, col = LIST_TABLES[kind]
+    j = request.get_json(silent=True) or {}
+    row = db.fetch_one(f"SELECT name FROM {table} WHERE id = %s", (int(j.get("id") or 0),))
+    if not row:
+        return _bad("பதிவு கிடைக்கவில்லை.")
+    n = db.fetch_one(f"SELECT COUNT(*) AS n FROM libraries WHERE btrim({col}) = %s", (row["name"],))["n"]
+    if n:
+        return _bad(f"இதை {n} நூலகங்கள் பயன்படுத்துகின்றன — முதலில் அந்த நூலகங்களை மாற்றவும் / நீக்கவும்.")
+    db.execute(f"DELETE FROM {table} WHERE name = %s", (row["name"],))
+    return _ok()
+
+
+@app.post("/admin/api/library/save")
+def admin_library_save():
+    """id இருந்தால் திருத்தம்; இல்லையெனில் புதிய நூலகம்."""
+    denied = admin_required_json()
+    if denied:
+        return denied
+    j = request.get_json(silent=True) or {}
+    name = _clean(j.get("name"))
+    code = _clean(j.get("code")).upper() or None
+    emails = ",".join(e.strip() for e in str(j.get("emails") or "").lower().replace(";", ",").replace("\n", ",").split(",")
+                      if e.strip())
+    ltype, pay = _clean(j.get("type")), _clean(j.get("payCenter"))
+    if not name:
+        return _bad("நூலகப் பெயரை உள்ளிடவும்.")
+    if emails and any("@" not in e for e in emails.split(",")):
+        return _bad("மின்னஞ்சல் முகவரி சரியில்லை.")
+    lid = int(j["id"]) if j.get("id") else None
+    if db.fetch_one("SELECT 1 FROM libraries WHERE name = %s AND id IS DISTINCT FROM %s", (name, lid)):
+        return _bad("இந்தப் பெயரில் நூலகம் ஏற்கனவே உள்ளது.")
+    if code and db.fetch_one("SELECT 1 FROM libraries WHERE code = %s AND id IS DISTINCT FROM %s", (code, lid)):
+        return _bad("இந்தக் குறியீடு வேறு நூலகத்துக்கு உள்ளது.")
+
+    def f(conn):
+        with conn.cursor() as cur:
+            if ltype:
+                cur.execute("INSERT INTO library_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ltype,))
+            if pay:
+                cur.execute("INSERT INTO pay_centers (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (pay,))
+            if lid:
+                cur.execute("SELECT name FROM libraries WHERE id = %s", (lid,))
+                old = cur.fetchone()
+                if not old:
+                    return False
+                cur.execute("UPDATE libraries SET name=%s, code=%s, emails=%s, lib_type=%s, pay_center=%s WHERE id=%s",
+                            (name, code, emails, ltype, pay, lid))
+                if old[0] != name:      # ஏற்கனவே உள்ள contingent பதிவுகளும் புதிய பெயருடன் இணைந்திருக்க
+                    cur.execute("UPDATE claims SET library_name = %s WHERE library_name = %s", (name, old[0]))
+            else:
+                cur.execute("INSERT INTO libraries (name, code, emails, lib_type, pay_center) "
+                            "VALUES (%s,%s,%s,%s,%s)", (name, code, emails, ltype, pay))
+        return True
+    if not db.run(f):
+        return _bad("நூலகம் கிடைக்கவில்லை.")
+    return _ok()
+
+
+@app.post("/admin/api/library/delete")
+def admin_library_delete():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    j = request.get_json(silent=True) or {}
+    row = db.fetch_one("SELECT name FROM libraries WHERE id = %s", (int(j.get("id") or 0),))
+    if not row:
+        return _bad("நூலகம் கிடைக்கவில்லை.")
+    claims = db.fetch_one("SELECT COUNT(*) AS n FROM claims WHERE library_name = %s", (row["name"],))["n"]
+    if claims and not j.get("force"):
+        return jsonify({"success": False, "needConfirm": True, "claims": claims,
+                        "message": f"இந்த நூலகத்துக்கு {claims} contingent பதிவுகள் உள்ளன. நீக்கினாலும் அவை அழியாது; "
+                                   f"ஆனால் நூலகப் பட்டியலில் இருந்து நீங்கும். தொடரவா?"})
+    db.execute("DELETE FROM libraries WHERE id = %s", (int(j["id"]),))   # இணைப்பு / வாடகை / விடுப்பு தானாக நீங்கும்
+    return _ok()
 
 
 @app.get("/healthz")

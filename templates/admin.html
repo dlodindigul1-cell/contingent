@@ -201,6 +201,8 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <a href="#newsmap" data-v="newsmap"><span class="n">9</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
   <div class="grp">பணி நாட்கள்</div>
   <a href="#holidays" data-v="holidays"><span class="n">10</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
+  <div class="grp">நூலக மேலாண்மை</div>
+  <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -231,6 +233,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
         <tr><td>8</td><td><a href="#newspapers">நாளிதழ் விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>9</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>10</td><td><a href="#holidays">அரசு விடுமுறை நாட்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>11</td><td><a href="#manage">நூலகம் · வகை · ஊதிய மையம் மேலாண்மை</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
       </tbody>
     </table>
   </div></div>
@@ -249,7 +252,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
         <button class="btn alt" id="btnSchema">அட்டவணைகளை உருவாக்கு</button>
         <div id="msgSchema"></div></li>
       <li><h4>Excel கோப்பைத் தேர்ந்தெடுத்து ஏற்றுக</h4>
-        <p>நெடுவரிசைகள்: <code>A நூலகப் பெயர்</code> <code>B நூலகக் குறியீடு</code> <code>C மின்னஞ்சல்</code> <code>D நூலக வகை</code>. முதல் வரி தலைப்பு வரி; அது தவிர்க்கப்படும். (.xlsx பரிந்துரைக்கப்படுகிறது) <a href="/admin/template/libraries.xlsx">மாதிரி Excel பதிவிறக்கு</a></p>
+        <p>நெடுவரிசைகள்: <code>A நூலகப் பெயர்</code> <code>B நூலகக் குறியீடு</code> <code>C மின்னஞ்சல்</code> <code>D நூலக வகை</code> <code>E ஊதிய மையம்</code>. முதல் வரி தலைப்பு வரி; அது தவிர்க்கப்படும். (.xlsx பரிந்துரைக்கப்படுகிறது) மாதிரி Excel-ல் ஏற்கனவே பதிவு செய்த நூலகங்கள் அனைத்தும் இருக்கும்; பதிவு இல்லையெனில் மட்டும் மாதிரி வரி வரும். E காலியாக இருந்தால் பழைய ஊதிய மையம் மாறாது. <a href="/admin/template/libraries.xlsx">மாதிரி Excel பதிவிறக்கு</a></p>
         <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_libraries" accept=".xlsx,.xls,.csv" aria-label="நூலகப் பட்டியல் Excel"></div>
         <button class="btn go" id="b_libraries">Excel ஏற்று</button></div>
         <div id="m_libraries"></div></li>
@@ -259,11 +262,58 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   </div></div>
 
   <div class="panel"><h3>ஏற்றப்பட்ட நூலகங்கள் <span id="libCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
-    <div class="row" style="margin-bottom:10px"><div style="flex:1 1 260px"><input type="search" id="libSearch" placeholder="பெயர் / குறியீடு / வகை மூலம் தேடுக" aria-label="நூலகம் தேடுக"></div></div>
-    <div class="tw"><table><thead><tr><th style="width:56px">வ.எ.</th><th>நூலகப் பெயர்</th><th>குறியீடு</th><th>நூலக வகை</th><th>மின்னஞ்சல்</th></tr></thead>
-    <tbody id="libBody"><tr><td colspan="5">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+    <div class="row" style="margin-bottom:10px"><div style="flex:1 1 260px"><input type="search" id="libSearch" placeholder="பெயர் / குறியீடு / வகை / ஊதிய மையம் மூலம் தேடுக" aria-label="நூலகம் தேடுக"></div><a class="btn alt" href="#manage">✏️ சேர்க்க / திருத்த / நீக்க</a></div>
+    <div class="tw"><table><thead><tr><th style="width:56px">வ.எ.</th><th>நூலகப் பெயர்</th><th>குறியீடு</th><th>நூலக வகை</th><th>ஊதிய மையம்</th><th>மின்னஞ்சல்</th></tr></thead>
+    <tbody id="libBody"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
   </div></div>
 </section>
+
+
+<!-- ================= 11. நூலக மேலாண்மை ================= -->
+<section class="view" id="v-manage">
+  <p class="crumb">நிர்வாகம் › நூலக மேலாண்மை</p>
+  <h2 class="pt">11. நூலகம் · வகை · ஊதிய மையம்</h2>
+  <p class="lead">Excel இல்லாமலேயே நூலகங்களைச் சேர்க்கலாம், திருத்தலாம், நீக்கலாம். நூலக வகைகளையும் ஊதிய மையங்களையும் இங்கே பட்டியலாக நிர்வகிக்கலாம். பெயர் மாற்றினால் அந்த வகை / ஊதிய மையம் உள்ள எல்லா நூலகங்களிலும் தானாக மாறும்.</p>
+  <div id="m_manage"></div>
+
+  <div class="panel"><h3>நூலகங்கள் <span id="mgCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
+    <div class="toolbar">
+      <input type="search" id="mgSearch" placeholder="பெயர் / குறியீடு தேடு…" style="max-width:260px" aria-label="நூலகம் தேடுக">
+      <select id="mgType" style="width:auto"><option value="">எல்லா வகைகள்</option></select>
+      <select id="mgPay" style="width:auto"><option value="">எல்லா ஊதிய மையங்கள்</option></select>
+      <button class="btn go sm" id="mgAdd" type="button">＋ புதிய நூலகம்</button>
+    </div>
+    <div class="tw"><table><thead><tr><th style="width:50px">வ.எ.</th><th>நூலகப் பெயர்</th><th>குறியீடு</th><th>வகை</th><th>ஊதிய மையம்</th><th>மின்னஞ்சல்</th><th style="width:150px">செயல்</th></tr></thead>
+    <tbody id="mgBody"><tr><td colspan="7">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+  </div></div>
+
+  <div class="two">
+    <div class="panel"><h3>நூலக வகைகள்</h3><div class="bd">
+      <div class="toolbar"><button class="btn go sm" type="button" data-add="types">＋ புதிய வகை</button></div>
+      <div class="tw" style="max-height:320px"><table><thead><tr><th>வகை</th><th style="width:80px">நூலகங்கள்</th><th style="width:150px">செயல்</th></tr></thead><tbody id="mgTypes"></tbody></table></div>
+    </div></div>
+    <div class="panel"><h3>ஊதிய மையங்கள்</h3><div class="bd">
+      <div class="toolbar"><button class="btn go sm" type="button" data-add="paycenters">＋ புதிய ஊதிய மையம்</button></div>
+      <div class="tw" style="max-height:320px"><table><thead><tr><th>ஊதிய மையம்</th><th style="width:80px">நூலகங்கள்</th><th style="width:150px">செயல்</th></tr></thead><tbody id="mgPays"></tbody></table></div>
+    </div></div>
+  </div>
+</section>
+
+<div id="libOverlay" class="clm-overlay"><div class="clm-card" style="max-width:560px">
+  <h3 id="libFormTitle" style="margin:0 0 10px;color:var(--navy)">நூலகம்</h3>
+  <div class="clm-grid" style="grid-template-columns:1fr">
+    <div><label for="lf_name">நூலகப் பெயர் *</label><input type="text" id="lf_name"></div>
+    <div><label for="lf_code">நூலகக் குறியீடு</label><input type="text" id="lf_code" placeholder="TNDPL00001"></div>
+    <div><label for="lf_type">நூலக வகை</label><select id="lf_type"></select></div>
+    <div><label for="lf_pay">ஊதிய மையம்</label><select id="lf_pay"></select></div>
+    <div><label for="lf_emails">மின்னஞ்சல் (பல இருந்தால் கமாவால் பிரிக்கவும்)</label><input type="text" id="lf_emails"></div>
+  </div>
+  <div id="libFormErr"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <button class="btn alt" id="lf_cancel" type="button">ரத்து</button>
+    <button class="btn go" id="lf_save" type="button">சேமி</button>
+  </div>
+</div></div>
 
 <!-- ================= 2. விடுப்பு ================= -->
 <section class="view" id="v-leave">
@@ -604,6 +654,7 @@ function route(){
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
   if (v === 'home') loadSummary();
   if (v === 'libraries') loadLibraries();
+  if (v === 'manage') loadManage();
   if (v === 'newspapers') loadNews();
   if (v === 'newsmap'){ loadMapLibs(); loadAssign(); }
   if (v === 'wages' || v === 'cleaner') loadWages();
@@ -645,7 +696,7 @@ function bindUpload(kind){
         if (j.skipped_count){ k = 'warn'; t += '\nதவிர்க்கப்பட்டவை: ' + j.skipped_count + '\n - ' + j.skipped.join('\n - ');
           if (j.skipped_count > j.skipped.length) t += '\n … மேலும் ' + (j.skipped_count - j.skipped.length); }
         note(out, k, t);
-        if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); }
+        if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); if ($('#v-manage').classList.contains('on')) loadManage(); }
         if (kind === 'holidays') loadHolidays();
       }
     }catch(e){ note(out, 'bad', e.message); }
@@ -669,19 +720,119 @@ async function loadLibraries(force){
   const body = $('#libBody');
   try{
     const j = await getJSON('/admin/api/libraries');
-    if (!j.success){ body.innerHTML = '<tr><td colspan="5">' + esc(j.message) + '</td></tr>'; return; }
+    if (!j.success){ body.innerHTML = '<tr><td colspan="6">' + esc(j.message) + '</td></tr>'; return; }
     allLibs = j.rows; loaded.libs = true; renderLibs();
-  }catch(e){ body.innerHTML = '<tr><td colspan="5">' + esc(e.message) + '</td></tr>'; }
+  }catch(e){ body.innerHTML = '<tr><td colspan="6">' + esc(e.message) + '</td></tr>'; }
 }
 function renderLibs(){
   const q = $('#libSearch').value.trim().toLowerCase();
-  const rows = allLibs.filter(r => !q || (r.name + ' ' + r.code + ' ' + r.type).toLowerCase().includes(q));
+  const rows = allLibs.filter(r => !q || (r.name + ' ' + r.code + ' ' + r.type + ' ' + (r.payCenter || '')).toLowerCase().includes(q));
   $('#libCount').textContent = '(' + rows.length + ' / ' + allLibs.length + ')';
   $('#libBody').innerHTML = rows.length ? rows.map((r, i) =>
-    '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.emails) + '</td></tr>').join('')
-    : '<tr><td colspan="5">நூலகங்கள் எதுவும் இல்லை. மேலே Excel கோப்பை ஏற்றவும்.</td></tr>';
+    '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.payCenter) + '</td><td>' + esc(r.emails) + '</td></tr>').join('')
+    : '<tr><td colspan="6">நூலகங்கள் எதுவும் இல்லை. மேலே Excel கோப்பை ஏற்றவும்.</td></tr>';
 }
 $('#libSearch').addEventListener('input', renderLibs);
+
+
+/* ---------- 11. நூலகம் · வகை · ஊதிய மையம் மேலாண்மை ---------- */
+async function postJSON(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if (r.status === 401) { location.href = '/admin'; throw new Error('உள்நுழைவு தேவை'); }
+  try { return await r.json(); } catch(e){ throw new Error('Server பதில் புரியவில்லை (HTTP ' + r.status + ')'); }
+}
+let mgLibs = [], mgLists = {types: [], paycenters: []}, mgEditId = null;
+async function loadManage(){
+  try{
+    const [a, b] = await Promise.all([getJSON('/admin/api/libraries'), getJSON('/admin/api/lists')]);
+    if (!a.success) throw new Error(a.message);
+    if (!b.success) throw new Error(b.message || 'பட்டியல்களைப் படிக்க முடியவில்லை');
+    mgLibs = a.rows; mgLists = b; allLibs = a.rows;
+    mgRender();
+  }catch(e){ note($('#m_manage'), 'bad', e.message); }
+}
+function mgFill(sel, items, first){
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">' + first + '</option>' + items.map(n => '<option>' + esc(n) + '</option>').join('');
+  sel.value = items.indexOf(cur) >= 0 ? cur : '';
+}
+function mgRender(){
+  const types = mgLists.types.map(x => x.name), pays = mgLists.paycenters.map(x => x.name);
+  mgFill($('#mgType'), types, 'எல்லா வகைகள்'); mgFill($('#mgPay'), pays, 'எல்லா ஊதிய மையங்கள்');
+  const q = $('#mgSearch').value.trim().toLowerCase(), t = $('#mgType').value, p = $('#mgPay').value;
+  const rows = mgLibs.filter(r => (!t || r.type === t) && (!p || r.payCenter === p) && (!q || (r.name + ' ' + r.code).toLowerCase().includes(q)));
+  $('#mgCount').textContent = '(' + rows.length + ' / ' + mgLibs.length + ')';
+  $('#mgBody').innerHTML = rows.length ? rows.map((r, i) =>
+    '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.payCenter) + '</td><td>' + esc(r.emails) + '</td>' +
+    '<td><button class="btn alt sm" data-edit="' + r.id + '">✏️ திருத்து</button> <button class="btn bad sm" data-del="' + r.id + '">🗑</button></td></tr>').join('')
+    : '<tr><td colspan="7">நூலகங்கள் இல்லை.</td></tr>';
+  const listRows = (items, kind) => items.length ? items.map(x =>
+    '<tr><td>' + esc(x.name) + '</td><td>' + x.count + '</td><td><button class="btn alt sm" data-ren="' + kind + ':' + x.id + '">✏️</button> <button class="btn bad sm" data-ldel="' + kind + ':' + x.id + '">🗑</button></td></tr>').join('')
+    : '<tr><td colspan="3">இல்லை.</td></tr>';
+  $('#mgTypes').innerHTML = listRows(mgLists.types, 'types');
+  $('#mgPays').innerHTML = listRows(mgLists.paycenters, 'paycenters');
+}
+['#mgSearch', '#mgType', '#mgPay'].forEach(s => $(s).addEventListener('input', mgRender));
+
+function libForm(r){
+  mgEditId = r ? r.id : null;
+  $('#libFormTitle').textContent = r ? '✏️ நூலகத்தைத் திருத்து' : '＋ புதிய நூலகம்';
+  const opts = (items, cur) => '<option value="">— தேர்ந்தெடுக்கவும் —</option>' + items.map(x => '<option' + (x.name === cur ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
+  $('#lf_type').innerHTML = opts(mgLists.types, r && r.type);
+  $('#lf_pay').innerHTML = opts(mgLists.paycenters, r && r.payCenter);
+  $('#lf_name').value = r ? r.name : ''; $('#lf_code').value = r ? r.code : ''; $('#lf_emails').value = r ? r.emails : '';
+  $('#libFormErr').innerHTML = '';
+  $('#libOverlay').style.display = 'flex'; $('#lf_name').focus();
+}
+$('#mgAdd').addEventListener('click', () => libForm(null));
+$('#lf_cancel').addEventListener('click', () => { $('#libOverlay').style.display = 'none'; });
+$('#lf_save').addEventListener('click', async () => {
+  const b = $('#lf_save'); b.disabled = true;
+  try{
+    const j = await postJSON('/admin/api/library/save', {id: mgEditId, name: $('#lf_name').value, code: $('#lf_code').value,
+      type: $('#lf_type').value, payCenter: $('#lf_pay').value, emails: $('#lf_emails').value});
+    if (!j.success){ $('#libFormErr').innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; }
+    else{ $('#libOverlay').style.display = 'none'; note($('#m_manage'), 'ok', 'சேமிக்கப்பட்டது.'); asLibs = []; await loadManage(); }
+  }catch(e){ $('#libFormErr').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+  b.disabled = false;
+});
+
+$('#v-manage').addEventListener('click', async e => {
+  const el = e.target.closest('button'); if (!el) return;
+  const out = $('#m_manage');
+  try{
+    if (el.dataset.edit){ libForm(mgLibs.find(x => x.id == el.dataset.edit)); return; }
+    if (el.dataset.del){
+      const r = mgLibs.find(x => x.id == el.dataset.del);
+      if (!confirm('"' + r.name + '" நூலகத்தை நீக்கவா?\nஅதன் நாளிதழ் இணைப்பு, வாடகை, விடுப்பு, தினக்கூலி அனுமதி விவரங்களும் நீங்கும்.')) return;
+      let j = await postJSON('/admin/api/library/delete', {id: r.id});
+      if (j.needConfirm && confirm(j.message)) j = await postJSON('/admin/api/library/delete', {id: r.id, force: true});
+      else if (j.needConfirm) return;
+      if (!j.success) return note(out, 'bad', j.message);
+      note(out, 'ok', 'நீக்கப்பட்டது.'); asLibs = []; await loadManage(); return;
+    }
+    if (el.dataset.add){
+      const name = prompt(el.dataset.add === 'types' ? 'புதிய நூலக வகை:' : 'புதிய ஊதிய மையம்:'); if (!name) return;
+      const j = await postJSON('/admin/api/list/' + el.dataset.add + '/save', {name});
+      if (!j.success) return note(out, 'bad', j.message);
+      note(out, 'ok', 'சேர்க்கப்பட்டது.'); await loadManage(); return;
+    }
+    if (el.dataset.ren){
+      const [kind, id] = el.dataset.ren.split(':'), item = mgLists[kind].find(x => x.id == id);
+      const name = prompt('புதிய பெயர் (' + item.count + ' நூலகங்களிலும் மாறும்):', item.name); if (!name || name === item.name) return;
+      const j = await postJSON('/admin/api/list/' + kind + '/save', {id: +id, name});
+      if (!j.success) return note(out, 'bad', j.message);
+      note(out, 'ok', 'பெயர் மாற்றப்பட்டது.'); asLibs = []; await loadManage(); return;
+    }
+    if (el.dataset.ldel){
+      const [kind, id] = el.dataset.ldel.split(':'), item = mgLists[kind].find(x => x.id == id);
+      if (!confirm('"' + item.name + '" நீக்கவா?')) return;
+      const j = await postJSON('/admin/api/list/' + kind + '/delete', {id: +id});
+      if (!j.success) return note(out, 'bad', j.message);
+      note(out, 'ok', 'நீக்கப்பட்டது.'); await loadManage();
+    }
+  }catch(err){ note(out, 'bad', err.message); }
+});
 
 /* ---------- பொது உதவிகள் ---------- */
 const pad2 = n => String(n).padStart(2, '0');

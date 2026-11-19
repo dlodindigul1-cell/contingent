@@ -105,6 +105,7 @@ def do_schema(_raw=None):
 
 
 def do_libraries(raw):
+    """A பெயர், B குறியீடு, C மின்னஞ்சல், D வகை, E ஊதிய மையம் (விருப்பம்; காலியெனில் பழைய மதிப்பு மாறாது)."""
     rows, skipped, seen_codes, items = read_rows(raw), [], set(), []
     for r in rows:
         name = cell(r, 0)
@@ -116,10 +117,17 @@ def do_libraries(raw):
             code = None
         if code:
             seen_codes.add(code)
-        items.append((name, code, cell(r, 2).lower(), cell(r, 3)))
-    run_batch("INSERT INTO libraries (name, code, emails, lib_type) VALUES %s "
+        items.append((name, code, cell(r, 2).lower(), cell(r, 3), cell(r, 4)))
+    run_batch("INSERT INTO libraries (name, code, emails, lib_type, pay_center) VALUES %s "
               "ON CONFLICT (name) DO UPDATE SET code = EXCLUDED.code, emails = EXCLUDED.emails, "
-              "lib_type = EXCLUDED.lib_type", items)
+              "lib_type = EXCLUDED.lib_type, "
+              "pay_center = CASE WHEN EXCLUDED.pay_center <> '' THEN EXCLUDED.pay_center ELSE libraries.pay_center END",
+              items)
+    # புதிய வகை / ஊதிய மையங்களை Admin பட்டியலிலும் சேர்க்கும்
+    run_batch("INSERT INTO library_types (name) VALUES %s ON CONFLICT (name) DO NOTHING",
+              [(t,) for t in dict.fromkeys(i[3] for i in items if i[3])])
+    run_batch("INSERT INTO pay_centers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
+              [(t,) for t in dict.fromkeys(i[4] for i in items if i[4])])
     return result(len(items), skipped)
 
 

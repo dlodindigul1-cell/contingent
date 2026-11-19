@@ -141,3 +141,25 @@ CREATE TABLE IF NOT EXISTS claim_newspapers (
   amount   NUMERIC(12,2) NOT NULL DEFAULT 0,
   PRIMARY KEY (claim_id, slot)
 );
+
+-- ஊதிய மையம் (Pay Centre): ஒவ்வொரு நூலகத்துக்கும் ஒன்று
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS pay_center TEXT NOT NULL DEFAULT '';
+
+-- Admin சேர்க்க / திருத்த / நீக்கக்கூடிய பட்டியல்கள்: நூலக வகைகள், ஊதிய மையங்கள்
+CREATE TABLE IF NOT EXISTS library_types (
+  id   SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS pay_centers (
+  id   SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+-- ஏற்கனவே நூலகங்களில் உள்ள வகை / ஊதிய மையங்களைப் பட்டியலில் சேர்க்கும் (மீண்டும் இயக்கினாலும் நகல் வராது)
+INSERT INTO library_types(name)
+  SELECT t FROM (SELECT btrim(lib_type) AS t, MIN(id) AS m FROM libraries
+                 WHERE btrim(lib_type) <> '' GROUP BY 1) x ORDER BY m
+  ON CONFLICT (name) DO NOTHING;
+INSERT INTO pay_centers(name)
+  SELECT t FROM (SELECT btrim(pay_center) AS t, MIN(id) AS m FROM libraries
+                 WHERE btrim(pay_center) <> '' GROUP BY 1) x ORDER BY m
+  ON CONFLICT (name) DO NOTHING;
