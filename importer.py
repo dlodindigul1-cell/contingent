@@ -325,6 +325,7 @@ HIST_COLS = [
     ("பிற செலவினம் 1 விவரம்", "otherExpense1Desc"), ("பிற செலவினம் 1 தொகை", "otherExpense1Amount"),
     ("பிற செலவினம் 2 விவரம்", "otherExpense2Desc"), ("பிற செலவினம் 2 தொகை", "otherExpense2Amount"),
     ("கழிவறை சுத்தம்", "toiletCleaningAmount"),
+    ("தினக்கூலி காவலர்", "dailyGuardAmount"),
     ("அனுமதித் தொகை (மொத்தம்)", "_approved"),
 ]
 HIST_PAPER_RE = re.compile(r"^\s*நாளிதழ்\s*(\d+)")
@@ -332,7 +333,7 @@ HIST_FIRST_YEAR_START = (2025, 4)      # ஏப்ரல் 2025 (நிதி�
 HIST_LAST = (2027, 3)                  # மார்ச் 2027 (நிதியாண்டு 2026-27 முடிவு)
 _MONEY_KEYS = ["electricityBill", "rentAmount", "phoneWifiAmount", "waterTax", "photocopyAmount",
                "busAmount", "travelAmount", "postalAmount", "registerAmount", "stationeryAmount",
-               "electricalAmount", "consumerAmount", "otherExpense1Amount", "otherExpense2Amount",
+               "electricalAmount", "consumerAmount", "otherExpense1Amount", "otherExpense2Amount", "dailyGuardAmount",
                "toiletCleaningAmount"]
 
 
@@ -371,6 +372,7 @@ def do_claims_approved(raw):
         pm = HIST_PAPER_RE.match(h)
         if pm and 1 <= int(pm.group(1)) <= 18:
             paper_cols[int(pm.group(1))] = i
+    newspaper_total_col = next((i for i, h in enumerate(hdr) if (h or "").strip() == "நாளிதழ்கள்"), None)
     for need in ("_month", "_lib"):
         if need not in col:
             raise ValueError("தலைப்பு வரி சரியில்லை — மாதிரி Excel-ஐப் பதிவிறக்கி, அதன் தலைப்புகளை மாற்றாமல் பயன்படுத்தவும் "
@@ -403,6 +405,9 @@ def do_claims_approved(raw):
             v = cell(r, col[key])
             data[key] = _hist_date(v) if key in ("busDate", "travelDate") else v
         papers = {s: to_num(cell(r, i)) for s, i in paper_cols.items()}
+        if newspaper_total_col is not None:
+            # ஒரே மொத்தத் தொகையை slot 1-ல் சேமிக்கிறோம்; மொத்தக் கணக்கில் முழுத் தொகையும் சேரும்.
+            papers = {1: to_num(cell(r, newspaper_total_col))}
         toilet = to_num(data.get("toiletCleaningAmount"))
         approved_txt = cell(r, col["_approved"]) if "_approved" in col else ""
         if approved_txt != "":

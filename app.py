@@ -208,6 +208,7 @@ def getExistingContingentData(libraryName, monthYear):
     for i, k in enumerate(NEWSPAPER_KEYS):
         data[k] = jnum(by_slot.get(i + 1, 0))
     data["monthYear"] = row["month_year"]
+    data["dailyGuardAmount"] = jnum(row["daily_guard_amount"])
     return {"success": True, "rowIndex": row["id"], "data": data,
             "approved": bool(row["approved"]),
             "toiletCleaning": jnum(row["toilet_cleaning_amount"])}
@@ -257,7 +258,7 @@ def submitOrUpdateContingent(data):
 CLAIM_MONEY = ["electricity_bill", "rent_amount", "phone_wifi_amount", "water_tax", "photocopy_amount",
                "bus_amount", "travel_amount", "postal_amount", "register_amount", "stationery_amount",
                "electrical_amount", "consumer_amount", "other_expense1_amount", "other_expense2_amount",
-               "toilet_cleaning_amount"]
+               "daily_guard_amount", "toilet_cleaning_amount"]
 
 # Admin மட்டும் நிரப்பும் தலைப்புகள் (நூலகர் படிவத்தில் வராது): key -> (column, தலைப்பு)
 ADMIN_HEADS = {"toiletCleaningAmount": ("toilet_cleaning_amount", "கழிவறை சுத்தம் (₹)")}
@@ -876,13 +877,11 @@ with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f
 # Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
 # ஏற்கனவே பதிவு உள்ளவற்றை நிரப்பித் தரும்; பதிவு இல்லையெனில் மட்டும் மாதிரி வரி வரும்.
 def _hist_template():
-    heads = [t for t, _ in importer.HIST_COLS]
-    i = 2
-    for s in range(1, 19):                      # நாளிதழ் 1..18 — மாதம், நூலகத்துக்குப் பின்
-        heads.insert(i, "நாளிதழ் %d" % s)
-        i += 1
-    sample = ["04/2025", "எடுத்துக்காட்டு நூலகம்"] + [0] * 18 + [""] * (len(importer.HIST_COLS) - 2)
-    return ("approved_months_template.xlsx", [heads], sample, [16, 34] + [13] * (len(heads) - 2))
+    heads = [t for t, _ in importer.HIST_COLS if t not in ()]
+    # 18 தனித்தனி நாளிதழ் புலங்களுக்கு பதிலாக ஒரே மொத்தத் தொகை புலம்
+    heads.insert(2, "நாளிதழ்கள்")
+    sample = ["04/2025", "எடுத்துக்காட்டு நூலகம்"] + [0] + [""] * (len(heads) - 3)
+    return ("approved_months_template.xlsx", [heads], sample, [16, 34, 16] + [18] * (len(heads) - 3))
 
 
 TEMPLATE_XLSX = {

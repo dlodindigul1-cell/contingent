@@ -26,7 +26,7 @@ CLAIM_NUM = [
     'rentAmount', 'phoneWifiAmount', 'waterTax', 'photocopyAmount',
     'busAmount', 'travelAmount', 'postalAmount', 'registerAmount',
     'stationeryAmount', 'electricalAmount', 'consumerAmount',
-    'otherExpense1Amount', 'otherExpense2Amount',
+    'otherExpense1Amount', 'otherExpense2Amount', 'dailyGuardAmount',
 ]
 
 

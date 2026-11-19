@@ -817,6 +817,11 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 </div>
 
 
+<div id="dailyGuardAmountSection" style="display:none;margin-top:14px;">
+<label>தினக்கூலி காவலர் தொகை (₹) — மாவட்ட மைய நூலகத்திற்கு மட்டும்</label>
+<input type="number" id="dailyGuardAmount" min="0" step="0.01" value="0">
+</div>
+
 <div id="partTimeStaffSection">
 
 <label>பகுதி நேர நூலகத்தின் தினக்கூலிப் பணியாளர் பெயர்</label>
@@ -1619,6 +1624,8 @@ function fillFormWithData(data) {
   document.getElementById('staffDays').value = data.staffDays || 0;
   document.getElementById('partTimeStaffName').value = data.partTimeStaffName || "";
   document.getElementById('partTimeStaffDays').value = data.partTimeStaffDays || 0;
+  const guardInput = document.getElementById('dailyGuardAmount');
+  if (guardInput) guardInput.value = data.dailyGuardAmount || 0;
   updateWageHints();
   document.getElementById('electricityBill').value = data.electricityBill || 0;
   document.getElementById('rentOwnerName').value = data.rentOwnerName || "";
@@ -1744,6 +1751,7 @@ function submitContingent() {
     staffDays: parseInt(document.getElementById('staffDays').value) || 0,
     partTimeStaffName: document.getElementById('partTimeStaffName').value.trim(),
     partTimeStaffDays: parseInt(document.getElementById('partTimeStaffDays').value) || 0,
+    dailyGuardAmount: (document.getElementById('typeSelect').value.trim() === 'மாவட்ட மைய நூலகம்' ? (parseFloat(document.getElementById('dailyGuardAmount')?.value) || 0) : 0),
 
     electricityBill: parseInt(document.getElementById('electricityBill').value) || 0,
     rentOwnerName: document.getElementById('rentOwnerName').value.trim(),
@@ -3264,6 +3272,7 @@ const SEC_DEFS = [
   {k:'bus',      ic:'🚌', t:'பேருந்து கட்டணம்', f:['busPurpose','busDate','busAmount'], amt:'busAmount', need:['busPurpose','busDate']},
   {k:'travel',   ic:'🚚', t:'போக்குவரத்துக் கட்டணம்', f:['travelPurpose','travelDate','travelAmount'], amt:'travelAmount', need:['travelPurpose','travelDate']},
   {k:'postal',   ic:'✉️', t:'அஞ்சல் செலவினம்', f:['postalAmount'], amt:'postalAmount'},
+  {k:'guard',    ic:'🛡️', t:'தினக்கூலி காவலர்', f:['dailyGuardAmount'], amt:'dailyGuardAmount', when:'district'},
   {k:'register', ic:'📒', t:'பதிவேடு', f:['registerItem','registerAmount'], amt:'registerAmount', desc:['registerItem']},
   {k:'station',  ic:'✏️', t:'எழுதுபொருள்', f:['stationeryItem','stationeryAmount'], amt:'stationeryAmount', desc:['stationeryItem']},
   {k:'electric', ic:'💡', t:'மின்சாதனம்', f:['electricalItem','electricalAmount'], amt:'electricalAmount', desc:['electricalItem']},
@@ -3283,7 +3292,9 @@ function secRecorded(sec){
   return sumNum(sec.amt) > 0;
 }
 function secApplicable(sec){
-  const pt = document.getElementById('typeSelect').value === 'பகுதி நேர நூலகம்';
+  const currentType = document.getElementById('typeSelect').value.trim();
+  const pt = currentType === 'பகுதி நேர நூலகம்';
+  if (sec.when === 'district' && currentType !== 'மாவட்ட மைய நூலகம்') return false;
   if (sec.when === 'nonPT' && pt) return false;
   if (sec.when === 'PT' && !pt) return false;
   if (sec.perm && !sumPerm[sec.perm]) return false;
@@ -4016,6 +4027,8 @@ function getTamilMonthName(month) {
 function handleLibraryTypeUI(){
 
   const type = document.getElementById("typeSelect").value;
+  const guardBox = document.getElementById("dailyGuardAmountSection");
+  if (guardBox) guardBox.style.display = type.trim() === "மாவட்ட மைய நூலகம்" ? "block" : "none";
 
   const newsBlock = document.getElementById("newsPaperSection");
   const labourBlock = document.getElementById("labourSection");

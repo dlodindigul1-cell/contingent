@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS claims (
   consumer_amount         NUMERIC(12,2) NOT NULL DEFAULT 0,
   other_expense1_amount   NUMERIC(12,2) NOT NULL DEFAULT 0,
   other_expense2_amount   NUMERIC(12,2) NOT NULL DEFAULT 0,
+  daily_guard_amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
 
   claim_pdf_url TEXT,                         -- பின்னர் (PDF கட்டத்தில்) நிரப்பப்படும்
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -163,6 +164,8 @@ INSERT INTO pay_centers(name)
   SELECT t FROM (SELECT btrim(pay_center) AS t, MIN(id) AS m FROM libraries
                  WHERE btrim(pay_center) <> '' GROUP BY 1) x ORDER BY m
   ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS daily_guard_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
 
 -- கழிவறை சுத்தம்: Admin மட்டும் நிரப்பும் தலைப்பு (நூலகர் பதிவில் இது மாறாது)
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS toilet_cleaning_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
