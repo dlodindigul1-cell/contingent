@@ -3469,9 +3469,9 @@ function vcBuildHtml(){
     body += '<tr><td class="c">' + (i + 1) + '</td><td class="b">' + sumEsc(r.text) + '</td><td class="r b">' + vcMoney(r.amt) + '</td></tr>';
     r.subs.forEach((sub, j) => { count++; body += '<tr class="sub"><td></td><td>' + (i + 1) + '.' + (j + 1) + ' ' + sumEsc(sub) + '</td><td></td></tr>'; });
   });
-  for (let k = count; k < 13; k++) body += '<tr class="blank"><td></td><td></td><td></td></tr>';
+  for (let k = count; k < 10; k++) body += '<tr class="blank"><td></td><td></td><td></td></tr>';
   const w = vcWords(total);
-  return '<div id="vcPage">' +
+  return '<div id="vcPage"><style>' + VC_CSS + '</style>' +
     '<div class="vc-head"><img src="/voucher-logo" onerror="this.style.visibility=\'hidden\'" alt="">' +
     '<div class="vc-title">மாவட்ட நூலக ஆணைக்குழு, திண்டுக்கல்<br>சில்லறைச் செலவினப் பட்டியல்</div></div>' +
     '<div class="vc-meta"><span>நூலகம் பெயர்: <b>' + lib + ' - ' + type + '</b></span><span>மாதம்: <b>' + sumEsc(monthTxt) + '</b></span></div>' +
@@ -3487,7 +3487,7 @@ function vcBuildHtml(){
     '<div class="vc-foot"><div>Head of Account:<i></i></div><div>Classification:<i></i></div><div>Accountant:<i></i></div><div>Commissioner:<i></i></div></div>' +
     '</div>';
 }
-const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:40px 48px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.35}' +
+const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:30px 48px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.35}' +
   '#vcPage .vc-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}#vcPage .vc-head img{width:70px;height:70px;object-fit:contain}' +
   '#vcPage .vc-title{flex:1;text-align:center;font-weight:700;font-size:18px;padding-right:70px}' +
   '#vcPage .vc-meta{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px}' +
@@ -3501,10 +3501,11 @@ const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:40px 48px;back
   '#vcPage .vc-foot{display:flex;gap:22px;font-weight:700;font-family:Arial,sans-serif}#vcPage .vc-foot div{flex:1}#vcPage .vc-foot i{display:block;border-bottom:1.5px solid #000;height:20px}';
 async function makeVoucherPdf(btn){
   if (typeof html2pdf === 'undefined'){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
-  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
+  const old = btn.innerHTML, scrollY0 = window.scrollY; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
+  window.scrollTo(0, 0);
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
-  host.innerHTML = '<style>' + VC_CSS + '</style>' + vcBuildHtml();
+  host.innerHTML = vcBuildHtml();
   document.body.appendChild(host);
   try{
     try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch(e){}
@@ -3514,14 +3515,14 @@ async function makeVoucherPdf(btn){
       margin: 0,
       filename: 'Voucher_' + String(selectedLib).replace(/[\\/:*?"<>|\s]+/g, '_') + '_' + my + '.pdf',
       image: {type: 'jpeg', quality: 0.98},
-      html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794},
+      html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794, scrollX: 0, scrollY: 0},
       jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
       pagebreak: {mode: ['css', 'legacy'], avoid: ['tr']}
     }).from(host.querySelector('#vcPage')).save();
   } catch(e){
     alert('வவுச்சர் உருவாக்க முடியவில்லை: ' + (e && e.message ? e.message : e));
   } finally {
-    host.remove(); btn.disabled = false; btn.innerHTML = old;
+    host.remove(); btn.disabled = false; btn.innerHTML = old; window.scrollTo(0, scrollY0);
   }
 }
 
