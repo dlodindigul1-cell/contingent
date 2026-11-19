@@ -305,6 +305,153 @@ def do_claims(raw):
     return result(inserted + updated, skipped) | {"inserted": inserted, "updated": updated}
 
 
+# ---------------------------------------------------------------- ஏற்கனவே அனுமதித்த மாதங்கள் (Excel)
+# முதல் நெடுவரிசை = மாதம். ஒரு மாதம் அல்லது ஒரு ஆண்டு முழுவதும் (எல்லா நூலகங்களும்) ஒரே கோப்பில் ஏற்றலாம்.
+# தலைப்பின் பெயரைக் கொண்டே நெடுவரிசை அடையாளம் காணப்படும் (வரிசை மாறினாலும் சரி).
+HIST_COLS = [
+    ("மாதம் (MM/YYYY)", "_month"), ("நூலகத்தின் பெயர்", "_lib"),
+    ("கூட்டுநர் பெயர்", "partnerNameTamil"), ("கூட்டுநர் பணிநாட்கள்", "partnerDays"),
+    ("நூலகப் பணியாளர் பெயர்", "staffNameTamil"), ("நூலகப் பணியாளர் பணிநாட்கள்", "staffDays"),
+    ("பகுதி நேரப் பணியாளர் பெயர்", "partTimeStaffName"), ("பகுதி நேரப் பணிநாட்கள்", "partTimeStaffDays"),
+    ("மின் கட்டணம்", "electricityBill"), ("கட்டட உரிமையாளர்", "rentOwnerName"), ("வாடகை", "rentAmount"),
+    ("வைஃபை / தொலைபேசி", "phoneWifiAmount"), ("குடிநீர் வரி", "waterTax"), ("நகல் செலவினம்", "photocopyAmount"),
+    ("பேருந்து காரணம்", "busPurpose"), ("பேருந்து நாள்", "busDate"), ("பேருந்து கட்டணம்", "busAmount"),
+    ("போக்குவரத்து காரணம்", "travelPurpose"), ("போக்குவரத்து நாள்", "travelDate"), ("போக்குவரத்துக் கட்டணம்", "travelAmount"),
+    ("அஞ்சல்", "postalAmount"),
+    ("பதிவேடு விவரம்", "registerItem"), ("பதிவேடு தொகை", "registerAmount"),
+    ("எழுதுபொருள் விவரம்", "stationeryItem"), ("எழுதுபொருள் தொகை", "stationeryAmount"),
+    ("மின்சாதனம் விவரம்", "electricalItem"), ("மின்சாதனம் தொகை", "electricalAmount"),
+    ("நுகர்பொருள் விவரம்", "consumerItem"), ("நுகர்பொருள் தொகை", "consumerAmount"),
+    ("பிற செலவினம் 1 விவரம்", "otherExpense1Desc"), ("பிற செலவினம் 1 தொகை", "otherExpense1Amount"),
+    ("பிற செலவினம் 2 விவரம்", "otherExpense2Desc"), ("பிற செலவினம் 2 தொகை", "otherExpense2Amount"),
+    ("கழிவறை சுத்தம்", "toiletCleaningAmount"),
+    ("அனுமதித் தொகை (மொத்தம்)", "_approved"),
+]
+HIST_PAPER_RE = re.compile(r"^\s*நாளிதழ்\s*(\d+)")
+HIST_FIRST_YEAR_START = (2025, 4)      # ஏப்ரல் 2025 (நிதியாண்டு 2025-26 தொடக்கம்)
+HIST_LAST = (2027, 3)                  # மார்ச் 2027 (நிதியாண்டு 2026-27 முடிவு)
+_MONEY_KEYS = ["electricityBill", "rentAmount", "phoneWifiAmount", "waterTax", "photocopyAmount",
+               "busAmount", "travelAmount", "postalAmount", "registerAmount", "stationeryAmount",
+               "electricalAmount", "consumerAmount", "otherExpense1Amount", "otherExpense2Amount",
+               "toiletCleaningAmount"]
+
+
+def hist_month(s):
+    """'04/2025', '4-2025', '2025-04', தேதி -> 'MM/YYYY' """
+    s = (s or "").strip()
+    m = re.fullmatch(r"(\d{4})[-/](\d{1,2})", s)
+    if m:
+        return f"{int(m.group(2)):02d}/{m.group(1)}"
+    return norm_month_year(s)
+
+
+def _hist_date(s):
+    s = (s or "").strip()
+    if not s:
+        return ""
+    d = parse_date(s)
+    return d.isoformat() if d else s
+
+
+def do_claims_approved(raw):
+    """ஏற்கனவே அனுமதித்த மாதங்களை ஏற்றும். இவை 'அனுமதிக்கப்பட்டவை' என்றே சேமிக்கப்படும்;
+    அனுமதித் தொகை Excel-ல் உள்ளபடியே நிலையாகச் சேமிக்கப்படும் (பின்னர் விகிதம் மாறினாலும் மாறாது).
+    Excel-ல் அனுமதித் தொகை காலியாக இருந்தால் மட்டும், ஏற்றும் நேரத்தில் கணக்கிட்டு நிலையாக்கும்.
+    ஏற்கனவே அனுமதிக்கப்பட்ட நூலகம்-மாதம் இருந்தால் அதை மாற்றாமல் தவிர்க்கும்."""
+    rows = read_rows(raw, skip=0)
+    if not rows:
+        raise ValueError("கோப்பு காலியாக உள்ளது")
+    hdr = rows[0]
+    col, paper_cols = {}, {}
+    for i, h in enumerate(hdr):
+        h = (h or "").strip()
+        for title, key in HIST_COLS:
+            if h == title:
+                col[key] = i
+        pm = HIST_PAPER_RE.match(h)
+        if pm and 1 <= int(pm.group(1)) <= 18:
+            paper_cols[int(pm.group(1))] = i
+    for need in ("_month", "_lib"):
+        if need not in col:
+            raise ValueError("தலைப்பு வரி சரியில்லை — மாதிரி Excel-ஐப் பதிவிறக்கி, அதன் தலைப்புகளை மாற்றாமல் பயன்படுத்தவும் "
+                             "(முதல் நெடுவரிசை 'மாதம் (MM/YYYY)', இரண்டாவது 'நூலகத்தின் பெயர்').")
+
+    libs = {r["name"]: r for r in db.fetch_all("SELECT name, code, lib_type FROM libraries")}
+    rates = {r["kind"]: to_num(r["rate"]) for r in db.fetch_all("SELECT kind, rate FROM wage_rates")}
+    skipped, entries, meta = [], [], {}
+    for n, r in enumerate(rows[1:], start=2):
+        lib = cell(r, col["_lib"])
+        if not lib:
+            continue
+        my = hist_month(cell(r, col["_month"]))
+        if not my:
+            skipped.append(f"வரி {n} ({lib}): மாதம் புரியவில்லை '{cell(r, col['_month'])}'")
+            continue
+        mm, yy = int(my[:2]), int(my[3:])
+        if not (HIST_FIRST_YEAR_START <= (yy, mm) <= HIST_LAST):
+            skipped.append(f"வரி {n} ({lib}): மாதம் {my} — ஏப்ரல் 2025 முதல் மார்ச் 2027 வரை மட்டுமே ஏற்றலாம்")
+            continue
+        L = libs.get(lib)
+        code = ((L or {}).get("code") or "").strip().upper()
+        if not L or not code:
+            skipped.append(f"வரி {n}: நூலகம் '{lib}' பட்டியலில் இல்லை / குறியீடு இல்லை")
+            continue
+        data = {}
+        for _, key in HIST_COLS:
+            if key.startswith("_") or key not in col:
+                continue
+            v = cell(r, col[key])
+            data[key] = _hist_date(v) if key in ("busDate", "travelDate") else v
+        papers = {s: to_num(cell(r, i)) for s, i in paper_cols.items()}
+        toilet = to_num(data.get("toiletCleaningAmount"))
+        approved_txt = cell(r, col["_approved"]) if "_approved" in col else ""
+        if approved_txt != "":
+            approved = to_num(approved_txt)
+        else:
+            approved = (sum(papers.values(), Decimal(0))
+                        + to_num(data.get("partnerDays")) * rates.get("partner", Decimal(0))
+                        + to_num(data.get("staffDays")) * rates.get("staff", Decimal(0))
+                        + to_num(data.get("partTimeStaffDays")) * rates.get("part_time", Decimal(0))
+                        + sum((to_num(data.get(k)) for k in _MONEY_KEYS), Decimal(0)))
+        head = {"unique_key": make_unique_key(code, my), "library_name": lib, "library_code": code,
+                "month_year": my, "login_email": "", "library_type": L.get("lib_type") or ""}
+        entries.append((head, data, papers, None))
+        meta[head["unique_key"]] = (toilet, approved)
+
+    if not entries:
+        return result(0, skipped) | {"inserted": 0, "updated": 0}
+
+    # ஏற்கனவே அனுமதிக்கப்பட்டவற்றைத் தொடாமல் தவிர்
+    keys = list(meta.keys())
+    locked = {r["unique_key"] for r in db.fetch_all(
+        "SELECT unique_key FROM claims WHERE approved AND unique_key = ANY(%s)", (keys,))}
+    todo = []
+    for e in entries:
+        if e[0]["unique_key"] in locked:
+            skipped.append(f"{e[0]['library_name']} · {e[0]['month_year']}: ஏற்கனவே அனுமதிக்கப்பட்டது — மாற்றப்படவில்லை "
+                           "(மாற்ற வேண்டுமெனில் முதலில் அனுமதியை ரத்து செய்யவும்)")
+        else:
+            todo.append(e)
+
+    inserted = updated = 0
+    for i in range(0, len(todo), CLAIM_CHUNK):
+        chunk = todo[i:i + CLAIM_CHUNK]
+
+        def f(conn, chunk=chunk):
+            with conn.cursor() as cur:
+                a, b = bulk_upsert_claims(cur, chunk)
+                vals = [(c[0]["unique_key"], meta[c[0]["unique_key"]][0], meta[c[0]["unique_key"]][1]) for c in chunk]
+                execute_values(cur,
+                    "UPDATE claims c SET toilet_cleaning_amount = v.t, approved = TRUE, approved_at = now(), "
+                    "approved_amount = v.a FROM (VALUES %s) AS v(k, t, a) WHERE c.unique_key = v.k",
+                    vals, template="(%s, %s::numeric, %s::numeric)")
+                return a, b
+        a, b = db.run(f)
+        inserted += a
+        updated += b
+    return result(inserted + updated, skipped) | {"inserted": inserted, "updated": updated}
+
+
 # வகை -> (function, விளக்கம்)
 IMPORTERS = {
     "libraries":  (do_libraries,  "நூலகப் பட்டியல் (Sheet1)"),
@@ -315,4 +462,5 @@ IMPORTERS = {
     "rent":       (do_rent,       "வாடகை (RENT)"),
     "dailywage":  (do_dailywage,  "தினக்கூலி அனுமதி (DAILYWAGES PERMISSION)"),
     "claims":     (do_claims,     "பழைய contingent பதிவுகள் (contingent)"),
+    "claims_approved": (do_claims_approved, "ஏற்கனவே அனுமதித்த சில்லறை செலவின மாதங்கள்"),
 }

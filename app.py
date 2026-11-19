@@ -182,6 +182,16 @@ def getAllLibraryNamesForAdmin():
 # ------------------------------------------------------------------
 #  Contingent பதிவு
 # ------------------------------------------------------------------
+REG_FIRST_DAY, REG_LAST_DAY = 16, 20     # நூலகர் பதிவு செய்யக்கூடிய நாட்கள் (மாதம் 16 – 20)
+
+
+def _registration_open(month_year):
+    """இன்று 16–20 தேதியா, மேலும் பதிவு நடப்பு மாதத்துக்கா?"""
+    now = dt.datetime.now(IST)
+    return (REG_FIRST_DAY <= now.day <= REG_LAST_DAY
+            and month_year == "%02d/%d" % (now.month, now.year))
+
+
 @rpc
 def getExistingContingentData(libraryName, monthYear):
     row = db.fetch_one("SELECT * FROM claims WHERE library_name = %s AND month_year = %s",
@@ -198,7 +208,9 @@ def getExistingContingentData(libraryName, monthYear):
     for i, k in enumerate(NEWSPAPER_KEYS):
         data[k] = jnum(by_slot.get(i + 1, 0))
     data["monthYear"] = row["month_year"]
-    return {"success": True, "rowIndex": row["id"], "data": data}
+    return {"success": True, "rowIndex": row["id"], "data": data,
+            "approved": bool(row["approved"]),
+            "toiletCleaning": jnum(row["toilet_cleaning_amount"])}
 
 
 @rpc
@@ -213,6 +225,14 @@ def submitOrUpdateContingent(data):
     if not lib or not (lib["code"] or "").strip():
         return {"success": False, "message": "நூலக குறியீடு கிடைக்கவில்லை: " + name}
     code = lib["code"].strip().upper()
+
+    if not session.get("admin"):
+        if not _registration_open(month_year):
+            return {"success": False,
+                    "message": "பதிவு / திருத்தம் ஒவ்வொரு மாதமும் %d முதல் %d ஆம் தேதி வரை மட்டுமே செய்ய இயலும்." % (REG_FIRST_DAY, REG_LAST_DAY)}
+        done = db.fetch_one("SELECT approved FROM claims WHERE unique_key = %s", (make_unique_key(code, month_year),))
+        if done and done["approved"]:
+            return {"success": False, "message": "இந்த மாதம் ஏற்கனவே அனுமதிக்கப்பட்டுவிட்டது; மாற்ற இயலாது."}
 
     head = {
         "unique_key": make_unique_key(code, month_year),
@@ -236,7 +256,11 @@ def submitOrUpdateContingent(data):
 # ------------------------------------------------------------------
 CLAIM_MONEY = ["electricity_bill", "rent_amount", "phone_wifi_amount", "water_tax", "photocopy_amount",
                "bus_amount", "travel_amount", "postal_amount", "register_amount", "stationery_amount",
-               "electrical_amount", "consumer_amount", "other_expense1_amount", "other_expense2_amount"]
+               "electrical_amount", "consumer_amount", "other_expense1_amount", "other_expense2_amount",
+               "toilet_cleaning_amount"]
+
+# Admin மட்டும் நிரப்பும் தலைப்புகள் (நூலகர் படிவத்தில் வராது): key -> (column, தலைப்பு)
+ADMIN_HEADS = {"toiletCleaningAmount": ("toilet_cleaning_amount", "கழிவறை சுத்தம் (₹)")}
 CLAIM_LABELS = {
     "partnerNameTamil": "கூட்டுநர் பெயர்", "partnerDays": "கூட்டுநர் பணிநாட்கள்",
     "staffNameTamil": "நூலகப் பணியாளர் பெயர்", "staffDays": "நூலகப் பணியாளர் பணிநாட்கள்",
@@ -296,7 +320,8 @@ def getClaimsForApproval(monthYear=None):
         papers[p["claim_id"]] = p["s"]
     out = []
     for r in rows:
-        tot = _claim_total(r, papers.get(r["id"], 0), rates)
+        tot = (r["approved_amount"] if r["approved"] and r["approved_amount"] is not None
+               else _claim_total(r, papers.get(r["id"], 0), rates))
         out.append({"id": r["id"], "name": r["library_name"], "type": r["library_type"],
                     "total": float(tot), "approved": bool(r["approved"]),
                     "approvedAmount": float(r["approved_amount"]) if r["approved_amount"] is not None else None,
@@ -318,26 +343,35 @@ def getClaimForEdit(claimId):
         v = row[snake(k)]
         fields.append({"key": k, "label": CLAIM_LABELS.get(k, k), "num": k in CLAIM_NUM,
                        "value": jnum(v) if k in CLAIM_NUM else (v or "")})
+    extras = [{"key": k, "label": lab, "value": jnum(row[col])} for k, (col, lab) in ADMIN_HEADS.items()]
     return {"success": True, "id": claimId, "library": row["library_name"], "month": row["month_year"],
-            "approved": bool(row["approved"]), "fields": fields,
+            "approved": bool(row["approved"]), "fields": fields, "extras": extras,
             "papers": [{"slot": p["slot"], "name": names.get(p["slot"]) or ("நாளிதழ் " + str(p["slot"])),
                         "amount": jnum(p["amount"])} for p in paps]}
 
 
 @rpc
-def adminSaveClaim(claimId, data, papers):
+def adminSaveClaim(claimId, data, papers, extra=None):
     row = db.fetch_one("SELECT * FROM claims WHERE id = %s", (claimId,))
     if not row:
         return {"success": False, "message": "பதிவு கிடைக்கவில்லை"}
+    if row["approved"]:
+        return {"success": False, "message": "இது அனுமதிக்கப்பட்ட பதிவு — மாற்ற, முதலில் '↩ ரத்து' மூலம் அனுமதியை நீக்கவும்."}
     data = data or {}
     head = {"unique_key": row["unique_key"], "library_name": row["library_name"],
             "library_code": row["library_code"], "month_year": row["month_year"],
             "login_email": row["login_email"], "library_type": row["library_type"]}
     pap = {int(k): to_num(v) for k, v in (papers or {}).items()}
 
+    extra = extra or {}
+
     def f(conn):
         with conn.cursor() as cur:
-            return upsert_claim(cur, head, data, pap)
+            res = upsert_claim(cur, head, data, pap)
+            for k, (col, _lab) in ADMIN_HEADS.items():
+                if k in extra:
+                    cur.execute(f"UPDATE claims SET {col} = %s WHERE id = %s", (to_num(extra[k]), claimId))
+            return res
     db.run(f)
     return {"success": True}
 
@@ -841,7 +875,18 @@ with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f
 
 # Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
 # ஏற்கனவே பதிவு உள்ளவற்றை நிரப்பித் தரும்; பதிவு இல்லையெனில் மட்டும் மாதிரி வரி வரும்.
+def _hist_template():
+    heads = [t for t, _ in importer.HIST_COLS]
+    i = 2
+    for s in range(1, 19):                      # நாளிதழ் 1..18 — மாதம், நூலகத்துக்குப் பின்
+        heads.insert(i, "நாளிதழ் %d" % s)
+        i += 1
+    sample = ["04/2025", "எடுத்துக்காட்டு நூலகம்"] + [0] * 18 + [""] * (len(importer.HIST_COLS) - 2)
+    return ("approved_months_template.xlsx", [heads], sample, [16, 34] + [13] * (len(heads) - 2))
+
+
 TEMPLATE_XLSX = {
+    "claims_approved": _hist_template(),
     "libraries": ("libraries_template.xlsx",
                   [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை", "ஊதிய மையம்"]],
                   ["எடுத்துக்காட்டு நூலகம்", "TNDPL00001", "library@example.com", "கிளை நூலகம்", "எடுத்துக்காட்டு ஊதிய மையம்"],

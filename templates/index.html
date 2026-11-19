@@ -576,6 +576,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 .sum-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:#334155;margin-top:3px}
 .sum-amt{font-weight:700;color:var(--tn-navy);font-size:17px;white-space:nowrap}
 .sum-act{display:flex;gap:8px;flex:1 1 100%;justify-content:flex-end}
+#stage4S.sum-locked .sum-act{display:none}
 .btn-sm{width:auto!important;padding:7px 14px!important;font-size:14px!important;margin:0!important}
 .btn-del{background:linear-gradient(180deg,#d64545,#a82a2a)!important}
 .add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
@@ -1022,6 +1023,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 
 <!-- ==================== stage4S: ஏற்கனவே பதிவு செய்த சுருக்கம் ==================== -->
 <div id="stage4S" class="sub-stage" style="display:none;">
+    <div id="sumLockNote" class="success" style="display:none;"></div>
     <div class="sum-banner">
       <div class="sum-ok">✅</div>
       <div>இந்த மாதத்திற்கு (<b id="sumMonth"></b>) நீங்கள் ஏற்கனவே பதிவு செய்துள்ளீர்கள்.<br>
@@ -1030,9 +1032,9 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     <div id="sumMsg" class="success" style="display:none;"></div>
     <h4>📋 பதிவு செய்யப்பட்ட விவரங்கள்</h4>
     <div id="sumList"></div>
-    <div class="nav-row"><button type="button" onclick="sumToggleAdd()" id="sumAddBtn">➕ சேர்</button></div>
+    <div class="nav-row" id="sumAddRow"><button type="button" onclick="sumToggleAdd()" id="sumAddBtn">➕ சேர்</button></div>
     <div id="sumAddBox" style="display:none;"></div>
-    <div class="voucher-strip">
+    <div class="voucher-strip" id="sumVoucherStrip">
       <div>📄 <b>சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்)</b><br><span>பதிவு செய்த விவரங்கள் அடங்கிய A4 PDF</span></div>
       <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">⬇️ வவுச்சர் PDF பதிவிறக்கு</button>
     </div>
@@ -2502,7 +2504,7 @@ function go(n, title){
     const today = new Date();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const yyyy = today.getFullYear();
-    const currentMonthYear = `${mm}/${yyyy}`;
+    const currentMonthYear = window.__monthOverride || `${mm}/${yyyy}`;
 
     // ✅ 2. Top input-ல் set
     document.getElementById('monthYear').value = currentMonthYear;
@@ -2522,6 +2524,9 @@ function go(n, title){
 
       // ✅ 5. பிறகு ஏற்கனவே பதிவான தரவு உள்ளதா எனச் சரிபார்க்கவும்
       google.script.run.withSuccessHandler(res => {
+        window.__toiletAmt = res.success ? (Number(res.toiletCleaning) || 0) : 0;
+        window.__claimApproved = !!(res.success && res.approved);
+        window.__sumLocked = !isAdminMode && (window.__claimApproved || !regWindowOpen());
         if(res.success){
           existingRowIndex = res.rowIndex;
           renderNewspaperInputs(activeNewspapers, res.data || {});
@@ -3317,19 +3322,35 @@ function sumDetail(sec){
     return '<div class="sum-line"><span>' + sumEsc(v) + '</span></div>';
   }).join('');
 }
+function sumApplyLock(){
+  const L = !!window.__sumLocked, A = !!window.__claimApproved, s = document.getElementById('stage4S');
+  s.classList.toggle('sum-locked', L);
+  document.getElementById('sumAddRow').style.display = L ? 'none' : '';
+  document.getElementById('sumAddBox').style.display = 'none';
+  document.getElementById('sumVoucherStrip').style.display = A && !isAdminMode ? 'none' : '';
+  const n = document.getElementById('sumLockNote');
+  if (A && !isAdminMode){ n.textContent = '✅ இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது. மாற்றவோ, வவுச்சர் பதிவிறக்கவோ இயலாது.'; n.style.display = 'block'; }
+  else if (L){ n.textContent = 'ℹ️ பதிவு / திருத்தக் காலம் (' + REG_FIRST_DAY + '–' + REG_LAST_DAY + ') முடிந்தது. இனி மாற்ற இயலாது; வவுச்சரைப் பதிவிறக்கி அனுப்பலாம்.'; n.style.display = 'block'; }
+  else n.style.display = 'none';
+}
+function sumToiletRow(){
+  const t = Number(window.__toiletAmt) || 0;
+  return t > 0 ? '<div class="sum-row"><div class="exp-ic">🚽</div><div class="sum-main"><div class="sum-t">கழிவறை சுத்தம் (Admin பதிவு)</div></div><div class="sum-amt">' + sumFmt(t) + '</div></div>' : '';
+}
 function sumRender(){
+  sumApplyLock();
   const rec = SEC_DEFS.filter(secRecorded);
   const box = document.getElementById('sumList'), msg = document.getElementById('sumMsg');
   if (window.__sumFlash){ msg.textContent = window.__sumFlash; msg.style.display = 'block'; window.__sumFlash = ''; setTimeout(() => { msg.style.display = 'none'; }, 4000); }
   else msg.style.display = 'none';
-  if (!rec.length){ box.innerHTML = '<p class="exp-note">பதிவு செய்யப்பட்ட விவரங்கள் எதுவும் இல்லை. "➕ சேர்" மூலம் சேர்க்கலாம்.</p>'; return; }
+  if (!rec.length){ box.innerHTML = '<p class="exp-note">பதிவு செய்யப்பட்ட விவரங்கள் எதுவும் இல்லை. "➕ சேர்" மூலம் சேர்க்கலாம்.</p>' + sumToiletRow(); return; }
   box.innerHTML = rec.map(sec => {
     const amt = sec.news ? newsEls().reduce((t, e) => t + (parseFloat(e.value) || 0), 0) : sumNum(sec.amt);
     return '<div class="sum-row"><div class="exp-ic">' + sec.ic + '</div><div class="sum-main"><div class="sum-t">' + sumEsc(sec.t) + '</div>' +
       sumDetail(sec) + '</div><div class="sum-amt">' + (sec.days ? amt + ' நாட்கள்' : sumFmt(amt)) + '</div><div class="sum-act">' +
       '<button type="button" class="btn-sm" onclick="secOpen(\'' + sec.k + '\',\'edit\')">✏️ திருத்து</button>' +
       '<button type="button" class="btn-sm btn-del" onclick="secDelete(\'' + sec.k + '\')">🗑️ நீக்கு</button></div></div>';
-  }).join('');
+  }).join('') + sumToiletRow();
 }
 function sumToggleAdd(){
   const box = document.getElementById('sumAddBox');
@@ -3455,6 +3476,8 @@ function vcItems(){
     }
     if (r){ r.subs = r.subs || []; rows.push(r); }
   });
+  const toilet = Number(window.__toiletAmt) || 0;
+  if (toilet > 0) rows.push({text: 'கழிவறை சுத்தம்', amt: toilet, subs: []});
   return rows;
 }
 function vcBuildHtml(){
@@ -3502,6 +3525,18 @@ const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:30px 48px;back
   '#vcPage .vc-foot{display:flex;gap:22px;font-weight:700;font-family:Arial,sans-serif}#vcPage .vc-foot div{flex:1}#vcPage .vc-foot i{display:block;border-bottom:1.5px solid #000;height:20px}';
 async function makeVoucherPdf(btn){
   if (typeof html2canvas === 'undefined' || !window.jspdf){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
+  // அனுமதிக்கப்பட்ட மாதத்துக்கு வவுச்சர் இல்லை — சர்வரில் புதிய நிலையைச் சரிபார்
+  const fresh = await new Promise(res => google.script.run.withSuccessHandler(res).withFailureHandler(() => res(null))
+    .getExistingContingentData(selectedLib, document.getElementById('monthYear').value));
+  if (fresh && fresh.success){
+    window.__toiletAmt = Number(fresh.toiletCleaning) || 0;
+    if (fresh.approved && !isAdminMode){
+      window.__claimApproved = true; window.__sumLocked = true; sumApplyLock();
+      const vb = document.getElementById('voucherBox4G'); if (vb) vb.style.display = 'none';
+      alert('இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது; வவுச்சர் பதிவிறக்க இயலாது.');
+      return;
+    }
+  }
   const old = btn.innerHTML, scrollY0 = window.scrollY; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
   window.scrollTo(0, 0);
   const host = document.createElement('div');
@@ -3932,33 +3967,41 @@ function fetchWorkingDays() {
   }).getWorkingDaysCount(libName);
 }
 // ==================== சில்லறை செலவினம் தேதி கட்டுப்பாடு ====================
+// பதிவு / திருத்தம்: மாதம் 16 முதல் 20 வரை. அதற்குப் பின் (அனுமதிக்கும் வரை) வவுச்சர் மட்டும் பதிவிறக்கலாம்.
+const REG_FIRST_DAY = 16, REG_LAST_DAY = 20;
+function regWindowOpen(){ const d = new Date().getDate(); return d >= REG_FIRST_DAY && d <= REG_LAST_DAY; }
+function claimMonthYearNow(){      // 16-ஆம் தேதிக்கு முன் எனில் முந்தைய மாதத்தின் பதிவு
+  const t = new Date(); let m = t.getMonth() + 1, y = t.getFullYear();
+  if (t.getDate() < REG_FIRST_DAY){ m -= 1; if (m < 1){ m = 12; y -= 1; } }
+  return String(m).padStart(2, '0') + '/' + y;
+}
 function handleContingentClick() {
   try {
-    const today = new Date();
-    const currentDay = today.getDate();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-
-    console.log("handleContingentClick called - Day:", currentDay);
-
+    window.__monthOverride = null;
     // Admin Mode check
     if (typeof isAdminMode !== "undefined" && isAdminMode === true) {
       go(4, 'சில்லறை செலவினப் பட்டியல்');
       return;
     }
-
-    // 16 முதல் 23 வரை மட்டும் அனுமதி
-    if (currentDay >= 16 && currentDay <= 23) {
+    if (regWindowOpen()) {
       go(4, 'சில்லறை செலவினப் பட்டியல்');
-    } 
-    else if (currentDay < 16) {
-      alert("⚠️ சில்லறை செலவினப் பட்டியல்\n\n" + 
-            getTamilMonthName(currentMonth) + " " + currentYear + 
-            " மாதத்திற்கு\n16 முதல் 23 வரை மட்டுமே பதிவு செய்ய இயலும்.");
-    } 
-    else {
-      alert("⚠️ இந்த மாதத்திற்கான சில்லறை செலவினப் பதிவு காலம் முடிந்துவிட்டது.\n\nஅடுத்த மாதம் 16ம் தேதிக்குப் பிறகு முயற்சிக்கவும்.");
+      return;
     }
+    // பதிவு காலத்துக்கு வெளியே: பதிவு இருந்து, அனுமதிக்கப்படாவிட்டால் வவுச்சர் மட்டும்
+    const my = claimMonthYearNow();
+    google.script.run.withSuccessHandler(function(res) {
+      if (res && res.success && !res.approved) {
+        window.__monthOverride = my;
+        go(4, 'சில்லறை செலவினப் பட்டியல்');
+      } else if (res && res.success && res.approved) {
+        alert("✅ " + my + " மாதத்திற்கான சில்லறை செலவினம் அனுமதிக்கப்பட்டுவிட்டது.\n\nவவுச்சர் பதிவிறக்கவோ, மாற்றவோ இயலாது.");
+      } else {
+        alert("⚠️ சில்லறை செலவினப் பட்டியல்\n\nஒவ்வொரு மாதமும் " + REG_FIRST_DAY + " முதல் " + REG_LAST_DAY +
+              " வரை மட்டுமே பதிவு செய்ய இயலும்.\nஇந்த மாதத்திற்கான பதிவுக் காலம் இல்லை / பதிவு எதுவும் இல்லை.");
+      }
+    }).withFailureHandler(function(err) {
+      alert("சர்வர் பிழை: " + (err && err.message ? err.message : err));
+    }).getExistingContingentData(selectedLib, my);
   } catch (e) {
     console.error("handleContingentClick error:", e);
     alert("பிழை ஏற்பட்டது: " + e.message);
