@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>உள்நுழைவு — மாவட்ட நூலக அலுவலகம், திண்டுக்கல் | தமிழ்நாடு அரசு</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Serif+Tamil:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f2a5c; --navy-d:#0a1f45; --blue:#1f5fae; --sky:#e8eff9; --paper:#f3f5f9; --white:#fff;
+  --saffron:#e39a13; --maroon:#8c1d2c; --ink:#1b2433; --muted:#56627a; --line:#d3dae6;
+  --bad:#b3261e; --badbg:#fceceb; --ok:#1e7d46;
+  --serif:"Noto Serif Tamil","Latha",serif;
+  --sans:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{font-size:100%}
+html.fs-l{font-size:112.5%}
+html.fs-xl{font-size:125%}
+body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--paper);line-height:1.7;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--blue)}
+:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+.skip{position:absolute;left:-999px;top:0;background:var(--saffron);color:#000;padding:8px 14px;z-index:20;font-weight:600}
+.skip:focus{left:8px;top:8px}
+
+/* ---- மேல் பயன்பாட்டுப் பட்டை ---- */
+.util{background:var(--navy-d);color:#d6e2f6;font-size:.82rem}
+.util .in{max-width:1180px;margin:0 auto;padding:4px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.fsz{display:flex;align-items:center;gap:6px}
+.fsz span{margin-right:2px}
+.fsz button{font:inherit;font-weight:700;color:#fff;background:transparent;border:1px solid #6f85ad;border-radius:3px;min-width:30px;height:26px;cursor:pointer;line-height:1}
+.fsz button[aria-pressed="true"]{background:var(--saffron);border-color:var(--saffron);color:#1b1300}
+.fsz button:hover{background:#1c3b7a}
+.fsz button[aria-pressed="true"]:hover{background:var(--saffron)}
+
+/* ---- தலைப்புப் பகுதி ---- */
+.masthead{background:var(--white)}
+.masthead .in{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:20px}
+.masthead img{height:84px;width:auto;flex:none}
+.masthead .t{flex:1;text-align:center}
+.masthead .dept{margin:0;font-size:.95rem;font-weight:600;color:var(--maroon)}
+.masthead h1{margin:2px 0 0;font-family:var(--serif);font-size:1.85rem;line-height:1.35;color:var(--navy)}
+.masthead .sub{margin:2px 0 0;color:var(--muted);font-size:1rem;font-weight:500}
+/* கோயில் கரை (சேலைக்கரை) பாணி அலங்கார எல்லை */
+.border-t{height:14px;background:
+  linear-gradient(135deg,transparent 50%,var(--maroon) 50%) 0 0/14px 14px,
+  linear-gradient(225deg,transparent 50%,var(--maroon) 50%) 0 0/14px 14px,
+  var(--saffron);
+  border-top:3px solid var(--navy);border-bottom:3px solid var(--navy)}
+
+/* ---- அறிவிப்புப் பட்டை ---- */
+.notice{background:var(--sky);border-bottom:1px solid var(--line)}
+.notice .in{max-width:1180px;margin:0 auto;padding:9px 20px;display:flex;gap:12px;align-items:baseline;font-size:.95rem}
+.notice b{flex:none;background:var(--maroon);color:#fff;padding:1px 12px;border-radius:3px;font-size:.88rem}
+
+/* ---- உள்ளடக்கம் ---- */
+main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:30px 20px 44px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:34px;align-items:start}
+.info h2{margin:0 0 10px;font-family:var(--serif);font-size:1.55rem;color:var(--navy);line-height:1.45}
+.info .lead{margin:0 0 22px;color:var(--muted);max-width:62ch}
+.panel{background:var(--white);border:1px solid var(--line);border-top:4px solid var(--blue);margin-bottom:20px}
+.panel>h3{margin:0;padding:10px 18px;background:var(--sky);border-bottom:1px solid var(--line);font-size:1.05rem;color:var(--navy)}
+.panel .bd{padding:16px 18px}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding:0 0 14px 46px;margin:0}
+.steps li:last-child{padding-bottom:0}
+.steps li:before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;display:grid;place-items:center}
+.steps li:not(:last-child):after{content:"";position:absolute;left:15px;top:36px;bottom:2px;width:2px;background:var(--line)}
+.steps b{display:block;color:var(--navy)}
+.steps span{color:var(--muted);font-size:.95rem}
+.dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.dates div{border-left:4px solid var(--saffron);background:#fffaf0;padding:8px 14px}
+.dates strong{display:block;font-size:1.3rem;color:var(--navy);line-height:1.4}
+.dates small{color:var(--muted)}
+
+/* ---- உள்நுழைவு அட்டை ---- */
+.login{background:var(--white);border:1px solid var(--line);border-top:5px solid var(--saffron);box-shadow:0 10px 30px rgba(15,42,92,.12);position:sticky;top:16px}
+.login header{background:var(--navy);color:#fff;padding:14px 22px}
+.login header h2{margin:0;font-size:1.2rem;font-weight:700}
+.login header p{margin:0;font-size:.88rem;color:#c5d3ee}
+.tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+.tabs button{font:inherit;font-weight:600;font-size:1rem;padding:13px 10px;border:0;background:#f4f6fa;color:var(--muted);cursor:pointer;display:flex;gap:8px;justify-content:center;align-items:center;border-bottom:4px solid transparent}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-selected="true"]{background:#fff;color:var(--navy);border-bottom-color:var(--saffron)}
+.tabs button:hover{background:#fff}
+.tabs svg{width:20px;height:20px;flex:none}
+.pane{padding:22px}
+.pane[hidden]{display:none}
+.pane p{margin:0 0 16px;color:var(--muted);font-size:.97rem}
+label{display:block;font-weight:600;margin:0 0 5px}
+.pw{position:relative;margin-bottom:16px}
+.pw input{width:100%;padding:11px 78px 11px 12px;border:1.5px solid #8d9ab3;border-radius:4px;font:inherit;background:#fff}
+.pw input:focus{border-color:var(--blue);outline:3px solid #cfe0f7;outline-offset:0}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);font:inherit;font-size:.85rem;font-weight:600;color:var(--blue);background:transparent;border:0;padding:6px 8px;cursor:pointer}
+.btn{display:block;width:100%;padding:13px 16px;border:0;border-radius:4px;font:inherit;font-size:1.05rem;font-weight:700;color:#fff;cursor:pointer;background:var(--navy)}
+.btn:hover{background:var(--navy-d)}
+.btn.lib{background:var(--ok)}.btn.lib:hover{background:#176237}
+.err{margin:16px 22px 0;padding:10px 14px;background:var(--badbg);border:1px solid #e6a6a2;border-left:5px solid var(--bad);color:var(--bad);font-weight:600;border-radius:3px}
+.err:empty{display:none}
+.hint{margin:14px 0 0;font-size:.85rem;color:var(--muted)}
+
+/* ---- அடிக்குறிப்பு ---- */
+footer{background:var(--navy);color:#c5d3ee;font-size:.88rem}
+footer .in{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+footer b{color:#fff}
+
+@media (max-width:900px){
+  main{grid-template-columns:1fr;gap:24px;padding-top:20px}
+  .login{order:-1;position:static}
+  .masthead img{height:54px}
+  .masthead h1{font-size:1.3rem}
+  .masthead .sub{font-size:.85rem}
+  .masthead .in{gap:10px;padding:10px 14px}
+}
+@media (max-width:520px){
+  .masthead .in img:last-of-type{display:none}
+  .notice .in{flex-direction:column;gap:4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#login">உள்நுழைவுப் பகுதிக்குச் செல்க</a>
+
+<div class="util"><div class="in">
+  <span>தமிழ்நாடு அரசு &nbsp;|&nbsp; பொது நூலகத் துறை</span>
+  <div class="fsz" role="group" aria-label="எழுத்து அளவு">
+    <span>எழுத்து அளவு</span>
+    <button type="button" data-fs="" aria-pressed="true" aria-label="இயல்பு அளவு">அ</button>
+    <button type="button" data-fs="fs-l" aria-pressed="false" aria-label="பெரிய அளவு">அ+</button>
+    <button type="button" data-fs="fs-xl" aria-pressed="false" aria-label="மிகப் பெரிய அளவு">அ++</button>
+  </div>
+</div></div>
+
+<header class="masthead"><div class="in">
+  <img src="https://drive.google.com/thumbnail?id=1AwZy-uxszelJlyda0Kfvv4_CVgEUBayX&sz=w200" alt="நூலகத் துறை சின்னம்" onerror="this.style.display='none'">
+  <div class="t">
+    <p class="dept">தமிழ்நாடு அரசு — பொது நூலகத் துறை</p>
+    <h1>மாவட்ட நூலக அலுவலகம், திண்டுக்கல்</h1>
+    <p class="sub">சில்லறைச் செலவினம் மற்றும் வரவினங்கள் மேலாண்மை</p>
+  </div>
+  <img src="https://drive.google.com/thumbnail?id=18TDopjRYV_uiSQxxM861-hgQiKoBP_Ap&sz=w200" alt="தமிழ்நாடு அரசு சின்னம்" onerror="this.style.display='none'">
+</div></header>
+<div class="border-t" aria-hidden="true"></div>
+
+<div class="notice"><div class="in"><b>அறிவிப்பு</b>
+  <span>சில்லறைச் செலவினப் பதிவு ஒவ்வொரு மாதமும் 16 ஆம் தேதி முதல் 23 ஆம் தேதி வரை மட்டுமே செய்ய இயலும்.</span></div></div>
+
+<main id="main">
+  <section class="info" aria-labelledby="h-info">
+    <h2 id="h-info">நூலகங்களின் மாதாந்திரச் சில்லறைச் செலவினப் பதிவு</h2>
+    <p class="lead">திண்டுக்கல் மாவட்டத்தின் அனைத்து நூலகங்களும் நாளிதழ், தினக்கூலி மற்றும் பிற செலவினங்களை இங்கே பதிவு செய்யலாம். நாளிதழ் அதிகபட்சத் தொகையும் பணி நாட்களும் அந்த மாதத்திற்கு ஏற்பத் தானாகக் கணக்கிடப்படும்.</p>
+
+    <div class="panel"><h3>பதிவு செய்யும் முறை</h3><div class="bd">
+      <ol class="steps">
+        <li><b>உள்நுழைக</b><span>வலப்புறம் “நூலகர்” தேர்ந்தெடுத்து உள்நுழையவும். கடவுச்சொல் தேவையில்லை.</span></li>
+        <li><b>நூலகத்தைத் தேர்ந்தெடுக்க</b><span>நூலக வகை, நூலகத்தின் பெயர், பதிவு செய்யப்பட்ட மின்னஞ்சல் ஆகியவற்றைத் தேர்ந்தெடுக்கவும்.</span></li>
+        <li><b>விவரங்களை உள்ளிடுக</b><span>நாளிதழ் தொகை, தினக்கூலி நாட்கள், மின்கட்டணம் உள்ளிட்ட செலவினங்களை உள்ளிடவும்.</span></li>
+        <li><b>சரிபார்த்துச் சமர்ப்பிக்க</b><span>முன்னோட்டத்தில் மொத்தத் தொகையைச் சரிபார்த்துச் சேமிக்கவும்.</span></li>
+      </ol>
+    </div></div>
+
+    <div class="panel"><h3>முக்கிய நாட்கள்</h3><div class="bd">
+      <div class="dates">
+        <div><strong>16 – 23</strong><small>ஒவ்வொரு மாதமும் பதிவுக் காலம்</small></div>
+        <div><strong>16 – 15</strong><small>பணி நாட்கள் கணக்கிடும் காலம் (முந்தைய மாதம் 16 முதல் நடப்பு மாதம் 15 வரை)</small></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="login" id="login" aria-labelledby="h-login">
+    <header><h2 id="h-login">உள்நுழைவு</h2><p>பயனர் வகையைத் தேர்ந்தெடுக்கவும்</p></header>
+    __ERR__
+    <div class="tabs" role="tablist" aria-label="பயனர் வகை">
+      <button type="button" role="tab" id="tab-lib" aria-controls="pane-lib" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>நூலகர்</button>
+      <button type="button" role="tab" id="tab-adm" aria-controls="pane-adm" aria-selected="false" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>நிர்வாகி</button>
+    </div>
+
+    <div class="pane" id="pane-lib" role="tabpanel" aria-labelledby="tab-lib">
+      <p>நூலகர்கள் கடவுச்சொல் இன்றி உள்நுழையலாம். அடுத்த திரையில் உங்கள் நூலகத்தைத் தேர்ந்தெடுக்கவும்.</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="__NEXT__">
+        <button class="btn lib" name="role" value="librarian" id="libBtn">நூலகராக உள்நுழை</button>
+      </form>
+    </div>
+
+    <div class="pane" id="pane-adm" role="tabpanel" aria-labelledby="tab-adm" hidden>
+      <p>மாவட்ட நூலக அலுவலக நிர்வாகிகளுக்கு மட்டும். கடவுச்சொல்லை உள்ளிடவும்.</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="__NEXT__">
+        <input type="hidden" name="role" value="admin">
+        <label for="pw">கடவுச்சொல்</label>
+        <div class="pw">
+          <input type="password" id="pw" name="password" autocomplete="current-password" required>
+          <button type="button" id="pwToggle" aria-controls="pw">காட்டு</button>
+        </div>
+        <button class="btn">நிர்வாகியாக உள்நுழை</button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer><div class="in">
+  <span><b>மாவட்ட நூலக அலுவலகம், திண்டுக்கல்</b> — பொது நூலகத் துறை, தமிழ்நாடு அரசு</span>
+  <span>உள்ளடக்கம் மற்றும் தரவு மேலாண்மை: மாவட்ட நூலக அலுவலர்</span>
+</div></footer>
+
+<script>
+(function(){
+  var tabLib = document.getElementById('tab-lib'), tabAdm = document.getElementById('tab-adm');
+  var paneLib = document.getElementById('pane-lib'), paneAdm = document.getElementById('pane-adm');
+  function pick(admin){
+    tabLib.setAttribute('aria-selected', admin ? 'false' : 'true'); tabLib.tabIndex = admin ? -1 : 0;
+    tabAdm.setAttribute('aria-selected', admin ? 'true' : 'false'); tabAdm.tabIndex = admin ? 0 : -1;
+    paneLib.hidden = admin; paneAdm.hidden = !admin;
+    if (admin) document.getElementById('pw').focus();
+  }
+  tabLib.addEventListener('click', function(){ pick(false); });
+  tabAdm.addEventListener('click', function(){ pick(true); });
+  [tabLib, tabAdm].forEach(function(t){
+    t.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ var a = t === tabLib; pick(a); (a ? tabAdm : tabLib).focus(); }
+    });
+  });
+  if (__OPEN__) pick(true);
+
+  var pw = document.getElementById('pw'), tg = document.getElementById('pwToggle');
+  tg.addEventListener('click', function(){
+    var show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; tg.textContent = show ? 'மறை' : 'காட்டு';
+  });
+
+  var root = document.documentElement, btns = document.querySelectorAll('.fsz button');
+  function setFs(c){
+    root.classList.remove('fs-l','fs-xl'); if (c) root.classList.add(c);
+    btns.forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.fs === c ? 'true' : 'false'); });
+    try { localStorage.setItem('fs', c); } catch(e){}
+  }
+  btns.forEach(function(b){ b.addEventListener('click', function(){ setFs(b.dataset.fs); }); });
+  try { var saved = localStorage.getItem('fs'); if (saved) setFs(saved); } catch(e){}
+})();
+</script>
+</body>
+</html>

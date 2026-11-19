@@ -124,6 +124,8 @@ def do_libraries(raw):
 
 
 def do_newspapers(raw):
+    """நெடுவரிசை: A இடம், B பெயர், C திங்கள்–சனி விலை, D ஞாயிறு விலை.
+    D காலியாக இருந்தால் C பழைய 'மாத அதிகபட்சம்' ஆகக் கருதப்படும் (பழைய Sheet இணக்கம்)."""
     items = {}
     for r in read_rows(raw):
         try:
@@ -131,9 +133,13 @@ def do_newspapers(raw):
         except ValueError:
             continue
         if 1 <= slot <= 18:
-            items[slot] = (slot, cell(r, 1), to_num(cell(r, 2)))
-    run_batch("INSERT INTO newspapers (slot, name, max_rate) VALUES %s ON CONFLICT (slot) "
-              "DO UPDATE SET name = EXCLUDED.name, max_rate = EXCLUDED.max_rate", list(items.values()))
+            if cell(r, 3) != "":
+                items[slot] = (slot, cell(r, 1), Decimal(0), to_num(cell(r, 2)), to_num(cell(r, 3)))
+            else:
+                items[slot] = (slot, cell(r, 1), to_num(cell(r, 2)), Decimal(0), Decimal(0))
+    run_batch("INSERT INTO newspapers (slot, name, max_rate, weekday_rate, sunday_rate) VALUES %s "
+              "ON CONFLICT (slot) DO UPDATE SET name = EXCLUDED.name, max_rate = EXCLUDED.max_rate, "
+              "weekday_rate = EXCLUDED.weekday_rate, sunday_rate = EXCLUDED.sunday_rate", list(items.values()))
     return result(len(items), [])
 
 
@@ -154,14 +160,20 @@ def do_map(raw):
 
 
 def do_holidays(raw):
-    items, skipped = set(), []
+    """A தேதி, B விடுமுறை பெயர் (விருப்பம்). முதல் வரி தலைப்பு."""
+    items, skipped = {}, []
     for r in read_rows(raw):
         v = cell(r, 0)
         if not v:
             continue
         d = parse_date(v)
-        (items.add((d,)) if d else skipped.append(f"தேதி புரியவில்லை: {v}"))
-    run_batch("INSERT INTO holidays (holiday_date) VALUES %s ON CONFLICT DO NOTHING", sorted(items))
+        if d:
+            items[d] = cell(r, 1) or items.get(d, "")
+        else:
+            skipped.append(f"தேதி புரியவில்லை: {v}")
+    run_batch("INSERT INTO holidays (holiday_date, name) VALUES %s ON CONFLICT (holiday_date) DO UPDATE "
+              "SET name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE holidays.name END",
+              sorted(items.items()))
     return result(len(items), skipped)
 
 

@@ -104,6 +104,32 @@ code{background:var(--sky);padding:1px 6px;border-radius:3px;font-size:14px}
 .chk label:has(input:checked){background:var(--okbg);border-color:#9fd2b3}
 .chk input{width:18px;height:18px;accent-color:var(--ok)}
 
+/* ---- புதிய கூறுகள் ---- */
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.pick{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff}
+.pick label{display:flex;gap:10px;align-items:center;font-weight:500;padding:7px 12px;margin:0;border-bottom:1px solid var(--line);cursor:pointer}
+.pick label:last-child{border-bottom:0}
+.pick label:has(input:checked){background:var(--okbg)}
+.pick input{width:18px;height:18px;accent-color:var(--ok);flex:none}
+.pick small{color:var(--muted);margin-left:auto;text-align:right}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.toolbar .cnt{margin-left:auto;color:var(--muted);font-size:14px}
+.btn.sm{padding:4px 12px;font-size:14px}
+.btn.bad{background:var(--bad);border-color:var(--bad)}.btn.bad:hover{background:#8e1d17}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--warnbg);border:1px solid #e6c36a;border-radius:14px;padding:0 4px 0 10px;font-size:13.5px;margin:0 6px 6px 0}
+.chip button{border:0;background:transparent;color:var(--bad);font-weight:700;cursor:pointer;font-size:18px;line-height:1;padding:0 4px}
+.num{text-align:right}
+.ntable input[type=text]{min-width:150px}
+.ntable td.tot{min-width:150px}
+.ntable input[type=number]{width:96px}
+.ntable input[type=date]{width:auto;padding:6px 8px}
+.ntable td{vertical-align:top}
+.ntable .adder{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ntable .adder input[type=number]{width:84px;padding:6px 8px}
+.small{font-size:13px;color:var(--muted)}
+.rate{display:grid;grid-template-columns:minmax(220px,1fr) 180px;gap:10px 16px;align-items:center;max-width:620px}
+.pill{display:inline-block;background:var(--sky);color:var(--navy);padding:1px 10px;border-radius:12px;font-size:13px;font-weight:600}
+@media (max-width:900px){.two{grid-template-columns:minmax(0,1fr)}.rate{grid-template-columns:1fr}}
 footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 
 /* ---- கைபேசி ---- */
@@ -143,11 +169,13 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலகங்கள் பெயர் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
   <a href="#leave" data-v="leave"><span class="n">2</span><span>நூலகர் விடுப்பு விவரம் ஏற்று</span></a>
   <a href="#permission" data-v="permission"><span class="n">3</span><span>தினக்கூலி பணியாளர் அனுமதி</span></a>
-  <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</span></a>
-  <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</span></a>
+  <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
+  <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி விவரம்<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
   <div class="grp">நாளிதழ் மேலாண்மை</div>
   <a href="#newspapers" data-v="newspapers"><span class="n">6</span><span>நாளிதழ் விவரம்</span></a>
-  <a href="#newsmap" data-v="newsmap"><span class="n">7</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</span></a>
+  <a href="#newsmap" data-v="newsmap"><span class="n">7</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
+  <div class="grp">பணி நாட்கள்</div>
+  <a href="#holidays" data-v="holidays"><span class="n">8</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -171,10 +199,11 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
         <tr><td>1</td><td><a href="#libraries">நூலகங்கள் பெயர் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>2</td><td><a href="#leave">நூலகர் விடுப்பு விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>3</td><td><a href="#permission">தினக்கூலி பணியாளர் அனுமதி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>4</td><td>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</td><td><span class="tag later">பின்னர்</span></td></tr>
-        <tr><td>5</td><td>தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</td><td><span class="tag later">பின்னர்</span></td></tr>
+        <tr><td>4</td><td><a href="#wages">தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>5</td><td><a href="#cleaner">தினக்கூலி கூட்டுநர் கூலி விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>6</td><td><a href="#newspapers">நாளிதழ் விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>7</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>8</td><td><a href="#holidays">அரசு விடுமுறை நாட்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
       </tbody>
     </table>
   </div></div>
@@ -229,26 +258,50 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
     <div id="m_dailywage"></div></div></div>
 </section>
 
-<!-- ================= 4, 5 பின்னர் ================= -->
+<!-- ================= 4, 5 கூலி விவரம் ================= -->
 <section class="view" id="v-wages">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூலி விவரம்</p>
   <h2 class="pt">4. தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</h2>
-  <div class="later-box"><b>இந்தப் பகுதி பின்னர் சேர்க்கப்படும்</b>தற்போது இதற்கான தரவு ஏற்றம் தேவையில்லை.</div>
+  <p class="lead">நாள் ஒன்றுக்கான கூலித் தொகையை இங்கே உள்ளிடுக. நூலகர் பணி நாட்களை உள்ளிட்டவுடன் <b>நாட்கள் × இந்தத் தொகை</b> தானாகக் காட்டப்படும்.</p>
+  <div class="panel"><h3>நாள் கூலி (₹)</h3><div class="bd">
+    <div class="rate">
+      <label for="w_staff">தினக்கூலி நூலகப் பணியாளர் — நாள் ஒன்றுக்கு ₹</label>
+      <input type="number" id="w_staff" min="0" step="0.01" inputmode="decimal">
+      <label for="w_part">பகுதி நேர நூலகத் தினக்கூலிப் பணியாளர் — நாள் ஒன்றுக்கு ₹</label>
+      <input type="number" id="w_part" min="0" step="0.01" inputmode="decimal">
+    </div>
+    <p class="small" id="ex_staff" style="margin:12px 0 0"></p>
+    <div style="margin-top:12px"><button class="btn go" id="btnSaveWagesA">சேமி</button></div>
+    <div id="m_wagesA"></div>
+  </div></div>
 </section>
 <section class="view" id="v-cleaner">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூட்டுநர் கூலி</p>
-  <h2 class="pt">5. தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</h2>
-  <div class="later-box"><b>இந்தப் பகுதி பின்னர் சேர்க்கப்படும்</b>தற்போது இதற்கான தரவு ஏற்றம் தேவையில்லை.</div>
+  <h2 class="pt">5. தினக்கூலி கூட்டுநர் கூலி விவரம்</h2>
+  <p class="lead">கூட்டுநருக்கான நாள் கூலித் தொகையை உள்ளிடுக. நூலகர் பணிபுரிந்த நாட்களை உள்ளிட்டவுடன் நாட்கள் × தொகை தானாகக் காட்டப்படும்.</p>
+  <div class="panel"><h3>நாள் கூலி (₹)</h3><div class="bd">
+    <div class="rate">
+      <label for="w_partner">தினக்கூலி கூட்டுநர் — நாள் ஒன்றுக்கு ₹</label>
+      <input type="number" id="w_partner" min="0" step="0.01" inputmode="decimal">
+    </div>
+    <p class="small" id="ex_partner" style="margin:12px 0 0"></p>
+    <div style="margin-top:12px"><button class="btn go" id="btnSaveWagesB">சேமி</button></div>
+    <div id="m_wagesB"></div>
+  </div></div>
 </section>
 
 <!-- ================= 6. நாளிதழ் விவரம் ================= -->
 <section class="view" id="v-newspapers">
   <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நாளிதழ் விவரம்</p>
   <h2 class="pt">6. நாளிதழ் விவரம்</h2>
-  <p class="lead">18 இடங்களில் நாளிதழ் பெயரையும் அதிகபட்ச விலையையும் மாற்றலாம். பெயர் காலியாக உள்ள இடம் எந்த நூலகத்திலும் தெரியாது.</p>
+  <p class="lead">ஒவ்வொரு நாளிதழுக்கும் திங்கள்–சனி விலை, ஞாயிறு விலை, சிறப்பு விலை நாட்கள் (தேதி + விலை) ஆகியவற்றை உள்ளிடுக. நூலகர் படிவத்தில் அந்த மாதத்தின் அதிகபட்சத் தொகை தானாகக் கணக்காகும்:
+    (சாதாரண நாட்கள் × விலை) + (ஞாயிறுகள் × ஞாயிறு விலை) + சிறப்பு நாட்கள். சிறப்பு நாள் ஞாயிறில் வந்தால் சிறப்பு விலையே எடுக்கப்படும். பெயர் காலியான இடம் எந்த நூலகத்திலும் தெரியாது.</p>
   <div class="panel"><h3>நாளிதழ் பட்டியல்</h3><div class="bd">
-    <div class="ngrid h"><span>இடம்</span><span>நாளிதழ் பெயர்</span><span>அதிக. விலை (₹)</span></div>
-    <div id="newsList">ஏற்றப்படுகிறது…</div>
+    <div class="toolbar"><label for="newsMonth" style="margin:0">கணக்கீட்டுச் சரிபார்ப்பு மாதம்:</label>
+      <input type="month" id="newsMonth" style="width:auto"><span class="small">(கடைசி நெடுவரிசையில் அந்த மாதத்தின் அதிகபட்சத் தொகை காட்டப்படும்)</span></div>
+    <div class="tw" style="max-height:none"><table class="ntable">
+      <thead><tr><th style="width:50px">இடம்</th><th>நாளிதழ் பெயர்</th><th>திங்கள்–சனி ₹</th><th>ஞாயிறு ₹</th><th>இம்மாத அதிகபட்சம்</th><th style="min-width:250px">சிறப்பு விலை நாட்கள்</th></tr></thead>
+      <tbody id="newsRows"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
     <div style="margin-top:12px"><button class="btn go" id="btnSaveNews">பட்டியலைச் சேமி</button></div>
     <div id="m_news"></div>
   </div></div>
@@ -258,14 +311,66 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <section class="view" id="v-newsmap">
   <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</p>
   <h2 class="pt">7. நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</h2>
-  <p class="lead">நூலகத்தைத் தேர்ந்தெடுத்து, அந்த நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்களில் குறியிடுக.</p>
-  <div class="panel"><h3>நூலகத் தேர்வு</h3><div class="bd">
+  <p class="lead">பல நாளிதழ்களையும் பல நூலகங்களையும் தேர்ந்தெடுத்து, ஒரே முறையில் அனுமதி கொடுக்கலாம் அல்லது நீக்கலாம். தேர்ந்தெடுக்காத மற்ற நாளிதழ் இணைப்புகள் மாறாது.</p>
+  <div class="two">
+    <div class="panel"><h3>1) நாளிதழ்கள் (பல தேர்வு)</h3><div class="bd">
+      <div class="toolbar"><button class="btn alt sm" id="asNewsAll" type="button">அனைத்தும்</button><button class="btn alt sm" id="asNewsNone" type="button">எதுவுமில்லை</button><span class="cnt" id="asNewsCnt"></span></div>
+      <div class="pick" id="asNews">ஏற்றப்படுகிறது…</div>
+    </div></div>
+    <div class="panel"><h3>2) நூலகங்கள் (பல தேர்வு)</h3><div class="bd">
+      <div class="toolbar">
+        <select id="asType" style="flex:1 1 150px;width:auto" aria-label="நூலக வகை"><option value="">எல்லா வகைகளும்</option></select>
+        <input type="search" id="asSearch" placeholder="பெயர் / குறியீடு தேடுக" style="flex:1 1 150px;width:auto" aria-label="நூலகம் தேடுக">
+      </div>
+      <div class="toolbar"><button class="btn alt sm" id="asLibAll" type="button">காட்டப்படுபவை அனைத்தும்</button><button class="btn alt sm" id="asLibNone" type="button">தேர்வை நீக்கு</button><span class="cnt" id="asLibCnt"></span></div>
+      <div class="pick" id="asLibs">ஏற்றப்படுகிறது…</div>
+    </div></div>
+  </div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn go" id="btnAllow" type="button">தேர்ந்தவற்றுக்கு அனுமதி கொடு</button>
+    <button class="btn bad" id="btnDeny" type="button">அனுமதியை நீக்கு</button>
+  </div>
+  <div id="m_assign"></div>
+
+  <div class="panel" style="margin-top:22px"><h3>ஒரு நூலகத்தின் தற்போதைய நிலையைப் பார்க்க / திருத்த</h3><div class="bd">
     <label for="mapLib">நூலகம்</label>
     <select id="mapLib"><option value="">— நூலகத்தைத் தேர்ந்தெடுக்கவும் —</option></select>
     <div id="mapBox" style="margin-top:14px"></div>
     <div id="mapSaveRow" style="margin-top:12px;display:none"><button class="btn go" id="btnSaveMap">இந்த நூலகத்திற்குச் சேமி</button></div>
     <div id="m_map"></div>
   </div></div>
+</section>
+
+<!-- ================= 8. அரசு விடுமுறை ================= -->
+<section class="view" id="v-holidays">
+  <p class="crumb">நிர்வாகம் › பணி நாட்கள் › அரசு விடுமுறை நாட்கள்</p>
+  <h2 class="pt">8. அரசு விடுமுறை நாட்கள்</h2>
+  <p class="lead">அரசு விடுமுறைகளைச் சேர்க்க / நீக்க / Excel மூலம் ஏற்றலாம். <b>ஒவ்வொரு வெள்ளிக்கிழமை, இரண்டாவது சனிக்கிழமை</b> ஏற்கனவே தானாகக் கழிக்கப்படுகின்றன. அவற்றுடன் இங்குள்ள விடுமுறைகளும் கழிக்கப்பட்டு, ஒவ்வொரு மாதமும் (முந்தைய மாதம் 16 முதல் நடப்பு மாதம் 15 வரை) நூலகரின் பணி நாட்கள் தானாகக் கணக்காகும். விடுமுறை வெள்ளி / இரண்டாம் சனியில் வந்தால் இரு முறை கழிக்கப்படாது.</p>
+
+  <div class="two">
+    <div class="panel"><h3>விடுமுறையைச் சேர்க்க</h3><div class="bd">
+      <label for="holDate">தேதி</label><input type="date" id="holDate" style="margin-bottom:10px">
+      <label for="holName">விடுமுறை பெயர் (விருப்பம்)</label><input type="text" id="holName" placeholder="எ.கா. தீபாவளி" style="margin-bottom:12px">
+      <button class="btn go" id="btnAddHol" type="button">சேர்</button>
+      <div id="m_holAdd"></div>
+    </div></div>
+    <div class="panel"><h3>Excel மூலம் ஏற்ற</h3><div class="bd">
+      <p class="small" style="margin-top:0">நெடுவரிசைகள்: <code>A தேதி (dd/mm/yyyy)</code> <code>B விடுமுறை பெயர்</code>. முதல் வரி தலைப்பு. <a href="/admin/template/holidays.xlsx">மாதிரி Excel</a></p>
+      <input type="file" id="f_holidays" accept=".xlsx,.xls,.csv" aria-label="விடுமுறை Excel" style="margin-bottom:10px">
+      <button class="btn go" id="b_holidays" type="button">Excel ஏற்று</button>
+      <div id="m_holidays"></div>
+    </div></div>
+  </div>
+
+  <div class="row" style="margin:6px 0 14px"><label for="holYear" style="margin:0">ஆண்டு:</label><select id="holYear" style="width:auto"></select></div>
+  <div class="two" style="grid-template-columns:minmax(0,1fr)">
+    <div class="panel"><h3>விடுமுறைப் பட்டியல் <span id="holCount" class="pill"></span></h3><div class="bd tw" style="max-height:480px">
+      <table><thead><tr><th>தேதி</th><th>கிழமை</th><th>பெயர்</th><th style="width:70px"></th></tr></thead><tbody id="holBody"><tr><td colspan="4">ஏற்றப்படுகிறது…</td></tr></tbody></table>
+    </div></div>
+    <div class="panel"><h3>மாதம் வாரியாகப் பணி நாட்கள்</h3><div class="bd tw" style="max-height:480px">
+      <table><thead><tr><th>மாதம் (காலம்)</th><th>மொத்தம்</th><th>வெள்ளி</th><th>2-ஆம் சனி</th><th>விடுமுறை</th><th>பணி நாட்கள்</th></tr></thead><tbody id="wdBody"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table>
+    </div></div>
+  </div>
 </section>
 
 </main>
@@ -304,7 +409,9 @@ function route(){
   if (v === 'home') loadSummary();
   if (v === 'libraries') loadLibraries();
   if (v === 'newspapers') loadNews();
-  if (v === 'newsmap') loadMapLibs();
+  if (v === 'newsmap'){ loadMapLibs(); loadAssign(); }
+  if (v === 'wages' || v === 'cleaner') loadWages();
+  if (v === 'holidays') loadHolidays();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -340,13 +447,14 @@ function bindUpload(kind){
         if (j.skipped_count){ k = 'warn'; t += '\nதவிர்க்கப்பட்டவை: ' + j.skipped_count + '\n - ' + j.skipped.join('\n - ');
           if (j.skipped_count > j.skipped.length) t += '\n … மேலும் ' + (j.skipped_count - j.skipped.length); }
         note(out, k, t);
-        if (kind === 'libraries'){ loaded.libs = false; loadLibraries(true); }
+        if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); }
+        if (kind === 'holidays') loadHolidays();
       }
     }catch(e){ note(out, 'bad', e.message); }
     btn.disabled = false;
   });
 }
-['libraries','leave','dailywage'].forEach(bindUpload);
+['libraries','leave','dailywage','holidays'].forEach(bindUpload);
 
 $('#btnSchema').addEventListener('click', async () => {
   const b = $('#btnSchema'), out = $('#msgSchema');
@@ -377,35 +485,190 @@ function renderLibs(){
 }
 $('#libSearch').addEventListener('input', renderLibs);
 
-/* ---------- 6. நாளிதழ் விவரம் ---------- */
-let newsMaster = [];
-async function loadNews(){
-  const box = $('#newsList');
+/* ---------- பொது உதவிகள் ---------- */
+const pad2 = n => String(n).padStart(2, '0');
+const fmtDate = iso => { const p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; };
+const money = n => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN');
+
+/* ---------- 4, 5. கூலி விவரம் ---------- */
+async function loadWages(){
   try{
-    newsMaster = await rpc('getNewspaperAdminMasterList');
-    const bySlot = {}; newsMaster.forEach(r => bySlot[r.slot] = r);
-    let h = '';
-    for (let s = 1; s <= 18; s++){
-      const r = bySlot[s] || {name:'', maxRate:0};
-      h += '<div class="ngrid"><span>' + s + '</span>' +
-           '<input type="text" data-n="' + s + '" value="' + esc(r.name) + '" aria-label="இடம் ' + s + ' பெயர்">' +
-           '<input type="number" min="0" step="0.01" data-r="' + s + '" value="' + esc(r.maxRate) + '" aria-label="இடம் ' + s + ' விலை"></div>';
-    }
-    box.innerHTML = h;
-  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + ' — முதலில் நூலகங்கள் பகுதியில் அட்டவணைகளை உருவாக்கவும்.</div>'; }
+    const r = await rpc('getWageRates');
+    $('#w_staff').value = r.staff; $('#w_part').value = r.partTime; $('#w_partner').value = r.partner;
+    wageEx();
+  }catch(e){ note($('#m_wagesA'), 'bad', e.message); }
 }
-$('#btnSaveNews').addEventListener('click', async () => {
-  const rows = [];
-  for (let s = 1; s <= 18; s++){
-    rows.push({slot: s, name: document.querySelector('[data-n="' + s + '"]').value, maxRate: document.querySelector('[data-r="' + s + '"]').value});
+function wageEx(){
+  $('#ex_staff').textContent = 'எடுத்துக்காட்டு: 20 நாட்கள் × ' + money(+$('#w_staff').value || 0) + ' = ' + money(20 * (+$('#w_staff').value || 0)) +
+    '   |   பகுதி நேரம்: 20 நாட்கள் × ' + money(+$('#w_part').value || 0) + ' = ' + money(20 * (+$('#w_part').value || 0));
+  $('#ex_partner').textContent = 'எடுத்துக்காட்டு: 20 நாட்கள் × ' + money(+$('#w_partner').value || 0) + ' = ' + money(20 * (+$('#w_partner').value || 0));
+}
+['#w_staff', '#w_part', '#w_partner'].forEach(id => $(id).addEventListener('input', wageEx));
+async function saveWages(btnSel, outSel, keys){
+  const b = $(btnSel), out = $(outSel), rates = {};
+  keys.forEach(k => { rates[k[0]] = $(k[1]).value; });
+  if (Object.values(rates).some(v => v === '' || +v < 0)){ note(out, 'bad', 'சரியான தொகையை உள்ளிடவும் (பூஜ்யம் அல்லது அதற்கு மேல்).'); return; }
+  b.disabled = true;
+  try{ const j = await rpc('saveWageRates', [rates]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'கூலித் தொகை சேமிக்கப்பட்டது. நூலகர் படிவத்தில் உடனே பயன்படும்.' : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
+  catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+}
+$('#btnSaveWagesA').addEventListener('click', () => saveWages('#btnSaveWagesA', '#m_wagesA', [['staff', '#w_staff'], ['partTime', '#w_part']]));
+$('#btnSaveWagesB').addEventListener('click', () => saveWages('#btnSaveWagesB', '#m_wagesB', [['partner', '#w_partner']]));
+
+/* ---------- 6. நாளிதழ் விவரம் (நாள்வாரி விலை + சிறப்பு விலை) ---------- */
+let newsState = [];
+function monthCalc(wd, sun, specials, y, m){
+  const days = new Date(y, m, 0).getDate();
+  let total = 0, nW = 0, nS = 0, nP = 0;
+  for (let d = 1; d <= days; d++){
+    const iso = y + '-' + pad2(m) + '-' + pad2(d);
+    const sp = specials.find(x => x.date === iso);
+    if (sp){ total += +sp.price || 0; nP++; }
+    else if (new Date(y, m - 1, d).getDay() === 0){ total += sun; nS++; }
+    else { total += wd; nW++; }
   }
+  return {total, nW, nS, nP};
+}
+function newsMonth(){
+  const v = $('#newsMonth').value || '';
+  const m = /^(\d{4})-(\d{2})$/.exec(v);
+  return m ? [+m[1], +m[2]] : [new Date().getFullYear(), new Date().getMonth() + 1];
+}
+function syncNewsFromDom(){
+  document.querySelectorAll('#newsRows tr[data-slot]').forEach(tr => {
+    const st = newsState.find(x => x.slot === +tr.dataset.slot); if (!st) return;
+    st.name = tr.querySelector('[data-f=name]').value;
+    st.weekdayRate = tr.querySelector('[data-f=wd]').value;
+    st.sundayRate = tr.querySelector('[data-f=sun]').value;
+  });
+}
+function rowTotalHtml(st){
+  const [y, m] = newsMonth();
+  const wd = +st.weekdayRate || 0, sun = +st.sundayRate || 0;
+  if (!wd && !sun && !st.specials.length && st.legacy){
+    return '<b>' + money(st.legacy) + '</b><div class="small">பழைய மாத அதிகபட்சம் (நாள்வாரி விலை உள்ளிடும் வரை பயன்படும்)</div>';
+  }
+  const c = monthCalc(wd, sun, st.specials, y, m);
+  return '<b>' + money(c.total) + '</b><div class="small">' + c.nW + '×' + money(wd) + ' + ' + c.nS + ' ஞாயிறு×' + money(sun) + (c.nP ? ' + ' + c.nP + ' சிறப்பு' : '') + '</div>';
+}
+function renderNews(){
+  const rows = newsState.map(st => {
+    const chips = st.specials.map((sp, i) =>
+      '<span class="chip">' + esc(fmtDate(sp.date)) + ' — ' + money(+sp.price || 0) + '<button type="button" data-del="' + i + '" aria-label="நீக்கு">×</button></span>').join('');
+    return '<tr data-slot="' + st.slot + '"><td>' + st.slot + '</td>' +
+      '<td><input type="text" data-f="name" value="' + esc(st.name) + '" aria-label="இடம் ' + st.slot + ' பெயர்"></td>' +
+      '<td><input type="number" min="0" step="0.01" data-f="wd" value="' + esc(st.weekdayRate) + '" aria-label="திங்கள்–சனி விலை"></td>' +
+      '<td><input type="number" min="0" step="0.01" data-f="sun" value="' + esc(st.sundayRate) + '" aria-label="ஞாயிறு விலை"></td>' +
+'<td class="num tot" data-f="tot">' + rowTotalHtml(st) + '</td>' +
+            '<td><div>' + chips + '</div><div class="adder"><input type="date" data-f="spd" aria-label="சிறப்பு தேதி"><input type="number" min="0" step="0.01" data-f="spp" placeholder="₹ விலை" aria-label="சிறப்பு விலை"><button type="button" class="btn alt sm" data-add>சேர்</button></div></td>' +'</tr>';
+  }).join('');
+  $('#newsRows').innerHTML = rows;
+}
+async function loadNews(){
+  const box = $('#newsRows');
+  if (!$('#newsMonth').value){ const t = new Date(); $('#newsMonth').value = t.getFullYear() + '-' + pad2(t.getMonth() + 1); }
+  try{
+    const list = await rpc('getNewspaperAdminMasterList');
+    const by = {}; list.forEach(r => by[r.slot] = r);
+    newsState = [];
+    for (let s = 1; s <= 18; s++){
+      const r = by[s] || {};
+      newsState.push({slot: s, name: r.name || '', weekdayRate: r.weekdayRate || 0, sundayRate: r.sundayRate || 0,
+        specials: (r.specials || []).slice(), legacy: r.maxRate || 0});
+    }
+    renderNews();
+  }catch(e){ box.innerHTML = '<tr><td colspan="6"><div class="msg bad">' + esc(e.message) + ' — முதலில் நூலகங்கள் பகுதியில் அட்டவணைகளை உருவாக்கவும்.</div></td></tr>'; }
+}
+$('#newsMonth').addEventListener('change', () => { syncNewsFromDom(); renderNews(); });
+$('#newsRows').addEventListener('input', e => {
+  const tr = e.target.closest('tr[data-slot]'); if (!tr) return;
+  if (!e.target.dataset.f || ['wd', 'sun'].indexOf(e.target.dataset.f) < 0) return;
+  const st = newsState.find(x => x.slot === +tr.dataset.slot);
+  st.weekdayRate = tr.querySelector('[data-f=wd]').value; st.sundayRate = tr.querySelector('[data-f=sun]').value;
+  tr.querySelector('[data-f=tot]').innerHTML = rowTotalHtml(st);
+});
+$('#newsRows').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-slot]'); if (!tr) return;
+  const st = newsState.find(x => x.slot === +tr.dataset.slot);
+  if (e.target.hasAttribute('data-add')){
+    const d = tr.querySelector('[data-f=spd]').value, p = tr.querySelector('[data-f=spp]').value;
+    if (!d || p === '' || +p < 0){ alert('சிறப்பு விலை நாளின் தேதியையும் விலையையும் உள்ளிடவும்.'); return; }
+    syncNewsFromDom();
+    st.specials = st.specials.filter(x => x.date !== d).concat([{date: d, price: +p}]).sort((a, b) => a.date.localeCompare(b.date));
+    renderNews();
+  } else if (e.target.hasAttribute('data-del')){
+    syncNewsFromDom();
+    st.specials.splice(+e.target.dataset.del, 1);
+    renderNews();
+  }
+});
+$('#btnSaveNews').addEventListener('click', async () => {
+  syncNewsFromDom();
+  const rows = newsState.map(st => ({slot: st.slot, name: st.name, weekdayRate: st.weekdayRate, sundayRate: st.sundayRate, specials: st.specials}));
   const b = $('#btnSaveNews'), out = $('#m_news'); b.disabled = true;
   try{ const j = await rpc('saveNewspaperMasterList', [rows]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'நாளிதழ் பட்டியல் சேமிக்கப்பட்டது.' : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
   catch(e){ note(out, 'bad', e.message); }
   b.disabled = false;
 });
 
-/* ---------- 7. நூலகம் வாரியாக நாளிதழ் ---------- */
+/* ---------- 7. பல நாளிதழ் × பல நூலகம் ---------- */
+const asSel = new Set();
+let asLibs = [];
+function asCounts(){
+  $('#asNewsCnt').textContent = document.querySelectorAll('#asNews input:checked').length + ' தேர்வு';
+  $('#asLibCnt').textContent = asSel.size + ' நூலகங்கள் தேர்வு';
+}
+function renderAsLibs(){
+  const q = $('#asSearch').value.trim().toLowerCase(), t = $('#asType').value;
+  const rows = asLibs.filter(r => (!t || r.type === t) && (!q || (r.name + ' ' + r.code).toLowerCase().includes(q)));
+  $('#asLibs').innerHTML = rows.length ? rows.map(r =>
+    '<label><input type="checkbox" data-name="' + esc(r.name) + '"' + (asSel.has(r.name) ? ' checked' : '') + '><span>' + esc(r.name) + '</span><small>' + esc(r.type) + '</small></label>').join('')
+    : '<div style="padding:12px" class="small">பொருந்தும் நூலகம் இல்லை.</div>';
+  asCounts();
+}
+async function loadAssign(){
+  try{
+    const master = await rpc('getNewspaperAdminMasterList');
+    const named = master.filter(r => r.name);
+    $('#asNews').innerHTML = named.length ? named.map(r =>
+      '<label><input type="checkbox" data-slot="' + r.slot + '"><span>' + esc(r.name) + '</span></label>').join('')
+      : '<div style="padding:12px" class="small">நாளிதழ் பெயர்கள் இல்லை. முதலில் “6. நாளிதழ் விவரம்” பகுதியில் சேர்க்கவும்.</div>';
+    if (!asLibs.length){
+      const j = await getJSON('/admin/api/libraries');
+      if (!j.success){ $('#asLibs').textContent = j.message; return; }
+      asLibs = j.rows;
+      const types = []; asLibs.forEach(r => { if (r.type && types.indexOf(r.type) < 0) types.push(r.type); });
+      $('#asType').innerHTML = '<option value="">எல்லா வகைகளும்</option>' + types.map(x => '<option>' + esc(x) + '</option>').join('');
+    }
+    renderAsLibs();
+  }catch(e){ note($('#m_assign'), 'bad', e.message); }
+}
+$('#asNews').addEventListener('change', asCounts);
+$('#asNewsAll').addEventListener('click', () => { document.querySelectorAll('#asNews input').forEach(c => c.checked = true); asCounts(); });
+$('#asNewsNone').addEventListener('click', () => { document.querySelectorAll('#asNews input').forEach(c => c.checked = false); asCounts(); });
+$('#asLibs').addEventListener('change', e => { const n = e.target.dataset.name; if (n === undefined) return; e.target.checked ? asSel.add(n) : asSel.delete(n); asCounts(); });
+$('#asLibAll').addEventListener('click', () => { document.querySelectorAll('#asLibs input').forEach(c => { c.checked = true; asSel.add(c.dataset.name); }); asCounts(); });
+$('#asLibNone').addEventListener('click', () => { asSel.clear(); renderAsLibs(); });
+$('#asSearch').addEventListener('input', renderAsLibs);
+$('#asType').addEventListener('change', renderAsLibs);
+async function applyAssign(allow){
+  const slots = [...document.querySelectorAll('#asNews input:checked')].map(c => +c.dataset.slot);
+  const names = [...asSel], out = $('#m_assign');
+  if (!slots.length || !names.length){ note(out, 'bad', 'குறைந்தது ஒரு நாளிதழையும் ஒரு நூலகத்தையும் தேர்ந்தெடுக்கவும்.'); return; }
+  if (!confirm(slots.length + ' நாளிதழ்கள் × ' + names.length + ' நூலகங்களுக்கு அனுமதியை ' + (allow ? 'வழங்கவா?' : 'நீக்கவா?'))) return;
+  const bs = [$('#btnAllow'), $('#btnDeny')]; bs.forEach(b => b.disabled = true);
+  try{
+    const j = await rpc('assignNewspapersToLibraries', [slots, names, allow]);
+    note(out, j && j.success ? 'ok' : 'bad', j && j.success ? (j.newspapers + ' நாளிதழ்கள் × ' + j.libraries + ' நூலகங்கள் — அனுமதி ' + (allow ? 'வழங்கப்பட்டது.' : 'நீக்கப்பட்டது.')) : (j && j.message) || 'முடியவில்லை.');
+    if (j && j.success && $('#mapLib').value) $('#mapLib').dispatchEvent(new Event('change'));
+  }catch(e){ note(out, 'bad', e.message); }
+  bs.forEach(b => b.disabled = false);
+}
+$('#btnAllow').addEventListener('click', () => applyAssign(true));
+$('#btnDeny').addEventListener('click', () => applyAssign(false));
+
+/* ---------- ஒரு நூலகத்தின் நிலை (பழைய வசதி) ---------- */
 async function loadMapLibs(){
   if (loaded.mapLibs) return;
   const sel = $('#mapLib');
@@ -437,6 +700,57 @@ $('#btnSaveMap').addEventListener('click', async () => {
   try{ const j = await rpc('saveLibraryNewspaperMap', [lib, flags]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'சேமிக்கப்பட்டது: ' + lib : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
   catch(e){ note(out, 'bad', e.message); }
   b.disabled = false;
+});
+
+/* ---------- 8. அரசு விடுமுறை நாட்கள் ---------- */
+const TA_DAYS = ['ஞாயிறு', 'திங்கள்', 'செவ்வாய்', 'புதன்', 'வியாழன்', 'வெள்ளி', 'சனி'];
+function holYear(){ return +$('#holYear').value || new Date().getFullYear(); }
+function holKind(iso){
+  const p = iso.split('-').map(Number), dow = new Date(p[0], p[1] - 1, p[2]).getDay();
+  if (dow === 5) return 'வாரவிடுமுறையுடன் இணைந்தது';
+  if (dow === 6 && p[2] > 7 && p[2] <= 14) return 'இரண்டாம் சனி — இணைந்தது';
+  return '';
+}
+async function loadHolidays(){
+  const ys = $('#holYear');
+  if (!ys.options.length){
+    const y0 = new Date().getFullYear();
+    for (let y = y0 - 1; y <= y0 + 2; y++){ const o = document.createElement('option'); o.value = y; o.textContent = y; if (y === y0) o.selected = true; ys.appendChild(o); }
+  }
+  const y = holYear();
+  try{
+    const [list, tbl] = await Promise.all([rpc('getHolidays', [y]), rpc('getWorkingDaysTable', [y])]);
+    $('#holCount').textContent = list.length + ' நாட்கள்';
+    $('#holBody').innerHTML = list.length ? list.map(h => {
+      const p = h.date.split('-').map(Number), k = holKind(h.date);
+      return '<tr><td>' + esc(fmtDate(h.date)) + '</td><td>' + TA_DAYS[new Date(p[0], p[1] - 1, p[2]).getDay()] +
+        (k ? '<div class="small">' + esc(k) + '</div>' : '') + '</td><td>' + esc(h.name) +
+        '</td><td><button type="button" class="btn alt sm" data-hdel="' + esc(h.date) + '">நீக்கு</button></td></tr>';
+    }).join('') : '<tr><td colspan="4">இந்த ஆண்டுக்கு விடுமுறைகள் இல்லை. மேலே சேர்க்கவும்.</td></tr>';
+    $('#wdBody').innerHTML = tbl.map(r =>
+      '<tr><td>' + esc(r.label) + '<div class="small">' + esc(r.period) + '</div></td><td>' + r.total + '</td><td>' + r.fridays + '</td><td>' + r.secondSaturdays + '</td><td>' + r.holidays + '</td><td><b>' + r.working + '</b></td></tr>').join('');
+  }catch(e){
+    $('#holBody').innerHTML = '<tr><td colspan="4"><div class="msg bad">' + esc(e.message) + '</div></td></tr>';
+  }
+}
+$('#holYear').addEventListener('change', loadHolidays);
+$('#btnAddHol').addEventListener('click', async () => {
+  const d = $('#holDate').value, out = $('#m_holAdd');
+  if (!d){ note(out, 'bad', 'தேதியைத் தேர்ந்தெடுக்கவும்.'); return; }
+  const b = $('#btnAddHol'); b.disabled = true;
+  try{
+    const j = await rpc('saveHoliday', [d, $('#holName').value]);
+    if (j && j.success){ note(out, 'ok', fmtDate(d) + ' சேர்க்கப்பட்டது.'); $('#holName').value = '';
+      const y = +d.slice(0, 4); if (![...$('#holYear').options].some(o => +o.value === y)){ const o = document.createElement('option'); o.value = y; o.textContent = y; $('#holYear').appendChild(o); }
+      $('#holYear').value = y; loadHolidays(); }
+    else note(out, 'bad', (j && j.message) || 'சேர்க்க முடியவில்லை.');
+  }catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+});
+$('#holBody').addEventListener('click', async e => {
+  const d = e.target.dataset.hdel; if (!d) return;
+  if (!confirm(fmtDate(d) + ' விடுமுறையை நீக்கவா?')) return;
+  try{ await rpc('deleteHoliday', [d]); loadHolidays(); }catch(err){ alert(err.message); }
 });
 
 route();

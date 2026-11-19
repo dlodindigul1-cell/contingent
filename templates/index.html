@@ -486,6 +486,9 @@ button.loading {
   box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
+.np-hint { font-size: 13px; color: #1e40af; background: #eff6ff; border-left: 3px solid #3b82f6; padding: 4px 10px; margin: -2px 0 12px; border-radius: 0 6px 6px 0; }
+.wage-hint { font-size: 14px; font-weight: 600; color: #065f46; background: #ecfdf5; border-left: 3px solid #10b981; padding: 4px 10px; margin: -2px 0 12px; border-radius: 0 6px 6px 0; }
+.wd-info { font-size: 14px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; margin: 0 0 12px; border-radius: 8px; }
 .preview-item {
   display: flex;
   justify-content: space-between;
@@ -721,6 +724,7 @@ button.loading {
            <div id="stage4B" class="sub-stage" style="display:none;">
     <h4>படி 2/2: 👩‍💻 தினக்கூலி விவரங்கள்</h4>
     <div id="stage4BError" class="error" style="display:none; margin:15px 0; padding:12px;"></div>
+    <div id="wdInfo" class="wd-info" style="display:none;"></div>
     <div style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
      <div id="labourSection" style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
 
@@ -729,12 +733,14 @@ button.loading {
 
 <label>கூட்டுநர் பணிபுரிந்த நாட்கள்</label>
 <input type="number" id="partnerDays" min="0" value="0" oninput="validateWorkingDays(this)">
+<div class="wage-hint" id="partnerWageHint"></div>
 
 <label>தினக்கூலி நூலகப் பணியாளர் பெயர் (தமிழில்)</label>
 <input type="text" id="staffNameTamil" placeholder="பெயர் (Text)">
 
 <label>தினக்கூலி பணியாளர் பணிபுரிந்த நாட்கள்</label>
 <input type="number" id="staffDays" min="0" value="0" oninput="validateWorkingDays(this)">
+<div class="wage-hint" id="staffWageHint"></div>
 
 </div>
 
@@ -746,6 +752,7 @@ button.loading {
 
 <label>பகுதி நேர நூலகத்தில் பணியாற்றிய நாட்கள்</label>
 <input type="number" id="partTimeStaffDays" min="0" value="0" oninput="validateWorkingDays(this)">
+<div class="wage-hint" id="partTimeWageHint"></div>
 
 </div>
    </div>
@@ -1359,6 +1366,7 @@ button.loading {
 <script>
 let newsPaperMaxRates = {};      // key -> maxRate (இப்போது dynamic, தற்போதைய நூலகத்தின் active நாளிதழ்களுக்கு மட்டும்)
 let newsPaperDisplayNames = {};  // key -> Tamil/English display name (alert செய்திக்கு)
+let wageRates = { partner: 75, staff: 300, partTime: 100 };  // Admin உள்ளிட்ட நாள் கூலி (getWageRates); பெறும் வரை பழைய இயல்புத் தொகை
 let activeNewspapers = [];       // getActiveNewspapersForLibrary()-ன் விடை (இந்த நூலகத்திற்கான Active நாளிதழ்கள்)
 // Slot 1-18 -> internal field key. Contingent Sheet-ல் column position இதை ஒட்டியே நிலைத்திருக்கும்.
 const NEWSPAPER_FIELD_KEYS = [
@@ -1400,6 +1408,21 @@ const incomeFields = [
  * activeList = getActiveNewspapersForLibrary()-ன் விடை: [{slot, key, name, maxRate}, ...]
  * existingData = getExistingContingentData()-ன் data object (edit செய்யும்போது மதிப்புகளை நிரப்ப)
  */
+/** நாளிதழ் உள்ளீட்டின் கீழ் காட்டும் மாத அதிகபட்சக் கணக்கு விளக்கம் */
+function newsPaperHint(item) {
+  const r2 = v => Number(v).toLocaleString('en-IN', {maximumFractionDigits: 2});
+  if (item.legacy) return 'அதிகபட்சத் தொகை: ₹' + r2(item.maxRate);
+  let t = 'இம்மாத அதிகபட்சம்: <b>₹' + r2(item.maxRate) + '</b> (' +
+          item.weekdayDays + ' நாட்கள் × ₹' + r2(item.weekdayRate) + ' + ' +
+          item.sundayDays + ' ஞாயிறு × ₹' + r2(item.sundayRate);
+  if (item.specials && item.specials.length) {
+    t += ' + சிறப்பு: ' + item.specials.map(s => {
+      const p = s.date.split('-'); return p[2] + '/' + p[1] + ' ₹' + r2(s.price);
+    }).join(', ');
+  }
+  return t + ')';
+}
+
 function renderNewspaperInputs(activeList, existingData) {
   existingData = existingData || {};
   const container = document.getElementById('newsPaperSection');
@@ -1420,7 +1443,8 @@ function renderNewspaperInputs(activeList, existingData) {
       const val = existingData[item.key] || 0;
       html += '<label>' + item.name + '</label>' +
               '<input type="number" id="np_' + item.key + '" data-key="' + item.key + '" ' +
-              'min="0" value="' + val + '" oninput="checkNewsPaperPrice(this, \'' + item.key + '\')">';
+              'min="0" value="' + val + '" oninput="checkNewsPaperPrice(this, \'' + item.key + '\')">' +
+              '<div class="np-hint">' + newsPaperHint(item) + '</div>';
     });
   }
 
@@ -1440,6 +1464,29 @@ function renderNewspaperInputs(activeList, existingData) {
   checkAllPrices();
 }
 
+function updateWageHints() {
+  [['partnerDays', 'partnerWageHint', 'partner'],
+   ['staffDays', 'staffWageHint', 'staff'],
+   ['partTimeStaffDays', 'partTimeWageHint', 'partTime']].forEach(([inp, hint, kind]) => {
+    const i = document.getElementById(inp), h = document.getElementById(hint);
+    if (!i || !h) return;
+    const d = parseFloat(i.value) || 0, rate = wageRates[kind] || 0;
+    h.textContent = d > 0 ? d + ' நாட்கள் × ₹' + rate + ' = ₹' + (d * rate).toFixed(2)
+                          : 'நாள் ஒன்றுக்கு ₹' + rate;
+  });
+}
+['partnerDays', 'staffDays', 'partTimeStaffDays'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateWageHints);
+});
+function loadWageRates() {
+  google.script.run.withSuccessHandler(r => {
+    if (!r) return;
+    wageRates = { partner: Number(r.partner) || 0, staff: Number(r.staff) || 0, partTime: Number(r.partTime) || 0 };
+    updateWageHints();
+  }).getWageRates();
+}
+
 function fillFormWithData(data) {
   // ✅ நாளிதழ் தொகைகள் renderNewspaperInputs(activeNewspapers, data) மூலம் தனியாக நிரப்பப்படும் (go() function-ல்)
 
@@ -1449,6 +1496,7 @@ function fillFormWithData(data) {
   document.getElementById('staffDays').value = data.staffDays || 0;
   document.getElementById('partTimeStaffName').value = data.partTimeStaffName || "";
   document.getElementById('partTimeStaffDays').value = data.partTimeStaffDays || 0;
+  updateWageHints();
   document.getElementById('electricityBill').value = data.electricityBill || 0;
   document.getElementById('rentOwnerName').value = data.rentOwnerName || "";
   document.getElementById('rentAmount').value = data.rentAmount || 0;
@@ -2321,6 +2369,8 @@ function go(n, title){
 
   if(n === 4){
 
+    loadWageRates();   // Admin உள்ளிட்ட நாள் கூலி விகிதங்கள்
+
     // ✅ 1. நடப்பு மாதம் / வருடம்
     const today = new Date();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -2360,7 +2410,7 @@ function go(n, title){
         document.getElementById('contingentErrorTop').style.display = 'none';
       }).getExistingContingentData(selectedLib, currentMonthYear);
 
-    }).getActiveNewspapersForLibrary(selectedLib);
+    }).getActiveNewspapersForLibrary(selectedLib, currentMonthYear);
   }
 
   if(n === 3){
@@ -3132,14 +3182,14 @@ function showContingentPreview() {
   let sDays = parseFloat(document.getElementById("staffDays").value) || 0;
   let ptDays = parseFloat(document.getElementById("partTimeStaffDays").value) || 0;
 
-  let pTotal = pDays * 75;
-  let sTotal = sDays * 300;
-  let ptTotal = ptDays * 100;
+  let pTotal = pDays * wageRates.partner;
+  let sTotal = sDays * wageRates.staff;
+  let ptTotal = ptDays * wageRates.partTime;
 
   let laborHtml = "";
-  if (pDays > 0) laborHtml += `<div class="preview-item"><span>தினக்கூலி கூட்டுநர் (${pDays} நாட்கள் x 75):</span> <b>₹${pTotal.toFixed(2)}</b></div>`;
-  if (sDays > 0) laborHtml += `<div class="preview-item"><span>தினக்கூலி நூலகர் (${sDays} நாட்கள் x 300):</span> <b>₹${sTotal.toFixed(2)}</b></div>`;
-  if (ptDays > 0) laborHtml += `<div class="preview-item"><span>பகுதிநேர நூலக தினக்கூலி பணியாளர் (${ptDays} நாட்கள் x 100):</span> <b>₹${ptTotal.toFixed(2)}</b></div>`;
+  if (pDays > 0) laborHtml += `<div class="preview-item"><span>தினக்கூலி கூட்டுநர் (${pDays} நாட்கள் x ${wageRates.partner}):</span> <b>₹${pTotal.toFixed(2)}</b></div>`;
+  if (sDays > 0) laborHtml += `<div class="preview-item"><span>தினக்கூலி நூலகர் (${sDays} நாட்கள் x ${wageRates.staff}):</span> <b>₹${sTotal.toFixed(2)}</b></div>`;
+  if (ptDays > 0) laborHtml += `<div class="preview-item"><span>பகுதிநேர நூலக தினக்கூலி பணியாளர் (${ptDays} நாட்கள் x ${wageRates.partTime}):</span> <b>₹${ptTotal.toFixed(2)}</b></div>`;
   
   if (laborHtml) {
     previewHtml += `<h4 style="color:#065f46; border-bottom:1px solid #065f46; margin-top:15px; margin-bottom:5px;">👩‍💻 தினக்கூலி</h4>` + laborHtml;
@@ -3399,7 +3449,7 @@ function checkNewsPaperPrice(inputElement, paperKey) {
   let label = inputElement.previousElementSibling;
 
   if (maxPrice !== undefined && enteredPrice > maxPrice) {
-    alert("எச்சரிக்கை: " + displayName + " அதிகபட்ச விலை ரூ. " + maxPrice + " மட்டுமே!");
+    alert("எச்சரிக்கை: " + displayName + " — இந்த மாதத்திற்கான அதிகபட்சத் தொகை ரூ. " + maxPrice + " மட்டுமே!");
     if (label) label.classList.add('error-blink');
   } else {
     if (label) label.classList.remove('error-blink');
@@ -3504,6 +3554,13 @@ function fetchWorkingDays() {
     dayLimits.leave = res.leaveTaken;
     dayLimits.totalWD = res.totalWD;
     workingPeriodText = res.period;
+    const info = document.getElementById('wdInfo');
+    if (info) {
+      info.innerHTML = '📅 <b>' + res.period + '</b>: வெள்ளி, இரண்டாம் சனி, அரசு விடுமுறை நீங்கலாகப் பணி நாட்கள் <b>' + res.totalWD + '</b>' +
+        (res.leaveTaken ? ' | விடுப்பு ' + res.leaveTaken + ' | நிகர பணி நாட்கள் <b>' + res.partnerLimit + '</b>' : '') +
+        '. பணிபுரிந்த நாட்களை உள்ளிட்டால் கூலி தானாகக் காட்டப்படும்.';
+      info.style.display = 'block';
+    }
     console.log("பணி நாட்கள் விவரம் பெறப்பட்டது:", dayLimits);
   }).getWorkingDaysCount(libName);
 }
@@ -3645,7 +3702,7 @@ function controlDailyWageStaffFields() {
   nameInput.readOnly = false;
   daysInput.readOnly = false;
   nameInput.placeholder = "பெயர் (Text)";
-  daysInput.value = "0";
+  daysInput.value = "0"; updateWageHints();
 
   google.script.run
     .withSuccessHandler(function(res) {
@@ -3686,7 +3743,7 @@ function disableDailyWageFields(nameInput, daysInput) {
   nameInput.readOnly = true;
   daysInput.readOnly = true;
   nameInput.value = "";
-  daysInput.value = "0";
+  daysInput.value = "0"; updateWageHints();
   nameInput.placeholder = "இந்த நூலகத்திற்கு தினக்கூலி அனுமதி இல்லை";
 
   // optional: label-ஐ மாற்றி தெளிவுபடுத்தலாம்

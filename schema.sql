@@ -22,6 +22,18 @@ CREATE TABLE IF NOT EXISTS newspapers (
 INSERT INTO newspapers(slot) SELECT g FROM generate_series(1,18) g
   ON CONFLICT (slot) DO NOTHING;
 
+-- நாள்வாரி விலை: திங்கள்–சனி விலை, ஞாயிறு விலை (max_rate பழைய மாத அதிகபட்சம்; இரண்டும் 0 எனில் மட்டும் பயன்படும்)
+ALTER TABLE newspapers ADD COLUMN IF NOT EXISTS weekday_rate NUMERIC(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE newspapers ADD COLUMN IF NOT EXISTS sunday_rate  NUMERIC(10,2) NOT NULL DEFAULT 0;
+
+-- சிறப்பு விலை நாட்கள் (தீபாவளி, பொங்கல் மலர் போன்றவை): ஒரு நாளிதழுக்கு பல தேதிகள்
+CREATE TABLE IF NOT EXISTS newspaper_special_prices (
+  slot         INT  NOT NULL CHECK (slot BETWEEN 1 AND 18),
+  special_date DATE NOT NULL,
+  price        NUMERIC(10,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (slot, special_date)
+);
+
 -- நூலகம் வாரியாக எந்த நாளிதழ் Active (LIBRARY NEWSPAPER MAP)
 CREATE TABLE IF NOT EXISTS library_newspaper_map (
   library_id INT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -34,6 +46,7 @@ CREATE TABLE IF NOT EXISTS library_newspaper_map (
 CREATE TABLE IF NOT EXISTS holidays (
   holiday_date DATE PRIMARY KEY
 );
+ALTER TABLE holidays ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS staff_leave_days (
   library_id INT PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE,
   leave_days NUMERIC(5,1) NOT NULL DEFAULT 0
@@ -48,6 +61,14 @@ CREATE TABLE IF NOT EXISTS rent (
 CREATE TABLE IF NOT EXISTS daily_wage_permission (
   library_id INT PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE
 );
+
+-- தினக்கூலி விகிதங்கள் (Admin உள்ளிடுவது). kind: staff = நூலகப் பணியாளர், partner = கூட்டுநர், part_time = பகுதி நேர
+CREATE TABLE IF NOT EXISTS wage_rates (
+  kind TEXT PRIMARY KEY,
+  rate NUMERIC(10,2) NOT NULL DEFAULT 0
+);
+INSERT INTO wage_rates(kind, rate) VALUES ('partner', 75), ('staff', 300), ('part_time', 100)
+  ON CONFLICT (kind) DO NOTHING;   -- இதுவரை code-ல் இருந்த தொகைகள்; Admin மாற்றலாம்
 
 -- மாதாந்திர contingent பதிவு. unique_key = நூலக குறியீடு + மாதம்/ஆண்டு (எ.கா. TNDPL00765012026)
 CREATE TABLE IF NOT EXISTS claims (
