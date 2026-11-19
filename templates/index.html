@@ -591,7 +591,8 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 </style>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <a href="/logout" title="வெளியேறு / பயனர் மாற்று" style="position:fixed;top:8px;right:10px;z-index:9999;background:#fff;border:1.5px solid #cbd5e1;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:#334155;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.15);">🚪 வெளியேறு</a>
@@ -3500,25 +3501,29 @@ const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:30px 48px;back
   '#vcPage .vc-dlo{text-align:right;font-weight:700;font-size:18px;font-family:Arial,sans-serif;margin-bottom:14px}' +
   '#vcPage .vc-foot{display:flex;gap:22px;font-weight:700;font-family:Arial,sans-serif}#vcPage .vc-foot div{flex:1}#vcPage .vc-foot i{display:block;border-bottom:1.5px solid #000;height:20px}';
 async function makeVoucherPdf(btn){
-  if (typeof html2pdf === 'undefined'){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
+  if (typeof html2canvas === 'undefined' || !window.jspdf){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
   const old = btn.innerHTML, scrollY0 = window.scrollY; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
   window.scrollTo(0, 0);
   const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
+  host.style.cssText = 'position:absolute;left:0;top:0;width:794px;z-index:-1;pointer-events:none;background:#fff;';
   host.innerHTML = vcBuildHtml();
   document.body.appendChild(host);
   try{
     try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch(e){}
     await Promise.all([...host.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    const page = host.querySelector('#vcPage');
+    const canvas = await html2canvas(page, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0,
+      width: 794, height: page.scrollHeight, windowWidth: 794
+    });
+    // A4 portrait — உள்ளடக்கம் எவ்வளவு இருந்தாலும் ஒரே பக்கத்தில் பொருந்தும்படி அளவு சரிசெய்யப்படும்
+    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4', orientation: 'portrait'});
+    const PW = 210, PH = 297;
+    let w = PW, h = canvas.height * PW / canvas.width;
+    if (h > PH){ w = canvas.width * PH / canvas.height; h = PH; }
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', (PW - w) / 2, 0, w, h);
     const my = (document.getElementById('monthYear').value || '').replace('/', '-');
-    await html2pdf().set({
-      margin: 0,
-      filename: 'Voucher_' + String(selectedLib).replace(/[\\/:*?"<>|\s]+/g, '_') + '_' + my + '.pdf',
-      image: {type: 'jpeg', quality: 0.98},
-      html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794, scrollX: 0, scrollY: 0},
-      jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
-      pagebreak: {mode: ['css', 'legacy'], avoid: ['tr']}
-    }).from(host.querySelector('#vcPage')).save();
+    pdf.save('Voucher_' + String(selectedLib).replace(/[\\/:*?"<>|\s]+/g, '_') + '_' + my + '.pdf');
   } catch(e){
     alert('வவுச்சர் உருவாக்க முடியவில்லை: ' + (e && e.message ? e.message : e));
   } finally {
