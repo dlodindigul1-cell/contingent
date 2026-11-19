@@ -550,6 +550,20 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 .section-row td,.premium-table th{background:var(--tn-navy)!important;color:#fff!important}
 .total-row{background:#fff6dc!important;border-top:2px solid var(--tn-gold)}
 .preview-card{border-top:4px solid var(--tn-gold);border-radius:6px}
+
+/* ===== செலவினப் பதிவு அட்டைகள் (படி 5/7, 6/7) ===== */
+.step-bar{height:8px;background:#e1e8f2;border-radius:6px;overflow:hidden;margin:6px 0 12px}
+.step-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--tn-gold),#e8b53a);border-radius:6px}
+.exp-note{font-size:14px;color:#475569;background:#fff8e6;border:1px solid #f0d58a;border-radius:6px;padding:8px 12px;margin:0 0 14px}
+.exp-card{background:#fff;border:1px solid var(--tn-line);border-left:5px solid var(--tn-blue);border-radius:8px;padding:12px 14px 14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(11,58,110,.08)}
+.exp-head{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--tn-navy);font-size:16px;margin-bottom:6px}
+.exp-ic{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;background:#eaf1fa;border-radius:50%;font-size:18px}
+.rupee{display:flex;align-items:stretch}
+.rupee span{display:flex;align-items:center;padding:0 12px;background:#eaf1fa;border:1px solid #b9c5d6;border-right:0;border-radius:4px 0 0 4px;font-weight:700;color:var(--tn-navy)}
+.rupee input{border-radius:0 4px 4px 0!important;margin:0!important}
+.exp-warn{margin-top:10px;background:#fdecea;border:1px solid #f5b5ae;color:#b3261e;border-radius:6px;padding:8px 12px;font-size:14px;font-weight:600}
+.nav-row{display:flex;gap:10px;margin-top:8px}.nav-row button{flex:1;margin:0!important}
+@media(max-width:480px){.nav-row{flex-direction:column-reverse}}
 @media(max-width:560px){.container,#stage5{margin:10px 8px!important}}
 </style>
 
@@ -872,73 +886,82 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     <!-- ==================== stage4E: அஞ்சல் முதல் நுகர்பொருள் வரை ==================== -->
 <div id="stage4E" class="sub-stage" style="display:none;">
     <h4>படி 5/7: ✉️ அஞ்சல் முதல் நுகர்பொருள் வரை</h4>
-    
-    <!-- Error display -->
+    <div class="step-bar"><i style="width:71%"></i></div>
+    <p class="exp-note">விவரத்தை <b>எழுத்துகளில்</b> உள்ளிட்ட பின்னரே அதற்கான தொகையை உள்ளிட முடியும்.</p>
     <div id="stage4EError" class="error" style="display:none; margin:12px 0; padding:10px 14px;"></div>
 
-    <div style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <label>அஞ்சல் அனுப்பிய செலவினம் (₹)</label>
-        <input type="number" id="postalAmount" min="0" value="0">
-        
-        <label>வாங்கிய பதிவேடு (விவரம்)</label>
-        <input type="text" id="registerItem" placeholder="எ.கா. வரவு பதிவேடு">
-        
-        <label>பதிவேடு தொகை (₹)</label>
-        <input type="number" id="registerAmount" min="0" value="0">
-        
-        <label>வாங்கிய எழுதுபொருள் (விவரம்)</label>
-        <input type="text" id="stationeryItem" placeholder="எ.கா. பேனா, நோட்டு">
-        
-        <label>எழுதுபொருள் தொகை (₹)</label>
-        <input type="number" id="stationeryAmount" min="0" value="0">
-        
-        <label>வாங்கிய மின்சாதனம் (விவரம்)</label>
-        <input type="text" id="electricalItem" placeholder="எ.கா. பல்பு">
-        
-        <label>மின்சாதன தொகை (₹)</label>
-        <input type="number" id="electricalAmount" min="0" value="0">
-        
-        <label>வாங்கிய நுகர்பொருள் (விவரம்)</label>
-        <input type="text" id="consumerItem" placeholder="எ.கா. சோப்பு">
-        
-        <label>நுகர்பொருள் தொகை (₹)</label>
-        <input type="number" id="consumerAmount" min="0" value="0">
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">✉️</span><span>அஞ்சல்</span></div>
+          <label for="postalAmount">அஞ்சல் அனுப்பிய செலவினம் (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="postalAmount" min="0" value="0"></div>
+        </div>
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">📒</span><span>பதிவேடு</span></div>
+          <label for="registerItem">வாங்கிய பதிவேடு (விவரம்)</label>
+          <input type="text" id="registerItem" placeholder="எ.கா. வரவு பதிவேடு" autocomplete="off">
+          <label for="registerAmount">பதிவேடு தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="registerAmount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">✏️</span><span>எழுதுபொருள்</span></div>
+          <label for="stationeryItem">வாங்கிய எழுதுபொருள் (விவரம்)</label>
+          <input type="text" id="stationeryItem" placeholder="எ.கா. பேனா, நோட்டு" autocomplete="off">
+          <label for="stationeryAmount">எழுதுபொருள் தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="stationeryAmount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">💡</span><span>மின்சாதனம்</span></div>
+          <label for="electricalItem">வாங்கிய மின்சாதனம் (விவரம்)</label>
+          <input type="text" id="electricalItem" placeholder="எ.கா. பல்பு" autocomplete="off">
+          <label for="electricalAmount">மின்சாதன தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="electricalAmount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">🧴</span><span>நுகர்பொருள்</span></div>
+          <label for="consumerItem">வாங்கிய நுகர்பொருள் (விவரம்)</label>
+          <input type="text" id="consumerItem" placeholder="எ.கா. சோப்பு" autocomplete="off">
+          <label for="consumerAmount">நுகர்பொருள் தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="consumerAmount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
+
+    <div class="nav-row">
+      <button type="button" onclick="prevStage('4D')" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" onclick="validateAndNextFrom4E()">அடுத்து (பிற செலவினங்கள்) →</button>
     </div>
-    
-    <button type="button" onclick="validateAndNextFrom4E()">அடுத்து(பிற செலவினங்கள்) →</button>
-    <button type="button" onclick="prevStage('4D')" class="back-btn">⬅️ முன் பக்கம்</button>
 </div>
-       
 
     <!-- ==================== stage4F: பிற செலவினங்கள் ==================== -->
 <div id="stage4F" class="sub-stage" style="display:none;">
     <h4>படி 6/7: 📌 பிற செலவினங்கள்</h4>
-    
-    <!-- Error display பகுதி -->
+    <div class="step-bar"><i style="width:86%"></i></div>
+    <p class="exp-note">பிற செலவினம் இருந்தால் மட்டும் பூர்த்தி செய்யவும். விவரத்தை <b>எழுத்துகளில்</b> உள்ளிட்ட பின்னரே தொகை உள்ளிடலாம்.</p>
     <div id="stage4FError" class="error" style="display:none; margin:12px 0; padding:10px 14px;"></div>
-
-    <div id="otherExpensesSection" style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h5>பிற செலவினங்கள் - 1</h5>
-        <label>பிற செலவினம் என்ன?</label>
-        <input type="text" id="otherExpense1Desc" placeholder="விவரம்">
-        
-        <label>தொகை (₹)</label>
-        <input type="number" id="otherExpense1Amount" min="0" value="0">
-        
-        <hr>
-        
-        <h5>பிற செலவினங்கள் - 2</h5>
-        <label>பிற செலவினம் என்ன?</label>
-        <input type="text" id="otherExpense2Desc" placeholder="விவரம்">
-        
-        <label>தொகை (₹)</label>
-        <input type="number" id="otherExpense2Amount" min="0" value="0">
+    <div id="otherExpensesSection">
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">📌</span><span>பிற செலவினங்கள் - 1</span></div>
+          <label for="otherExpense1Desc">பிற செலவினம் என்ன?</label>
+          <input type="text" id="otherExpense1Desc" placeholder="விவரம்" autocomplete="off">
+          <label for="otherExpense1Amount">தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="otherExpense1Amount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
+        <div class="exp-card">
+          <div class="exp-head"><span class="exp-ic">📌</span><span>பிற செலவினங்கள் - 2</span></div>
+          <label for="otherExpense2Desc">பிற செலவினம் என்ன?</label>
+          <input type="text" id="otherExpense2Desc" placeholder="விவரம்" autocomplete="off">
+          <label for="otherExpense2Amount">தொகை (₹)</label>
+          <div class="rupee"><span>₹</span><input type="number" id="otherExpense2Amount" min="0" value="0"></div>
+          <div class="exp-warn" style="display:none"></div>
+        </div>
     </div>
-   
-    <div style="text-align:center; margin-top:15px;">   <button type="button" onclick="showContingentPreview()">    ✅ விவரங்களைச் சரிபார்த்து பதிவு செய்ய
-  </button>
-</div>
-    
+    <div class="nav-row">
+      <button type="button" onclick="prevStage('4E')" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" onclick="showContingentPreview()" style="background:linear-gradient(180deg,#1b9a4b,#12733a)!important;">✅ சரிபார்த்து பதிவு செய்ய</button>
+    </div>
 </div>
 
      <!-- ==================== stage4G: முடிவு பக்கம் (தற்போதைய stage4C-ஐ இங்கு மாற்றவும்) ==================== -->
@@ -2731,101 +2754,60 @@ function validateAndNextFrom4D() {
 
     nextStage(4, '4E');
 }
-function validateAndNextFrom4E() {
-    const fields = {
-        registerItem:    document.getElementById('registerItem'),
-        registerAmount:  document.getElementById('registerAmount'),
-        stationeryItem:  document.getElementById('stationeryItem'),
-        stationeryAmount: document.getElementById('stationeryAmount'),
-        electricalItem:  document.getElementById('electricalItem'),
-        electricalAmount: document.getElementById('electricalAmount'),
-        consumerItem:    document.getElementById('consumerItem'),
-        consumerAmount:  document.getElementById('consumerAmount')
-    };
-
-    // அவசியமான புலங்கள் இல்லையெனில் function-ஐ நிறுத்து (defensive)
-    if (!fields.registerAmount || !fields.consumerAmount) return;
-
-    const registerItemVal    = fields.registerItem.value.trim();
-    const registerAmountVal  = parseInt(fields.registerAmount.value) || 0;
-    
-    const stationeryItemVal  = fields.stationeryItem.value.trim();
-    const stationeryAmountVal = parseInt(fields.stationeryAmount.value) || 0;
-    
-    const electricalItemVal  = fields.electricalItem.value.trim();
-    const electricalAmountVal = parseInt(fields.electricalAmount.value) || 0;
-    
-    const consumerItemVal    = fields.consumerItem.value.trim();
-    const consumerAmountVal  = parseInt(fields.consumerAmount.value) || 0;
-
-    const errorDiv = document.getElementById('stage4EError');
-    if (errorDiv) {
-        errorDiv.style.display = 'none';
-        errorDiv.textContent = '';
-    }
-
-    let errors = [];
-
-    // பதிவேடு
-    if (registerAmountVal > 0 && !registerItemVal) {
-        errors.push("பதிவேடு தொகை உள்ளிடப்பட்டுள்ளது. 'வாங்கிய பதிவேடு (விவரம்)' பூர்த்தி செய்யவும்.");
-        fields.registerItem.style.borderColor = '#e74c3c';
-        fields.registerItem.style.boxShadow = '0 0 0 3px rgba(231,76,60,0.2)';
-    }
-
-    // எழுதுபொருள்
-    if (stationeryAmountVal > 0 && !stationeryItemVal) {
-        errors.push("எழுதுபொருள் தொகை உள்ளிடப்பட்டுள்ளது. 'வாங்கிய எழுதுபொருள் (விவரம்)' பூர்த்தி செய்யவும்.");
-        fields.stationeryItem.style.borderColor = '#e74c3c';
-        fields.stationeryItem.style.boxShadow = '0 0 0 3px rgba(231,76,60,0.2)';
-    }
-
-    // மின்சாதனம்
-    if (electricalAmountVal > 0 && !electricalItemVal) {
-        errors.push("மின்சாதன தொகை உள்ளிடப்பட்டுள்ளது. 'வாங்கிய மின்சாதனம் (விவரம்)' பூர்த்தி செய்யவும்.");
-        fields.electricalItem.style.borderColor = '#e74c3c';
-        fields.electricalItem.style.boxShadow = '0 0 0 3px rgba(231,76,60,0.2)';
-    }
-
-    // நுகர்பொருள்
-    if (consumerAmountVal > 0 && !consumerItemVal) {
-        errors.push("நுகர்பொருள் தொகை உள்ளிடப்பட்டுள்ளது. 'வாங்கிய நுகர்பொருள் (விவரம்)' பூர்த்தி செய்யவும்.");
-        fields.consumerItem.style.borderColor = '#e74c3c';
-        fields.consumerItem.style.boxShadow = '0 0 0 3px rgba(231,76,60,0.2)';
-    }
-
-    // பிழை இருந்தால்
-    if (errors.length > 0) {
-        if (errorDiv) {
-            errorDiv.textContent = errors.join("\n");
-            errorDiv.style.display = 'block';
-            
-            const stage4E = document.getElementById('stage4E');
-            if (stage4E) {
-                window.scrollTo({
-                    top: stage4E.offsetTop - 140,
-                    behavior: 'smooth'
-                });
-            }
-        } else {
-            alert(errors.join("\n"));
-        }
-        return;
-    }
-
-    // எல்லாம் சரி → border reset செய்யலாம் (optional)
-    [
-        fields.registerItem, fields.stationeryItem,
-        fields.electricalItem, fields.consumerItem
-    ].forEach(el => {
-        if (el) {
-            el.style.borderColor = '';
-            el.style.boxShadow = 'none';
-        }
-    });
-
-    nextStage(4, '4F');
+const EXP_PAIRS = {
+  '4E': [['registerItem','registerAmount','பதிவேடு'],['stationeryItem','stationeryAmount','எழுதுபொருள்'],
+         ['electricalItem','electricalAmount','மின்சாதனம்'],['consumerItem','consumerAmount','நுகர்பொருள்']],
+  '4F': [['otherExpense1Desc','otherExpense1Amount','பிற செலவினம் - 1'],['otherExpense2Desc','otherExpense2Amount','பிற செலவினம் - 2']]
+};
+// விவரம் = குறைந்தது ஒரு எழுத்தாவது இருக்க வேண்டும் (எண்கள் / குறியீடுகள் மட்டும் ஏற்கப்படாது)
+function expDescState(v){ v = (v || '').trim(); if (!v) return 'empty'; return /\p{L}/u.test(v) ? 'ok' : 'numeric'; }
+function expWarn(el, msg){
+  const box = el.closest('.exp-card').querySelector('.exp-warn');
+  if (!box) return;
+  box.textContent = msg || ''; box.style.display = msg ? 'block' : 'none';
 }
+function expMark(el, bad){ el.style.borderColor = bad ? '#e74c3c' : ''; el.style.boxShadow = bad ? '0 0 0 3px rgba(231,76,60,0.2)' : 'none'; }
+function expCheckPair(pair, strict){
+  const d = document.getElementById(pair[0]), a = document.getElementById(pair[1]);
+  if (!d || !a) return null;
+  const st = expDescState(d.value), amt = parseFloat(a.value) || 0;
+  let msg = null;
+  if (st === 'numeric') msg = '⚠️ "' + pair[2] + '" விவரத்தை எழுத்துகளில் உள்ளிடவும் (எண்கள் மட்டும் கூடாது).';
+  else if (st === 'empty' && amt > 0) msg = '⚠️ முதலில் "' + pair[2] + '" விவரத்தை எழுத்துகளில் பதிவு செய்யவும்; பிறகே தொகையை உள்ளிடவும்.';
+  expMark(d, !!msg);
+  expWarn(d, msg);
+  return msg ? msg.replace('⚠️ ', '') : null;
+}
+function expValidateStage(stage){
+  const errs = EXP_PAIRS[stage].map(p => expCheckPair(p)).filter(Boolean);
+  const box = document.getElementById('stage' + stage + 'Error');
+  if (box){ box.textContent = errs.join('\n'); box.style.display = errs.length ? 'block' : 'none'; }
+  if (errs.length){
+    const first = EXP_PAIRS[stage].map(p => document.getElementById(p[0])).find(el => el.style.borderColor);
+    if (first) first.scrollIntoView({behavior: 'smooth', block: 'center'});
+  }
+  return errs.length === 0;
+}
+function validateAndNextFrom4E() {
+  if (!expValidateStage('4E')) return;
+  nextStage(4, '4F');
+}
+function expValidateAll(){
+  if (!expValidateStage('4E')) { showSubStage('4E'); return false; }
+  if (!expValidateStage('4F')) { showSubStage('4F'); return false; }
+  return true;
+}
+// நேரடி எச்சரிக்கை: விவரம் இல்லாமல் தொகை உள்ளிட முயன்றால் / விவரம் எண்களாக இருந்தால்
+document.addEventListener('DOMContentLoaded', function(){
+  Object.values(EXP_PAIRS).flat().forEach(pair => {
+    const d = document.getElementById(pair[0]), a = document.getElementById(pair[1]);
+    if (!d || !a) return;
+    a.addEventListener('focus', () => { if (expDescState(d.value) !== 'ok'){ expCheckPair(pair); if (expDescState(d.value) === 'empty') { a.value = 0; a.blur(); d.focus(); } } });
+    a.addEventListener('input', () => { if (expDescState(d.value) !== 'ok' && (parseFloat(a.value) || 0) > 0){ expCheckPair(pair); a.value = 0; d.focus(); } });
+    d.addEventListener('blur', () => { if (expDescState(d.value) === 'numeric') expCheckPair(pair); });
+    d.addEventListener('input', () => { if (expDescState(d.value) === 'ok'){ expMark(d, false); expWarn(d, ''); } });
+  });
+});
 document.addEventListener('DOMContentLoaded', function() {
     const descFields = [
         'rentOwnerName',
@@ -3186,6 +3168,7 @@ function calculateRemainingAmount() {
 }
 
 function showContingentPreview() {
+  if (!expValidateAll()) return;
   let previewHtml = "";
   let totalExpense = 0;
 
