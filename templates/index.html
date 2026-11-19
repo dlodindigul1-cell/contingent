@@ -558,7 +558,8 @@ button.loading {
     <label>நூலக வகையைத் தேர்ந்தெடுங்கள்</label>
     <select id="typeSelect" onchange="loadLibraries();handleLibraryTypeUI();"></select>
  
-    <div id="librariesDiv" style="margin-top:20px;"></div> 
+    <div id="librariesDiv" style="margin-top:20px;"></div>
+    <div id="msg0" class="error" style="margin-top:12px;"></div>
     </div>
 
     <div id="stage1" class="stage">
@@ -1704,7 +1705,12 @@ window.onload = function() {
 
 
 // வகை தேர்ந்தெடுத்தவுடன் அந்த வகை சார்ந்த நூலகங்களைப் பட்டியலிட
+function escHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function loadLibraries() {
+  document.getElementById("msg0").textContent = "";
   const type = document.getElementById("typeSelect").value;
   const div = document.getElementById("librariesDiv");
   
@@ -1732,7 +1738,7 @@ function loadLibraries() {
         <label style="display:block; margin-top:15px; font-weight:bold;">தயவுசெய்து உங்கள் நூலகத்தைத் தேர்ந்தெடுங்கள்</label>
         <select id="libSelect" style="width:100%; padding:10px; margin-top:5px; border-radius:8px;">
           <option value="">-- நூலகத்தைத் தேர்வு செய்க --</option>
-          ${libraries.map(lib => `<option value="${lib}">${lib}</option>`).join('')}
+          ${libraries.map(lib => `<option value="${escHtml(lib)}">${escHtml(lib)}</option>`).join('')}
         </select>
        <button id="nextBtn"
         onclick="selectLibrary()"
@@ -1756,12 +1762,21 @@ function loadLibraries() {
 
 function selectLibrary(){
   selectedLib = document.getElementById('libSelect').value;
+  const msg0 = document.getElementById('msg0');
+  msg0.textContent = '';
+  if (!selectedLib) {
+    msg0.textContent = 'நூலகத்தைத் தேர்ந்தெடுக்கவும்';
+    return;
+  }
   document.getElementById('libNameDisplay').textContent = selectedLib;
   showButtonSpinner();   
-  google.script.run.withSuccessHandler(res => {
+  google.script.run.withFailureHandler(err => {
+    hideButtonSpinner();
+    msg0.textContent = 'சர்வர் பிழை: ' + ((err && err.message) || 'மீண்டும் முயற்சிக்கவும்');
+  }).withSuccessHandler(res => {
     hideButtonSpinner(); 
     if(!res.success){
-      document.getElementById('msg').textContent = res.message;
+      msg0.textContent = res.message;
       return;
     }
 
@@ -1770,18 +1785,25 @@ function selectLibrary(){
     document.getElementById('libNameDisplay').textContent = res.library;
 
     let emailHTML = '';
-    if(res.emails.length > 1){
+    if(res.emails.length === 0){
+  emailHTML = `
+    <div class="single-email-box">
+      <span>மின்னஞ்சல் பதிவில் இல்லை</span>
+    </div>
+    <button onclick="confirmEmail()">தொடரவும்</button>
+  `;
+}else if(res.emails.length > 1){
   emailHTML = `
     <label>மின்னஞ்சலைத் தேர்வு செய்யவும்</label>
     <select id="emailSel">
-      ${res.emails.map(e => `<option>${e}</option>`).join('')}
+      ${res.emails.map(e => `<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('')}
     </select>
     <button onclick="confirmEmail()">உறுதி செய்யவும்</button>
   `;
 }else{
   emailHTML = `
     <div class="single-email-box">
-      <span>${res.emails[0]}</span>
+      <span>${escHtml(res.emails[0])}</span>
     </div>
     <button onclick="confirmEmail()">உறுதி செய்யவும்</button>
   `;
@@ -1802,7 +1824,7 @@ function confirmEmail(){
       return;
     }
   } else {
-    email = selectedEmails[0];
+    email = selectedEmails[0] || "";
   }
 
   // ✅ Login success

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>நிர்வாகம் — மாவட்ட நூலக அலுவலகம், திண்டுக்கல்</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#12306b; --blue:#1f5fae; --sky:#e8eff9; --paper:#f4f6fa; --white:#fff;
+  --saffron:#e39a13; --ink:#1b2433; --muted:#566178; --line:#d3dae6;
+  --ok:#1e7d46; --okbg:#e6f4ec; --bad:#b3261e; --badbg:#fceceb; --warn:#8a5a00; --warnbg:#fff4d6;
+  --r:4px;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:12px}
+body{margin:0;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;color:var(--ink);background:var(--paper);line-height:1.65;font-size:16px}
+a{color:var(--blue)}
+:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+
+/* ---- மேல் அரசு பட்டை ---- */
+.govbar{background:var(--navy);color:#dbe6f7;font-size:13px}
+.govbar .in{max-width:1240px;margin:0 auto;padding:5px 20px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.masthead{background:var(--white);border-bottom:4px solid var(--saffron)}
+.masthead .in{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:18px}
+.masthead img{height:72px;width:auto;flex:none}
+.masthead .t{flex:1;text-align:center}
+.masthead h1{margin:0;font-size:26px;font-weight:700;color:var(--navy);line-height:1.3}
+.masthead p{margin:2px 0 0;font-size:16px;color:var(--muted);font-weight:500}
+.who{flex:none;text-align:right;font-size:14px}
+.who b{display:block;color:var(--navy)}
+.who a{display:inline-block;margin-top:4px;padding:4px 14px;border:1px solid var(--navy);border-radius:var(--r);color:var(--navy);text-decoration:none;font-weight:600}
+.who a:hover{background:var(--navy);color:#fff}
+
+/* ---- அமைப்பு ---- */
+.shell{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:292px 1fr;gap:0;align-items:start}
+nav.side{background:var(--white);border:1px solid var(--line);border-top:0;position:sticky;top:0}
+nav.side h2{margin:0;padding:12px 16px;background:var(--blue);color:#fff;font-size:16px;font-weight:600}
+nav.side a{display:flex;gap:10px;align-items:flex-start;padding:11px 16px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:15px;line-height:1.45}
+nav.side a .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--sky);color:var(--navy);font-weight:700;font-size:13px;display:grid;place-items:center;margin-top:1px}
+nav.side a:hover{background:var(--sky)}
+nav.side a.on{background:var(--sky);border-left:5px solid var(--saffron);padding-left:11px;font-weight:600;color:var(--navy)}
+nav.side a.on .n{background:var(--navy);color:#fff}
+nav.side a small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
+nav.side .grp{padding:8px 16px;background:var(--paper);font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
+main{padding:22px 24px 40px;min-width:0}
+.crumb{font-size:14px;color:var(--muted);margin:0 0 6px}
+main h2.pt{margin:0 0 4px;font-size:24px;color:var(--navy);font-weight:700;border-bottom:2px solid var(--line);padding-bottom:10px}
+.lead{margin:10px 0 18px;color:var(--muted);max-width:70ch}
+.panel{background:var(--white);border:1px solid var(--line);border-radius:var(--r);margin-bottom:18px}
+.panel>h3{margin:0;padding:10px 16px;background:var(--sky);border-bottom:1px solid var(--line);font-size:17px;color:var(--navy);font-weight:600}
+.panel .bd{padding:16px}
+section.view{display:none}
+section.view.on{display:block}
+
+/* ---- முகப்பு எண்ணிக்கைகள் ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.stat{background:var(--white);border:1px solid var(--line);border-top:4px solid var(--blue);padding:14px 16px}
+.stat .v{font-size:32px;font-weight:700;color:var(--navy);line-height:1.2}
+.stat .l{font-size:14px;color:var(--muted)}
+.stat.s2{border-top-color:var(--saffron)}.stat.s3{border-top-color:var(--ok)}
+
+/* ---- பணிப் பட்டியல் ---- */
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--sky);color:var(--navy);font-weight:600}
+tbody tr:nth-child(even){background:#fafbfd}
+.tw{overflow-x:auto;max-height:460px;overflow-y:auto}
+.tag{display:inline-block;padding:1px 10px;border-radius:12px;font-size:13px;font-weight:600}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.later{background:var(--warnbg);color:var(--warn)}
+
+/* ---- படிவக் கூறுகள் ---- */
+label{display:block;font-weight:600;margin:0 0 4px}
+input[type=text],input[type=number],input[type=search],select{width:100%;padding:9px 11px;border:1px solid #9aa7bd;border-radius:var(--r);font:inherit;background:#fff}
+input[type=file]{width:100%;padding:8px;border:1px dashed #7d8aa3;border-radius:var(--r);background:var(--paper);font:inherit;font-size:15px}
+.btn{display:inline-block;padding:9px 20px;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:var(--r);font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{background:#0d2452}
+.btn.alt{background:#fff;color:var(--navy)}.btn.alt:hover{background:var(--sky)}
+.btn.go{background:var(--ok);border-color:var(--ok)}.btn.go:hover{background:#176237}
+.btn:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+.steps>li{counter-increment:s;position:relative;padding:0 0 18px 44px;margin:0}
+.steps>li:before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;display:grid;place-items:center}
+.steps>li:not(:last-child):after{content:"";position:absolute;left:14px;top:34px;bottom:4px;width:2px;background:var(--line)}
+.steps h4{margin:0 0 4px;font-size:16px;color:var(--navy)}
+.steps p{margin:0 0 8px;color:var(--muted);font-size:15px}
+.msg{margin-top:10px;padding:10px 14px;border-radius:var(--r);border:1px solid;white-space:pre-wrap;font-size:15px}
+.msg.ok{background:var(--okbg);border-color:#9fd2b3;color:#14582f}
+.msg.bad{background:var(--badbg);border-color:#e6a6a2;color:var(--bad)}
+.msg.warn{background:var(--warnbg);border-color:#e6c36a;color:var(--warn)}
+.msg.info{background:var(--sky);border-color:#b7c9e6;color:var(--navy)}
+code{background:var(--sky);padding:1px 6px;border-radius:3px;font-size:14px}
+.later-box{padding:26px 18px;text-align:center;color:var(--warn);background:var(--warnbg);border:1px dashed #d9b04a;border-radius:var(--r)}
+.later-box b{display:block;font-size:18px;margin-bottom:4px}
+
+/* ---- நாளிதழ் ---- */
+.ngrid{display:grid;grid-template-columns:44px 1fr 130px;gap:8px;align-items:center;margin-bottom:6px}
+.ngrid.h{font-weight:600;color:var(--navy);font-size:14px}
+.chk{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.chk label{display:flex;gap:10px;align-items:center;font-weight:500;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r);margin:0;cursor:pointer;background:#fff}
+.chk label:has(input:checked){background:var(--okbg);border-color:#9fd2b3}
+.chk input{width:18px;height:18px;accent-color:var(--ok)}
+
+footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+
+/* ---- கைபேசி ---- */
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  nav.side{position:static;display:flex;overflow-x:auto;border:0;border-bottom:1px solid var(--line)}
+  nav.side h2,nav.side .grp{display:none}
+  nav.side a{flex:none;border-bottom:0;border-right:1px solid var(--line);white-space:nowrap;align-items:center}
+  nav.side a small{display:none}
+  nav.side a.on{border-left:0;padding-left:16px;border-bottom:4px solid var(--saffron)}
+  main{padding:16px 14px 30px}
+  .masthead img{height:46px}.masthead h1{font-size:19px}.masthead p{font-size:13px}
+  .who{display:none}
+  .ngrid{grid-template-columns:34px 1fr 90px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="govbar"><div class="in"><span>தமிழ்நாடு அரசு — பொது நூலகத் துறை</span><span>நிர்வாகப் பக்கம்</span></div></div>
+<header class="masthead"><div class="in">
+  <img src="https://drive.google.com/thumbnail?id=1AwZy-uxszelJlyda0Kfvv4_CVgEUBayX&sz=w160" alt="நூலகத் துறை சின்னம்" onerror="this.style.display='none'">
+  <div class="t">
+    <h1>மாவட்ட நூலக அலுவலகம்</h1>
+    <p>திண்டுக்கல் மாவட்டம் — சில்லறைச் செலவினம் மற்றும் வரவினங்கள் மேலாண்மை</p>
+  </div>
+  <img src="https://drive.google.com/thumbnail?id=18TDopjRYV_uiSQxxM861-hgQiKoBP_Ap&sz=w160" alt="தமிழ்நாடு அரசு சின்னம்" onerror="this.style.display='none'">
+  <div class="who"><b>நிர்வாகி</b><a href="/logout">வெளியேறு</a></div>
+</div></header>
+
+<div class="shell">
+<nav class="side" id="nav" aria-label="நிர்வாக மெனு">
+  <h2>நிர்வாக மெனு</h2>
+  <a href="#home" data-v="home"><span class="n">⌂</span><span>முகப்பு</span></a>
+  <div class="grp">தரவு ஏற்றம் (CSV)</div>
+  <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலகங்கள் பெயர் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
+  <a href="#leave" data-v="leave"><span class="n">2</span><span>நூலகர் விடுப்பு விவரம் ஏற்று</span></a>
+  <a href="#permission" data-v="permission"><span class="n">3</span><span>தினக்கூலி பணியாளர் அனுமதி</span></a>
+  <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</span></a>
+  <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</span></a>
+  <div class="grp">நாளிதழ் மேலாண்மை</div>
+  <a href="#newspapers" data-v="newspapers"><span class="n">6</span><span>நாளிதழ் விவரம்</span></a>
+  <a href="#newsmap" data-v="newsmap"><span class="n">7</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</span></a>
+</nav>
+
+<main id="main" tabindex="-1">
+
+<!-- ================= முகப்பு ================= -->
+<section class="view" id="v-home">
+  <p class="crumb">நிர்வாகம் › முகப்பு</p>
+  <h2 class="pt">நிர்வாக முகப்பு</h2>
+  <p class="lead">நூலகங்களின் அடிப்படைத் தரவை இங்கே ஏற்றியபின், நூலகர்கள் தங்கள் நூலகத்தைத் தேர்ந்தெடுத்து உள்நுழையலாம்.</p>
+  <div class="stats" id="stats">
+    <div class="stat"><div class="v" id="stLib">–</div><div class="l">பதிவான நூலகங்கள்</div></div>
+    <div class="stat s2"><div class="v" id="stMail">–</div><div class="l">மின்னஞ்சல் உள்ள நூலகங்கள்</div></div>
+    <div class="stat s3"><div class="v" id="stNews">–</div><div class="l">நாளிதழ்கள் (பெயருடன்)</div></div>
+  </div>
+  <div id="homeMsg"></div>
+  <div class="panel"><h3>வகை வாரியாக நூலகங்கள்</h3><div class="bd" id="typeTable"><span class="lead">ஏற்றப்படுகிறது…</span></div></div>
+  <div class="panel"><h3>பணிகளின் நிலை</h3><div class="bd tw" style="max-height:none">
+    <table>
+      <thead><tr><th style="width:60px">எண்</th><th>பணி</th><th style="width:130px">நிலை</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><a href="#libraries">நூலகங்கள் பெயர் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>2</td><td><a href="#leave">நூலகர் விடுப்பு விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>3</td><td><a href="#permission">தினக்கூலி பணியாளர் அனுமதி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>4</td><td>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</td><td><span class="tag later">பின்னர்</span></td></tr>
+        <tr><td>5</td><td>தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</td><td><span class="tag later">பின்னர்</span></td></tr>
+        <tr><td>6</td><td><a href="#newspapers">நாளிதழ் விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>7</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+      </tbody>
+    </table>
+  </div></div>
+</section>
+
+<!-- ================= 1. நூலகங்கள் ================= -->
+<section class="view" id="v-libraries">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › நூலகங்கள் பெயர்</p>
+  <h2 class="pt">1. நூலகங்கள் பெயர் ஏற்று</h2>
+  <p class="lead">நூலகப் பட்டியல் CSV-ஐ ஏற்றியவுடன் நூலகர் உள்நுழைவுப் பக்கத்தில் நூலகங்களின் பெயர்கள் காட்டப்படும். மீண்டும் ஏற்றினால் பழைய பதிவுகள் புதுப்பிக்கப்படும்; நகல் உருவாகாது.</p>
+
+  <div class="panel"><h3>ஏற்றும் படிகள்</h3><div class="bd">
+    <ol class="steps">
+      <li><h4>Database அட்டவணைகளை உருவாக்குக (முதல் முறை மட்டும்)</h4>
+        <p>ஏற்கனவே உருவாக்கியிருந்தால் இந்தப் படியைத் தவிர்க்கலாம்; மீண்டும் அழுத்தினாலும் தரவு அழியாது.</p>
+        <button class="btn alt" id="btnSchema">அட்டவணைகளை உருவாக்கு</button>
+        <div id="msgSchema"></div></li>
+      <li><h4>CSV கோப்பைத் தேர்ந்தெடுத்து ஏற்றுக</h4>
+        <p>நெடுவரிசைகள்: <code>A நூலகப் பெயர்</code> <code>B நூலகக் குறியீடு</code> <code>C மின்னஞ்சல்</code> <code>D நூலக வகை</code>. முதல் வரி தலைப்பு வரி; அது தவிர்க்கப்படும். <a href="/admin/template/libraries.csv">மாதிரி CSV பதிவிறக்கு</a></p>
+        <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_libraries" accept=".csv,text/csv" aria-label="நூலகப் பட்டியல் CSV"></div>
+        <button class="btn go" id="b_libraries">CSV ஏற்று</button></div>
+        <div id="m_libraries"></div></li>
+      <li><h4>ஏற்றிய நூலகங்களைச் சரிபார்க்கவும்</h4>
+        <p>கீழே பட்டியல் தானாகப் புதுப்பிக்கப்படும். வகை எழுத்துப்பிழை இருந்தால் அது தனி வகையாகத் தெரியும்.</p></li>
+    </ol>
+  </div></div>
+
+  <div class="panel"><h3>ஏற்றப்பட்ட நூலகங்கள் <span id="libCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
+    <div class="row" style="margin-bottom:10px"><div style="flex:1 1 260px"><input type="search" id="libSearch" placeholder="பெயர் / குறியீடு / வகை மூலம் தேடுக" aria-label="நூலகம் தேடுக"></div></div>
+    <div class="tw"><table><thead><tr><th style="width:56px">வ.எ.</th><th>நூலகப் பெயர்</th><th>குறியீடு</th><th>நூலக வகை</th><th>மின்னஞ்சல்</th></tr></thead>
+    <tbody id="libBody"><tr><td colspan="5">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+  </div></div>
+</section>
+
+<!-- ================= 2. விடுப்பு ================= -->
+<section class="view" id="v-leave">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › விடுப்பு</p>
+  <h2 class="pt">2. நூலகர் விடுப்பு விவரம் ஏற்று</h2>
+  <p class="lead">முதலில் நூலகப் பட்டியலை ஏற்றியிருக்க வேண்டும். முதல் இரண்டு வரிகள் தலைப்பாகத் தவிர்க்கப்படும்: A நூலகப் பெயர், B விடுப்பு நாட்கள்.</p>
+  <div class="panel"><h3>CSV ஏற்றம்</h3><div class="bd">
+    <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_leave" accept=".csv,text/csv" aria-label="விடுப்பு CSV"></div><button class="btn go" id="b_leave">CSV ஏற்று</button></div>
+    <div id="m_leave"></div></div></div>
+</section>
+
+<!-- ================= 3. தினக்கூலி அனுமதி ================= -->
+<section class="view" id="v-permission">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › தினக்கூலி அனுமதி</p>
+  <h2 class="pt">3. தினக்கூலி பணியாளர் அனுமதி</h2>
+  <p class="lead">தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்களின் பெயர்கள் (A நெடுவரிசை). முதல் வரி தலைப்பு.</p>
+  <div class="panel"><h3>CSV ஏற்றம்</h3><div class="bd">
+    <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_dailywage" accept=".csv,text/csv" aria-label="தினக்கூலி அனுமதி CSV"></div><button class="btn go" id="b_dailywage">CSV ஏற்று</button></div>
+    <div id="m_dailywage"></div></div></div>
+</section>
+
+<!-- ================= 4, 5 பின்னர் ================= -->
+<section class="view" id="v-wages">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூலி விவரம்</p>
+  <h2 class="pt">4. தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</h2>
+  <div class="later-box"><b>இந்தப் பகுதி பின்னர் சேர்க்கப்படும்</b>தற்போது இதற்கான தரவு ஏற்றம் தேவையில்லை.</div>
+</section>
+<section class="view" id="v-cleaner">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூட்டுநர் கூலி</p>
+  <h2 class="pt">5. தினக்கூலி கூட்டுநர் கூலி விவரம் ஏற்று</h2>
+  <div class="later-box"><b>இந்தப் பகுதி பின்னர் சேர்க்கப்படும்</b>தற்போது இதற்கான தரவு ஏற்றம் தேவையில்லை.</div>
+</section>
+
+<!-- ================= 6. நாளிதழ் விவரம் ================= -->
+<section class="view" id="v-newspapers">
+  <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நாளிதழ் விவரம்</p>
+  <h2 class="pt">6. நாளிதழ் விவரம்</h2>
+  <p class="lead">18 இடங்களில் நாளிதழ் பெயரையும் அதிகபட்ச விலையையும் மாற்றலாம். பெயர் காலியாக உள்ள இடம் எந்த நூலகத்திலும் தெரியாது.</p>
+  <div class="panel"><h3>நாளிதழ் பட்டியல்</h3><div class="bd">
+    <div class="ngrid h"><span>இடம்</span><span>நாளிதழ் பெயர்</span><span>அதிக. விலை (₹)</span></div>
+    <div id="newsList">ஏற்றப்படுகிறது…</div>
+    <div style="margin-top:12px"><button class="btn go" id="btnSaveNews">பட்டியலைச் சேமி</button></div>
+    <div id="m_news"></div>
+  </div></div>
+</section>
+
+<!-- ================= 7. நூலகம் வாரியாக ================= -->
+<section class="view" id="v-newsmap">
+  <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</p>
+  <h2 class="pt">7. நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</h2>
+  <p class="lead">நூலகத்தைத் தேர்ந்தெடுத்து, அந்த நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்களில் குறியிடுக.</p>
+  <div class="panel"><h3>நூலகத் தேர்வு</h3><div class="bd">
+    <label for="mapLib">நூலகம்</label>
+    <select id="mapLib"><option value="">— நூலகத்தைத் தேர்ந்தெடுக்கவும் —</option></select>
+    <div id="mapBox" style="margin-top:14px"></div>
+    <div id="mapSaveRow" style="margin-top:12px;display:none"><button class="btn go" id="btnSaveMap">இந்த நூலகத்திற்குச் சேமி</button></div>
+    <div id="m_map"></div>
+  </div></div>
+</section>
+
+</main>
+</div>
+<footer>மாவட்ட நூலக அலுவலகம், திண்டுக்கல் — உள்ளடக்கம் மற்றும் தரவு மேலாண்மை: மாவட்ட நூலக அலுவலர்.</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function note(el, kind, text){ el.innerHTML = '<div class="msg ' + kind + '">' + esc(text) + '</div>'; }
+
+async function getJSON(url){
+  const r = await fetch(url);
+  if (r.status === 401) { location.href = '/admin'; throw new Error('உள்நுழைவு தேவை'); }
+  return r.json();
+}
+async function postForm(url, fd){
+  const r = await fetch(url, {method:'POST', body: fd});
+  if (r.status === 401) { location.href = '/admin'; throw new Error('உள்நுழைவு தேவை'); }
+  try { return await r.json(); } catch(e){ throw new Error('Server பதில் புரியவில்லை (HTTP ' + r.status + ')'); }
+}
+async function rpc(name, args){
+  const r = await fetch('/rpc/' + name, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(args || [])});
+  const j = await r.json();
+  if (j.__error) throw new Error(j.__error);
+  return j.result;
+}
+
+/* ---------- பக்க மாற்றம் ---------- */
+const loaded = {};
+function route(){
+  const id = (location.hash || '#home').slice(1);
+  const v = document.getElementById('v-' + id) ? id : 'home';
+  document.querySelectorAll('section.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
+  if (v === 'home') loadSummary();
+  if (v === 'libraries') loadLibraries();
+  if (v === 'newspapers') loadNews();
+  if (v === 'newsmap') loadMapLibs();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+
+/* ---------- முகப்பு ---------- */
+async function loadSummary(){
+  try{
+    const j = await getJSON('/admin/api/summary');
+    if (!j.success){
+      $('#homeMsg').innerHTML = '<div class="msg warn">' + esc(j.message) + ' <a href="#libraries">நூலகங்கள் பகுதிக்குச் செல்க</a></div>';
+      $('#typeTable').textContent = 'தரவு இல்லை.'; return;
+    }
+    $('#homeMsg').innerHTML = '';
+    $('#stLib').textContent = j.libraries; $('#stMail').textContent = j.withEmail; $('#stNews').textContent = j.newspapers;
+    if (!j.types.length){ $('#typeTable').innerHTML = '<div class="msg info">இன்னும் நூலகங்கள் ஏற்றப்படவில்லை. <a href="#libraries">நூலகங்கள் பெயர் ஏற்று</a> பகுதியில் CSV-ஐ ஏற்றவும்.</div>'; return; }
+    $('#typeTable').innerHTML = '<table><thead><tr><th>நூலக வகை</th><th style="width:140px">எண்ணிக்கை</th></tr></thead><tbody>' +
+      j.types.map(t => '<tr><td>' + esc(t.type) + '</td><td>' + esc(t.count) + '</td></tr>').join('') + '</tbody></table>';
+  }catch(e){ $('#homeMsg').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+}
+
+/* ---------- CSV ஏற்றம் (பொது) ---------- */
+function bindUpload(kind){
+  const btn = $('#b_' + kind), inp = $('#f_' + kind), out = $('#m_' + kind);
+  btn.addEventListener('click', async () => {
+    if (!inp.files.length){ note(out, 'bad', 'முதலில் CSV கோப்பைத் தேர்ந்தெடுக்கவும்.'); return; }
+    const fd = new FormData(); fd.append('file', inp.files[0]);
+    btn.disabled = true; note(out, 'info', 'ஏற்றுகிறது… பெரிய கோப்புக்குச் சற்று நேரம் ஆகலாம்.');
+    try{
+      const j = await postForm('/admin/import/' + kind, fd);
+      if (!j.success){ note(out, 'bad', j.message); }
+      else{
+        let t = j.message, k = 'ok';
+        if (j.skipped_count){ k = 'warn'; t += '\nதவிர்க்கப்பட்டவை: ' + j.skipped_count + '\n - ' + j.skipped.join('\n - ');
+          if (j.skipped_count > j.skipped.length) t += '\n … மேலும் ' + (j.skipped_count - j.skipped.length); }
+        note(out, k, t);
+        if (kind === 'libraries'){ loaded.libs = false; loadLibraries(true); }
+      }
+    }catch(e){ note(out, 'bad', e.message); }
+    btn.disabled = false;
+  });
+}
+['libraries','leave','dailywage'].forEach(bindUpload);
+
+$('#btnSchema').addEventListener('click', async () => {
+  const b = $('#btnSchema'), out = $('#msgSchema');
+  b.disabled = true; note(out, 'info', 'உருவாக்குகிறது…');
+  try{ const j = await postForm('/admin/import/schema', new FormData()); note(out, j.success ? 'ok' : 'bad', j.message); }
+  catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+});
+
+/* ---------- நூலகப் பட்டியல் அட்டவணை ---------- */
+let allLibs = [];
+async function loadLibraries(force){
+  if (loaded.libs && !force) return;
+  const body = $('#libBody');
+  try{
+    const j = await getJSON('/admin/api/libraries');
+    if (!j.success){ body.innerHTML = '<tr><td colspan="5">' + esc(j.message) + '</td></tr>'; return; }
+    allLibs = j.rows; loaded.libs = true; renderLibs();
+  }catch(e){ body.innerHTML = '<tr><td colspan="5">' + esc(e.message) + '</td></tr>'; }
+}
+function renderLibs(){
+  const q = $('#libSearch').value.trim().toLowerCase();
+  const rows = allLibs.filter(r => !q || (r.name + ' ' + r.code + ' ' + r.type).toLowerCase().includes(q));
+  $('#libCount').textContent = '(' + rows.length + ' / ' + allLibs.length + ')';
+  $('#libBody').innerHTML = rows.length ? rows.map((r, i) =>
+    '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.emails) + '</td></tr>').join('')
+    : '<tr><td colspan="5">நூலகங்கள் எதுவும் இல்லை. மேலே CSV-ஐ ஏற்றவும்.</td></tr>';
+}
+$('#libSearch').addEventListener('input', renderLibs);
+
+/* ---------- 6. நாளிதழ் விவரம் ---------- */
+let newsMaster = [];
+async function loadNews(){
+  const box = $('#newsList');
+  try{
+    newsMaster = await rpc('getNewspaperAdminMasterList');
+    const bySlot = {}; newsMaster.forEach(r => bySlot[r.slot] = r);
+    let h = '';
+    for (let s = 1; s <= 18; s++){
+      const r = bySlot[s] || {name:'', maxRate:0};
+      h += '<div class="ngrid"><span>' + s + '</span>' +
+           '<input type="text" data-n="' + s + '" value="' + esc(r.name) + '" aria-label="இடம் ' + s + ' பெயர்">' +
+           '<input type="number" min="0" step="0.01" data-r="' + s + '" value="' + esc(r.maxRate) + '" aria-label="இடம் ' + s + ' விலை"></div>';
+    }
+    box.innerHTML = h;
+  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + ' — முதலில் நூலகங்கள் பகுதியில் அட்டவணைகளை உருவாக்கவும்.</div>'; }
+}
+$('#btnSaveNews').addEventListener('click', async () => {
+  const rows = [];
+  for (let s = 1; s <= 18; s++){
+    rows.push({slot: s, name: document.querySelector('[data-n="' + s + '"]').value, maxRate: document.querySelector('[data-r="' + s + '"]').value});
+  }
+  const b = $('#btnSaveNews'), out = $('#m_news'); b.disabled = true;
+  try{ const j = await rpc('saveNewspaperMasterList', [rows]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'நாளிதழ் பட்டியல் சேமிக்கப்பட்டது.' : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
+  catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+});
+
+/* ---------- 7. நூலகம் வாரியாக நாளிதழ் ---------- */
+async function loadMapLibs(){
+  if (loaded.mapLibs) return;
+  const sel = $('#mapLib');
+  try{
+    const names = await rpc('getAllLibraryNamesForAdmin');
+    sel.innerHTML = '<option value="">— நூலகத்தைத் தேர்ந்தெடுக்கவும் —</option>' + names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+    loaded.mapLibs = true;
+    if (!names.length) note($('#m_map'), 'warn', 'நூலகப் பட்டியல் காலியாக உள்ளது. முதலில் “1. நூலகங்கள் பெயர் ஏற்று” செய்யவும்.');
+  }catch(e){ note($('#m_map'), 'bad', e.message); }
+}
+$('#mapLib').addEventListener('change', async () => {
+  const lib = $('#mapLib').value, box = $('#mapBox'); $('#m_map').innerHTML = '';
+  if (!lib){ box.innerHTML = ''; $('#mapSaveRow').style.display = 'none'; return; }
+  box.textContent = 'ஏற்றப்படுகிறது…';
+  try{
+    const [master, map] = await Promise.all([rpc('getNewspaperAdminMasterList'), rpc('getLibraryNewspaperMapForLibrary', [lib])]);
+    const named = master.filter(r => r.name);
+    if (!named.length){ box.innerHTML = '<div class="msg warn">நாளிதழ் பெயர்கள் இன்னும் பதிவாகவில்லை. முதலில் “6. நாளிதழ் விவரம்” பகுதியில் சேர்க்கவும்.</div>'; $('#mapSaveRow').style.display = 'none'; return; }
+    box.innerHTML = '<div class="chk">' + named.map(r =>
+      '<label><input type="checkbox" data-slot="' + r.slot + '"' + (map.map && map.map[r.slot] ? ' checked' : '') + '><span>' + esc(r.name) + '</span></label>').join('') + '</div>';
+    $('#mapSaveRow').style.display = 'block';
+  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+});
+$('#btnSaveMap').addEventListener('click', async () => {
+  const lib = $('#mapLib').value; if (!lib) return;
+  const flags = Array(18).fill(false);
+  document.querySelectorAll('#mapBox input[data-slot]').forEach(c => { flags[+c.dataset.slot - 1] = c.checked; });
+  const b = $('#btnSaveMap'), out = $('#m_map'); b.disabled = true;
+  try{ const j = await rpc('saveLibraryNewspaperMap', [lib, flags]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'சேமிக்கப்பட்டது: ' + lib : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
+  catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+});
+
+route();
+</script>
+</body>
+</html>

@@ -96,15 +96,30 @@ def rpc_call(name):
 # ------------------------------------------------------------------
 #  நூலகங்கள்
 # ------------------------------------------------------------------
+DEFAULT_LIB_TYPES = ["மாவட்ட மைய நூலகம்", "முழு நேர கிளை நூலகம்", "கிளை நூலகம்",
+                     "ஊர்ப்புற நூலகம்", "பகுதி நேர நூலகம்"]
+
+
 @rpc
 def getLibraryTypes():
-    return ["மாவட்ட மைய நூலகம்", "முழு நேர கிளை நூலகம்", "கிளை நூலகம்",
-            "ஊர்ப்புற நூலகம்", "பகுதி நேர நூலகம்"]
+    """நூலகப் பட்டியலில் (database) உள்ள வகைகளையே காட்டும் — CSV-ல் உள்ளபடி.
+    வழக்கமான வகைகள் முதலில், புதிய வகைகள் பின்னால். Database காலி / பிழை எனில் இயல்பு வகைகள்."""
+    try:
+        rows = db.fetch_all("SELECT btrim(lib_type) AS t, MIN(id) AS first_id FROM libraries "
+                            "WHERE btrim(lib_type) <> '' GROUP BY 1 ORDER BY 2")
+    except Exception:
+        app.logger.exception("getLibraryTypes")
+        rows = []
+    found = [r["t"] for r in rows]
+    if not found:
+        return DEFAULT_LIB_TYPES
+    return [t for t in DEFAULT_LIB_TYPES if t in found] + [t for t in found if t not in DEFAULT_LIB_TYPES]
 
 
 @rpc
 def getLibrariesByType(type):
-    rows = db.fetch_all("SELECT name FROM libraries WHERE lib_type = %s ORDER BY id", (str(type).strip(),))
+    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s ORDER BY id",
+                        (str(type).strip(),))
     return [r["name"] for r in rows]
 
 
@@ -112,11 +127,10 @@ def getLibrariesByType(type):
 def getEmailsForLibrary(libraryName):
     row = db.fetch_one("SELECT name, emails FROM libraries WHERE name = %s",
                        (str(libraryName or "").strip(),))
-    emails = []
-    if row:
-        emails = [e.strip() for e in row["emails"].lower().split(",") if "@" in e]
-    if not row or not emails:
-        return {"success": False, "message": "நூலகம் கிடைக்கவில்லை அல்லது மின்னஞ்சல் இல்லை"}
+    if not row:
+        return {"success": False, "message": "நூலகம் பட்டியலில் கிடைக்கவில்லை"}
+    emails = [e.strip() for e in row["emails"].lower().replace(";", ",").split(",") if "@" in e]
+    # மின்னஞ்சல் இல்லாவிட்டாலும் நூலகர் உள்நுழையலாம் (பெயர் காட்டப்படும்)
     return {"success": True, "library": row["name"], "emails": emails}
 
 
@@ -318,7 +332,7 @@ def isDailyWagePermissionAllowed(libraryName):
 #  பக்கங்கள் + Admin உள்நுழைவு
 # ------------------------------------------------------------------
 DEFAULT_ADMIN_PASSWORD = "Dlodgl@789"   # Render-ல் ADMIN_PASSWORD அமைத்தால் அதுவே முன்னுரிமை
-NEXT_OK = {"/", "/admin/import"}
+NEXT_OK = {"/", "/admin", "/admin/import"}
 
 LANDING = r"""<!DOCTYPE html><html lang="ta"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>உள்நுழைவு — மாவட்ட நூலக அலுவலகம்</title>
@@ -360,6 +374,8 @@ def index():
     if not (session.get("admin") or session.get("librarian")):
         return landing_page(open_admin="admin" in request.args)
     is_admin = bool(session.get("admin"))
+    if is_admin and "librarian" not in request.args:
+        return redirect("/admin")
     page = INDEX_HTML.replace(ADMIN_PLACEHOLDER, "true" if is_admin else "false")
     return Response(page, mimetype="text/html")
 
@@ -381,7 +397,7 @@ def login():
         if hmac.compare_digest(given.encode(), expected.encode()):
             session.permanent = True
             session["admin"] = True
-            return redirect(nxt)
+            return redirect("/admin" if nxt in ("/", "/admin/import") else nxt)
         time.sleep(1)                   # தொடர்ந்து யூகிப்பதைத் தடுக்க
         return landing_page("கடவுச்சொல் தவறு", nxt, open_admin=True)
     return redirect("/")
@@ -398,93 +414,76 @@ def logout():
 # ------------------------------------------------------------------
 IMPORT_ORDER = ["libraries", "newspapers", "map", "holidays", "leave", "rent", "dailywage", "claims"]
 
-IMPORT_PAGE = r"""<!DOCTYPE html><html lang="ta"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin — தரவு இறக்கம்</title>
-<style>
-body{font-family:Segoe UI,Arial,sans-serif;background:#eef2ff;margin:0;padding:20px;color:#1e293b}
-.box{max-width:820px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
-h2{margin-top:0}.note{background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:14px}
-.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid #e2e8f0}
-.row b{flex:1 1 100%}.row input[type=file]{flex:1 1 240px;font-size:14px}
-button{padding:9px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;color:#fff;background:#2563eb}
-button:disabled{opacity:.5;cursor:wait}.alt{background:#7c3aed}.gray{background:#64748b}
-.st{flex:1 1 100%;font-size:14px;white-space:pre-wrap}.ok{color:#15803d}.bad{color:#b91c1c}.warn{color:#b45309}
-.top{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}a{color:#2563eb}
-</style></head><body><div class="box">
-<h2>📥 தரவு இறக்கம் (CSV Upload)</h2>
-<p><a href="/?admin">← Admin முகப்புக்கு</a></p>
-<div class="note">ஒவ்வொரு Google Sheet-ஐயும் <b>File ▸ Download ▸ CSV</b> ஆகப் பதிவிறக்கி இங்கே தேர்ந்தெடுக்கவும்.
-முதலில் <b>நூலகப் பட்டியல்</b> இருக்க வேண்டும்; அதன்பின் மற்றவை. மீண்டும் upload செய்தால் புதுப்பிக்கும் (நகல் உருவாகாது).</div>
-<div class="top">
-  <button class="gray" id="schemaBtn" onclick="runSchema()">🗄 Database அட்டவணைகளை உருவாக்கு (முதல் முறை மட்டும்)</button>
-  <button class="alt" id="allBtn" onclick="runAll()">▶ தேர்ந்தெடுத்த அனைத்தையும் வரிசையாக ஏற்று</button>
-</div>
-<div id="schemaSt" class="st"></div>
-__ROWS__
-</div>
-<script>
-const ORDER = __ORDER__;
-async function post(url, fd){
-  const r = await fetch(url, {method:'POST', body: fd});
-  if (r.status === 401) { location.href = '/admin/import'; throw new Error('உள்நுழைவு தேவை'); }
-  let j; try { j = await r.json(); } catch(e) { throw new Error('Server பதில் புரியவில்லை (HTTP '+r.status+')'); }
-  return j;
+with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f:
+    ADMIN_HTML = _f.read()
+
+TEMPLATE_CSV = {
+    "libraries": ("libraries_template.csv",
+                  "நூலகத்தின் பெயர்,நூலக குறியீடு,மின்னஞ்சல்,நூலக வகை\n"
+                  "எடுத்துக்காட்டு நூலகம்,TNDPL00001,library@example.com,கிளை நூலகம்\n"),
 }
-function show(el, j){
-  if (!j.success) { el.className='st bad'; el.textContent = '❌ ' + j.message; return false; }
-  let t = '✅ ' + j.message;
-  if (j.skipped && j.skipped.length) {
-    t += '\n⚠️ தவிர்க்கப்பட்டவை: ' + j.skipped_count + '\n  - ' + j.skipped.join('\n  - ');
-    if (j.skipped_count > j.skipped.length) t += '\n  ... மேலும் ' + (j.skipped_count - j.skipped.length);
-  }
-  el.className = 'st ' + (j.skipped_count ? 'warn' : 'ok'); el.textContent = t; return true;
-}
-async function runSchema(){
-  const b = document.getElementById('schemaBtn'), el = document.getElementById('schemaSt');
-  b.disabled = true; el.className='st'; el.textContent='⏳ உருவாக்குகிறது...';
-  try { show(el, await post('/admin/import/schema', new FormData())); }
-  catch(e){ el.className='st bad'; el.textContent='❌ '+e.message; }
-  b.disabled = false;
-}
-async function upload(kind){
-  const inp = document.getElementById('f_'+kind), el = document.getElementById('s_'+kind), b = document.getElementById('b_'+kind);
-  if (!inp.files.length) { el.className='st bad'; el.textContent='❌ முதலில் CSV கோப்பைத் தேர்ந்தெடுக்கவும்'; return false; }
-  const fd = new FormData(); fd.append('file', inp.files[0]);
-  b.disabled = true; el.className='st'; el.textContent='⏳ ஏற்றுகிறது... (பெரிய கோப்புக்குச் சற்று நேரம் ஆகலாம்)';
-  let ok = false;
-  try { ok = show(el, await post('/admin/import/'+kind, fd)); }
-  catch(e){ el.className='st bad'; el.textContent='❌ '+e.message; }
-  b.disabled = false; return ok;
-}
-async function runAll(){
-  const b = document.getElementById('allBtn'); b.disabled = true;
-  for (const k of ORDER) {
-    if (document.getElementById('f_'+k).files.length) { if (!(await upload(k))) break; }
-  }
-  b.disabled = false;
-}
-</script></body></html>"""
+
+
+@app.get("/admin")
+def admin_home():
+    if not session.get("admin"):
+        return landing_page(next_url="/admin", open_admin=True)
+    return Response(ADMIN_HTML, mimetype="text/html")
+
+
+@app.get("/admin/import")
+def admin_import_page():
+    return redirect("/admin#libraries")
+
+
+@app.get("/admin/api/summary")
+def admin_summary():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    try:
+        types = db.fetch_all("SELECT COALESCE(NULLIF(btrim(lib_type), ''), '(வகை இல்லை)') AS t, COUNT(*) AS n "
+                             "FROM libraries GROUP BY 1 ORDER BY MIN(id)")
+        tot = db.fetch_one("SELECT COUNT(*) AS n, COUNT(*) FILTER (WHERE emails <> '') AS with_email, "
+                           "COUNT(*) FILTER (WHERE code IS NOT NULL) AS with_code FROM libraries")
+        papers = db.fetch_one("SELECT COUNT(*) FILTER (WHERE name <> '') AS n FROM newspapers")
+        return jsonify({"success": True, "libraries": tot["n"], "withEmail": tot["with_email"],
+                        "withCode": tot["with_code"], "newspapers": papers["n"] if papers else 0,
+                        "types": [{"type": r["t"], "count": r["n"]} for r in types]})
+    except Exception as e:
+        app.logger.exception("summary")
+        hint = "Database அட்டவணைகள் இன்னும் உருவாக்கப்படவில்லை." if "does not exist" in str(e) else "Database பிழை."
+        return jsonify({"success": False, "message": hint})
+
+
+@app.get("/admin/api/libraries")
+def admin_libraries():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    try:
+        rows = db.fetch_all("SELECT name, code, emails, lib_type FROM libraries ORDER BY id")
+    except Exception:
+        return jsonify({"success": False, "message": "நூலகப் பட்டியலைப் படிக்க முடியவில்லை"})
+    return jsonify({"success": True, "rows": [
+        {"name": r["name"], "code": r["code"] or "", "emails": r["emails"], "type": r["lib_type"]} for r in rows]})
+
+
+@app.get("/admin/template/<kind>.csv")
+def admin_template(kind):
+    if not session.get("admin"):
+        return redirect("/admin")
+    t = TEMPLATE_CSV.get(kind)
+    if not t:
+        return Response("இல்லை", status=404)
+    return Response("\ufeff" + t[1], mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename={t[0]}"})
 
 
 def admin_required_json():
     if not session.get("admin"):
         return jsonify({"success": False, "message": "Admin உள்நுழைவு தேவை"}), 401
     return None
-
-
-@app.get("/admin/import")
-def admin_import_page():
-    if not session.get("admin"):
-        return landing_page(next_url="/admin/import", open_admin=True)
-    rows = "".join(
-        f'<div class="row"><b>{i}. {escape(importer.IMPORTERS[k][1])}</b>'
-        f'<input type="file" id="f_{k}" accept=".csv,text/csv">'
-        f'<button id="b_{k}" onclick="upload(\'{k}\')">ஏற்று</button>'
-        f'<div class="st" id="s_{k}"></div></div>'
-        for i, k in enumerate(IMPORT_ORDER, start=1))
-    page = (IMPORT_PAGE.replace("__ROWS__", rows)
-            .replace("__ORDER__", str(IMPORT_ORDER).replace("'", '"')))
-    return Response(page, mimetype="text/html")
 
 
 @app.post("/admin/import/<kind>")
