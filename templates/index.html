@@ -1414,6 +1414,7 @@ let selectedEmail = "";
 let bankAmount = 0;
 let remainingAmount = 0;
 let dayLimits = { partner: 0, staff: 0, leave: 0, totalWD: 0 };
+let staffWorkers = 1;   // Admin அனுமதித்த தினக்கூலி பணியாளர் எண்ணிக்கை (isDailyWagePermissionAllowed)
 let workingPeriodText = ""; // ஒரு முறை மட்டும் போதும்
 let maxWorkingDays = 0;     // ஒரு முறை மட்டும் போதும்
 
@@ -3533,9 +3534,9 @@ function validateWorkingDays(inputElement) {
   // --- staff limit calculation ---
 let staffLimit = parseInt(dayLimits.staff) || 0;
 
-// 👇 Special condition (ONLY staffDays)
-if (id === 'staffDays' && selectedLib === "கி13.சின்னாளபட்டி") {
-  staffLimit = staffLimit * 2;
+// 👇 அனுமதிக்கப்பட்ட பணியாளர் எண்ணிக்கைக்கு ஏற்ப நாட்கள் (ONLY staffDays)
+if (id === 'staffDays') {
+  staffLimit = staffLimit * (staffWorkers || 1);
 }
 
 // --- final max limit ---
@@ -3731,6 +3732,7 @@ function controlDailyWageStaffFields() {
         return;
       }
 
+      staffWorkers = res.allowed ? (parseInt(res.workers) || 1) : 1;
       if (res.allowed) {
         // அனுமதி உள்ளது → editable ஆக வை
         nameInput.disabled = false;
@@ -3740,7 +3742,7 @@ function controlDailyWageStaffFields() {
         nameInput.placeholder = "பெயர் (தமிழில்)";
         
         // optional: label மாற்றம்
-        updateLabel("staffNameTamil", "தினக்கூலி நூலகப் பணியாளர் பெயர் (தமிழில்)");
+        updateLabel("staffNameTamil", staffWorkers > 1 ? "தினக்கூலி நூலகப் பணியாளர்கள் பெயர்கள் (" + staffWorkers + " பேர், தமிழில்)" : "தினக்கூலி நூலகப் பணியாளர் பெயர் (தமிழில்)");
       } else {
         // அனுமதி இல்லை → disable + message
         disableDailyWageFields(nameInput, daysInput);

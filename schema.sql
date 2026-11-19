@@ -61,6 +61,16 @@ CREATE TABLE IF NOT EXISTS rent (
 CREATE TABLE IF NOT EXISTS daily_wage_permission (
   library_id INT PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE
 );
+-- அனுமதிக்கப்பட்ட தினக்கூலி பணியாளர்களின் எண்ணிக்கை (Admin முடிவு செய்வார்; இயல்பு 1).
+-- நெடுவரிசை முதன்முறை சேர்க்கப்படும்போது மட்டும்: முன்பு குறியீட்டில் இருந்த 2 பேர் விதி (சின்னாளபட்டி) அப்படியே தொடரும்.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='daily_wage_permission' AND column_name='workers') THEN
+    ALTER TABLE daily_wage_permission ADD COLUMN workers INT NOT NULL DEFAULT 1 CHECK (workers BETWEEN 1 AND 20);
+    UPDATE daily_wage_permission SET workers = 2
+      WHERE library_id IN (SELECT id FROM libraries WHERE name = 'கி13.சின்னாளபட்டி');
+  END IF;
+END $$;
 
 -- தினக்கூலி விகிதங்கள் (Admin உள்ளிடுவது). kind: staff = நூலகப் பணியாளர், partner = கூட்டுநர், part_time = பகுதி நேர
 CREATE TABLE IF NOT EXISTS wage_rates (

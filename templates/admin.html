@@ -252,10 +252,20 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <section class="view" id="v-permission">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › தினக்கூலி அனுமதி</p>
   <h2 class="pt">3. தினக்கூலி பணியாளர் அனுமதி</h2>
-  <p class="lead">தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்களின் பெயர்கள் (A நெடுவரிசை). முதல் வரி தலைப்பு. <a href="/admin/template/dailywage.xlsx">மாதிரி Excel</a></p>
+  <p class="lead">தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்களின் பெயர்கள் (A நெடுவரிசை), பணியாளர் எண்ணிக்கை (B நெடுவரிசை — விருப்பம், இல்லையெனில் 1). முதல் வரி தலைப்பு. <a href="/admin/template/dailywage.xlsx">மாதிரி Excel</a></p>
   <div class="panel"><h3>Excel ஏற்றம்</h3><div class="bd">
     <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_dailywage" accept=".xlsx,.xls,.csv" aria-label="தினக்கூலி அனுமதி Excel"></div><button class="btn go" id="b_dailywage">Excel ஏற்று</button></div>
     <div id="m_dailywage"></div></div></div>
+  <div class="panel"><h3>நூலகம் வாரியாக அனுமதி &amp; பணியாளர் எண்ணிக்கை</h3><div class="bd">
+    <p class="small">அனுமதி உள்ள நூலகத்திற்கு எத்தனை தினக்கூலி பணியாளர்கள் என்பதை உள்ளிடுக (மாவட்ட மைய நூலகம் மற்றும் முழு நேர நூலகங்களுக்கு மட்டும் 1-க்கு மேல் அனுமதி; கிளை, ஊர்ப்புற, பகுதி நேர நூலகங்களுக்கு அதிகபட்சம் 1). பணியாளர் எண்ணிக்கைக்கு ஏற்ப அதிகபட்ச நாட்களும் கூலித் தொகையும் மாறும் — எ.கா. ஒருவருக்கு ₹7,500 எனில் 2 பேருக்கு ₹15,000.</p>
+    <div class="toolbar"><input type="text" id="dwSearch" placeholder="நூலகம் தேடு…" style="max-width:240px">
+      <select id="dwType" style="width:auto"><option value="">எல்லா வகைகள்</option></select>
+      <label style="margin:0"><input type="checkbox" id="dwOnly"> அனுமதி உள்ளவை மட்டும்</label></div>
+    <div class="tw" style="max-height:420px"><table><thead><tr><th>நூலகம்</th><th>வகை</th><th style="width:80px">அனுமதி</th><th style="width:130px">பணியாளர்கள் (எண்ணிக்கை)</th></tr></thead>
+      <tbody id="dwRows"><tr><td colspan="4">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+    <div style="margin-top:12px"><button class="btn go" id="btnSaveDW">சேமி</button></div>
+    <div id="m_dwperm"></div>
+  </div></div>
 </section>
 
 <!-- ================= 4, 5 கூலி விவரம் ================= -->
@@ -619,6 +629,48 @@ $('#btnSaveNews').addEventListener('click', async () => {
   catch(e){ note(out, 'bad', e.message); }
   b.disabled = false;
 });
+
+
+/* ---------- தினக்கூலி அனுமதி: நூலகம் வாரியாக பணியாளர் எண்ணிக்கை ---------- */
+let dwList = [];
+function dwSyncFromDom(){
+  document.querySelectorAll('#dwRows tr[data-i]').forEach(tr => {
+    const r = dwList[+tr.dataset.i];
+    r.allowed = tr.querySelector('[data-f=al]').checked;
+    r.workers = r.multi ? Math.min(Math.max(parseInt(tr.querySelector('[data-f=wk]').value) || 1, 1), 20) : 1;
+  });
+}
+function dwRender(){
+  const q = $('#dwSearch').value.trim().toLowerCase(), t = $('#dwType').value, only = $('#dwOnly').checked;
+  const html = dwList.map((r, i) => ({r, i})).filter(x => (!t || x.r.type === t) && (!only || x.r.allowed) &&
+      (!q || x.r.name.toLowerCase().includes(q)))
+    .map(x => '<tr data-i="' + x.i + '"><td>' + esc(x.r.name) + '</td><td>' + esc(x.r.type) + '</td>' +
+      '<td><input type="checkbox" data-f="al"' + (x.r.allowed ? ' checked' : '') + '></td>' +
+      '<td><input type="number" min="1" max="' + (x.r.multi ? 20 : 1) + '" step="1" data-f="wk" value="' + x.r.workers + '"' + (x.r.allowed && x.r.multi ? '' : ' disabled') + '></td></tr>').join('');
+  $('#dwRows').innerHTML = html || '<tr><td colspan="4">நூலகங்கள் இல்லை</td></tr>';
+}
+async function loadDW(){
+  try{
+    dwList = await rpc('getDailyWagePermissionsAdmin');
+    const types = [...new Set(dwList.map(r => r.type).filter(Boolean))];
+    $('#dwType').innerHTML = '<option value="">எல்லா வகைகள்</option>' + types.map(x => '<option>' + esc(x) + '</option>').join('');
+    dwRender();
+  }catch(e){ $('#dwRows').innerHTML = '<tr><td colspan="4"><div class="msg bad">' + esc(e.message) + '</div></td></tr>'; }
+}
+['dwSearch', 'dwType', 'dwOnly'].forEach(id => $('#' + id).addEventListener('input', () => { dwSyncFromDom(); dwRender(); }));
+$('#dwRows').addEventListener('change', e => {
+  const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+  if (e.target.dataset.f === 'al') tr.querySelector('[data-f=wk]').disabled = !(e.target.checked && dwList[+tr.dataset.i].multi);
+});
+$('#btnSaveDW').addEventListener('click', async () => {
+  dwSyncFromDom();
+  const b = $('#btnSaveDW'), out = $('#m_dwperm'); b.disabled = true;
+  try{ const j = await rpc('saveDailyWagePermissions', [dwList]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'சேமிக்கப்பட்டது. அனுமதி உள்ள நூலகங்கள்: ' + j.allowed : 'சேமிக்க முடியவில்லை.'); }
+  catch(e){ note(out, 'bad', e.message); }
+  b.disabled = false;
+});
+loadDW();
+$('#b_dailywage').addEventListener('click', () => setTimeout(loadDW, 2500));
 
 /* ---------- 7. பல நாளிதழ் × பல நூலகம் ---------- */
 const asSel = new Set();

@@ -135,3 +135,9 @@ def bulk_upsert_claims(cur, entries):
                        paper_rows, page_size=1000)
     inserted = sum(1 for r in res if r[2])
     return inserted, len(res) - inserted
+
+
+# தினக்கூலி பணியாளர் 1-க்கு மேல் அனுமதிக்கக்கூடிய நூலக வகைகள்: மாவட்ட மைய நூலகம், முழு நேர (கிளை) நூலகங்கள் மட்டும்
+def multi_worker_type(lib_type):
+    t = str(lib_type or "")
+    return "மாவட்ட மைய" in t or "முழு நேர" in t

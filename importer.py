@@ -219,8 +219,16 @@ def do_dailywage(raw):
         if name not in ids:
             skipped.append(f"{name}: நூலகப் பட்டியலில் இல்லை")
             continue
-        items.append((ids[name],))
-    run_batch("INSERT INTO daily_wage_permission (library_id) VALUES %s ON CONFLICT DO NOTHING", items)
+        try:
+            w = min(max(int(float(cell(r, 1) or 1)), 1), 20)   # B நெடுவரிசை (விருப்பம்): பணியாளர் எண்ணிக்கை
+        except ValueError:
+            w = 1
+        items.append((ids[name], w))
+    run_batch("INSERT INTO daily_wage_permission (library_id, workers) VALUES %s "
+              "ON CONFLICT (library_id) DO UPDATE SET workers = EXCLUDED.workers", items)
+    # மாவட்ட மைய / முழு நேர நூலகங்கள் தவிர மற்றவற்றுக்கு அதிகபட்சம் 1
+    db.execute("UPDATE daily_wage_permission d SET workers = 1 FROM libraries l WHERE l.id = d.library_id "
+               "AND d.workers > 1 AND NOT (l.lib_type LIKE '%மாவட்ட மைய%' OR l.lib_type LIKE '%முழு நேர%')")
     return result(len(items), skipped)
 
 

@@ -16,6 +16,7 @@ from flask import Flask, Response, jsonify, redirect, request, session
 from psycopg2.extras import execute_values
 
 import db
+from common import multi_worker_type
 import importer
 from common import (CLAIM_NUM, CLAIM_TEXT, NEWSPAPER_KEYS, TOTAL_SLOTS, jnum,
                     make_unique_key, snake, to_num, upsert_claim)
@@ -78,7 +79,7 @@ def _ensure_schema():
 
 # admin மட்டும் சேமிக்கக்கூடியவை
 ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
-              "saveWageRates", "saveHoliday", "deleteHoliday"}
+              "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -566,9 +567,53 @@ def getRentDetailsForLibrary(libraryName):
 @rpc
 def isDailyWagePermissionAllowed(libraryName):
     row = db.fetch_one(
-        "SELECT 1 AS ok FROM daily_wage_permission d JOIN libraries l ON l.id = d.library_id "
+        "SELECT d.workers, l.lib_type FROM daily_wage_permission d JOIN libraries l ON l.id = d.library_id "
         "WHERE l.name = %s", (str(libraryName or "").strip(),))
-    return {"success": True, "allowed": bool(row)}
+    w = int(row["workers"]) if row and multi_worker_type(row["lib_type"]) else 1
+    return {"success": True, "allowed": bool(row), "workers": w}
+
+
+@rpc
+def getDailyWagePermissionsAdmin():
+    """Admin: எல்லா நூலகங்களும் + அனுமதி உள்ளதா + அனுமதிக்கப்பட்ட பணியாளர் எண்ணிக்கை"""
+    rows = db.fetch_all(
+        "SELECT l.name, l.lib_type, d.workers FROM libraries l "
+        "LEFT JOIN daily_wage_permission d ON d.library_id = l.id ORDER BY l.id")
+    return [{"name": r["name"], "type": r["lib_type"], "allowed": r["workers"] is not None,
+             "multi": multi_worker_type(r["lib_type"]),
+             "workers": int(r["workers"]) if r["workers"] is not None and multi_worker_type(r["lib_type"]) else 1}
+            for r in rows]
+
+
+@rpc
+def saveDailyWagePermissions(rows):
+    libs = {r["name"]: (r["id"], multi_worker_type(r["lib_type"]))
+            for r in db.fetch_all("SELECT id, name, lib_type FROM libraries")}
+    allow, deny = [], []
+    for r in rows or []:
+        found = libs.get(str(r.get("name") or "").strip())
+        if not found:
+            continue
+        lid, multi = found
+        if r.get("allowed"):
+            try:
+                w = min(max(int(r.get("workers") or 1), 1), 20) if multi else 1
+            except (TypeError, ValueError):
+                w = 1
+            allow.append((lid, w))
+        else:
+            deny.append(lid)
+
+    def f(conn):
+        with conn.cursor() as cur:
+            if deny:
+                cur.execute("DELETE FROM daily_wage_permission WHERE library_id = ANY(%s)", (deny,))
+            if allow:
+                execute_values(cur, "INSERT INTO daily_wage_permission (library_id, workers) VALUES %s "
+                               "ON CONFLICT (library_id) DO UPDATE SET workers = EXCLUDED.workers", allow)
+
+    db.run(f)
+    return {"success": True, "allowed": len(allow)}
 
 
 # ------------------------------------------------------------------
