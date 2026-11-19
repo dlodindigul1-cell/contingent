@@ -295,12 +295,12 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நாளிதழ் விவரம்</p>
   <h2 class="pt">6. நாளிதழ் விவரம்</h2>
   <p class="lead">ஒவ்வொரு நாளிதழுக்கும் திங்கள்–சனி விலை, ஞாயிறு விலை, சிறப்பு விலை நாட்கள் (தேதி + விலை) ஆகியவற்றை உள்ளிடுக. நூலகர் படிவத்தில் அந்த மாதத்தின் அதிகபட்சத் தொகை தானாகக் கணக்காகும்:
-    (சாதாரண நாட்கள் × விலை) + (ஞாயிறுகள் × ஞாயிறு விலை) + சிறப்பு நாட்கள். சிறப்பு நாள் ஞாயிறில் வந்தால் சிறப்பு விலையே எடுக்கப்படும். பெயர் காலியான இடம் எந்த நூலகத்திலும் தெரியாது.</p>
+    (சாதாரண நாட்கள் × விலை) + (ஞாயிறுகள் × ஞாயிறு விலை) + சிறப்பு நாட்கள். சிறப்பு நாள் ஞாயிறில் வந்தால் சிறப்பு விலையே எடுக்கப்படும். பெயர் காலியான இடம் எந்த நூலகத்திலும் தெரியாது. <b>சிறப்பு விலை நாள் இருந்தால் மட்டும் அதை உள்ளிடவும்; இல்லையெனில் காலியாக விடலாம்.</b></p>
   <div class="panel"><h3>நாளிதழ் பட்டியல்</h3><div class="bd">
     <div class="toolbar"><label for="newsMonth" style="margin:0">கணக்கீட்டுச் சரிபார்ப்பு மாதம்:</label>
       <input type="month" id="newsMonth" style="width:auto"><span class="small">(கடைசி நெடுவரிசையில் அந்த மாதத்தின் அதிகபட்சத் தொகை காட்டப்படும்)</span></div>
     <div class="tw" style="max-height:none"><table class="ntable">
-      <thead><tr><th style="width:50px">இடம்</th><th>நாளிதழ் பெயர்</th><th>திங்கள்–சனி ₹</th><th>ஞாயிறு ₹</th><th>இம்மாத அதிகபட்சம்</th><th style="min-width:250px">சிறப்பு விலை நாட்கள்</th></tr></thead>
+      <thead><tr><th style="width:50px">இடம்</th><th>நாளிதழ் பெயர்</th><th>திங்கள்–சனி ₹</th><th>ஞாயிறு ₹</th><th>இம்மாத அதிகபட்சம்</th><th style="min-width:250px">சிறப்பு விலை நாட்கள் <span class="small">(சிறப்பு விலை இருந்தால் மட்டும்)</span></th></tr></thead>
       <tbody id="newsRows"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
     <div style="margin-top:12px"><button class="btn go" id="btnSaveNews">பட்டியலைச் சேமி</button></div>
     <div id="m_news"></div>
@@ -605,6 +605,14 @@ $('#newsRows').addEventListener('click', e => {
 });
 $('#btnSaveNews').addEventListener('click', async () => {
   syncNewsFromDom();
+  // சிறப்பு விலை விருப்பத்திற்குரியது: தேதி + விலை இரண்டும் உள்ளிட்டு "சேர்" அழுத்தாவிட்டால் தானாகச் சேர்க்கும்; இரண்டும் காலி எனில் தவிர்க்கும்
+  for (const tr of document.querySelectorAll('#newsRows tr[data-slot]')){
+    const d = tr.querySelector('[data-f=spd]').value, p = tr.querySelector('[data-f=spp]').value;
+    if (!d && p === '') continue;
+    if (!d || p === '' || +p < 0){ alert('இடம் ' + tr.dataset.slot + ': சிறப்பு விலைக்குத் தேதியும் விலையும் இரண்டையும் உள்ளிடவும், அல்லது இரண்டையும் காலியாக விடவும்.'); return; }
+    const st = newsState.find(x => x.slot === +tr.dataset.slot);
+    st.specials = st.specials.filter(x => x.date !== d).concat([{date: d, price: +p}]).sort((a, b) => a.date.localeCompare(b.date));
+  }
   const rows = newsState.map(st => ({slot: st.slot, name: st.name, weekdayRate: st.weekdayRate, sundayRate: st.sundayRate, specials: st.specials}));
   const b = $('#btnSaveNews'), out = $('#m_news'); b.disabled = true;
   try{ const j = await rpc('saveNewspaperMasterList', [rows]); note(out, j && j.success ? 'ok' : 'bad', j && j.success ? 'நாளிதழ் பட்டியல் சேமிக்கப்பட்டது.' : (j && j.message) || 'சேமிக்க முடியவில்லை.'); }
