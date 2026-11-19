@@ -28,7 +28,30 @@ def decode_bytes(raw):
     raise ValueError("கோப்பைப் படிக்க முடியவில்லை — CSV (UTF-8) ஆகச் சேமித்து மீண்டும் முயலவும்")
 
 
+def _xl_val(v):
+    """Excel கலத்தை உரையாக மாற்றும் (5.0 -> '5', தேதி -> dd/mm/yyyy)."""
+    if v is None:
+        return ""
+    if isinstance(v, (dt.datetime, dt.date)):
+        return v.strftime("%d/%m/%Y")
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
+
+
 def read_rows(raw, skip=1):
+    """Excel (.xlsx) அல்லது CSV இரண்டையும் படிக்கும் — கோப்பின் உள்ளடக்கத்தைக் கொண்டே கண்டறியும்."""
+    if raw[:2] == b"PK":                      # .xlsx என்பது zip கோப்பு
+        from openpyxl import load_workbook
+        try:
+            wb = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        except Exception:
+            raise ValueError("Excel கோப்பைப் படிக்க முடியவில்லை — .xlsx வடிவில் சேமித்து மீண்டும் முயலவும்")
+        ws = wb.active
+        rows = [[_xl_val(c) for c in r] for r in ws.iter_rows(values_only=True)]
+        if not any(any(c for c in r) for r in rows):
+            raise ValueError("கோப்பு காலியாக உள்ளது")
+        return rows[skip:]
     text = decode_bytes(raw)
     if not text.strip():
         raise ValueError("கோப்பு காலியாக உள்ளது")

@@ -417,11 +417,50 @@ IMPORT_ORDER = ["libraries", "newspapers", "map", "holidays", "leave", "rent", "
 with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f:
     ADMIN_HTML = _f.read()
 
-TEMPLATE_CSV = {
-    "libraries": ("libraries_template.csv",
-                  "நூலகத்தின் பெயர்,நூலக குறியீடு,மின்னஞ்சல்,நூலக வகை\n"
-                  "எடுத்துக்காட்டு நூலகம்,TNDPL00001,library@example.com,கிளை நூலகம்\n"),
+# மாதிரி Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
+TEMPLATE_XLSX = {
+    "libraries": ("libraries_template.xlsx",
+                  [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை"]],
+                  ["எடுத்துக்காட்டு நூலகம்", "TNDPL00001", "library@example.com", "கிளை நூலகம்"],
+                  [38, 18, 32, 24]),
+    "leave": ("leave_template.xlsx",
+              [["நூலகர் விடுப்பு விவரம்", ""], ["நூலகத்தின் பெயர்", "விடுப்பு நாட்கள்"]],
+              ["எடுத்துக்காட்டு நூலகம்", 0],
+              [38, 18]),
+    "dailywage": ("dailywage_template.xlsx",
+                  [["தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்கள்"]],
+                  ["எடுத்துக்காட்டு நூலகம்"],
+                  [44]),
 }
+
+
+def build_template(kind):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    fname, heads, sample, widths = TEMPLATE_XLSX[kind]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "தரவு"
+    for h in heads:
+        ws.append(h)
+    ws.append(sample)
+    for r in range(1, len(heads) + 1):
+        for c in ws[r]:
+            c.font = Font(name="Nirmala UI", bold=True, color="FFFFFF", size=12)
+            c.fill = PatternFill("solid", fgColor="12306B")
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+    for c in ws[len(heads) + 1]:
+        c.font = Font(name="Nirmala UI", italic=True, color="808080")
+    for i, w in enumerate(widths):
+        ws.column_dimensions[chr(65 + i)].width = w
+    # குறியீடு, எண் புலங்கள் உரையாக இருக்க (முன் பூஜ்யம் போகாமல்)
+    if kind == "libraries":
+        for r in range(2, 400):
+            ws.cell(r, 2).number_format = "@"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return fname, buf.getvalue()
 
 
 @app.get("/admin")
@@ -469,15 +508,15 @@ def admin_libraries():
         {"name": r["name"], "code": r["code"] or "", "emails": r["emails"], "type": r["lib_type"]} for r in rows]})
 
 
-@app.get("/admin/template/<kind>.csv")
+@app.get("/admin/template/<kind>.xlsx")
 def admin_template(kind):
     if not session.get("admin"):
         return redirect("/admin")
-    t = TEMPLATE_CSV.get(kind)
-    if not t:
+    if kind not in TEMPLATE_XLSX:
         return Response("இல்லை", status=404)
-    return Response("\ufeff" + t[1], mimetype="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f"attachment; filename={t[0]}"})
+    fname, data = build_template(kind)
+    return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
 def admin_required_json():
@@ -500,7 +539,7 @@ def admin_import_run(kind):
         f = request.files.get("file")
         raw = f.read() if f else b""
         if not raw:
-            return jsonify({"success": False, "message": "CSV கோப்பு எதுவும் வரவில்லை"})
+            return jsonify({"success": False, "message": "கோப்பு எதுவும் வரவில்லை"})
         res = importer.IMPORTERS[kind][0](raw)
         msg = f"{res['done']} பதிவுகள் ஏற்றப்பட்டன"
         if "inserted" in res:
