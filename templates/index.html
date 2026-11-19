@@ -564,6 +564,25 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 .exp-warn{margin-top:10px;background:#fdecea;border:1px solid #f5b5ae;color:#b3261e;border-radius:6px;padding:8px 12px;font-size:14px;font-weight:600}
 .nav-row{display:flex;gap:10px;margin-top:8px}.nav-row button{flex:1;margin:0!important}
 @media(max-width:480px){.nav-row{flex-direction:column-reverse}}
+
+/* ===== படிகள் 1–4: அட்டை வடிவம் + சுருக்கப் பக்கம் ===== */
+#stage4A>div[style*="border:1px solid #ccc"],#stage4B>div[style*="border:1px solid #ccc"],#stage4C>div[style*="border:1px solid #ccc"],#stage4D>div[style*="border:1px solid #ccc"]{
+  border:1px solid var(--tn-line)!important;border-left:5px solid var(--tn-blue)!important;border-radius:8px!important;box-shadow:0 1px 4px rgba(11,58,110,.08)}
+#stage4B #labourSection{border:0!important;padding:0!important;margin:0!important}
+.sum-banner{display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,#eaf7ee,#dff1e5);border:1px solid #9fd3ae;border-left:5px solid #1b9a4b;border-radius:8px;padding:12px 14px;margin-bottom:14px;color:#14532d}
+.sum-banner span{font-size:14px;color:#355e45}.sum-ok{font-size:30px}
+.sum-row{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--tn-line);border-left:5px solid var(--tn-gold);border-radius:8px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(11,58,110,.08);flex-wrap:wrap}
+.sum-main{flex:1 1 200px;min-width:0}.sum-t{font-weight:700;color:var(--tn-navy);font-size:16px}
+.sum-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:#334155;margin-top:3px}
+.sum-amt{font-weight:700;color:var(--tn-navy);font-size:17px;white-space:nowrap}
+.sum-act{display:flex;gap:8px;flex:1 1 100%;justify-content:flex-end}
+.btn-sm{width:auto!important;padding:7px 14px!important;font-size:14px!important;margin:0!important}
+.btn-del{background:linear-gradient(180deg,#d64545,#a82a2a)!important}
+.add-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
+.add-grid button{margin:0!important;text-align:left}
+.sec-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:14px}
+.sec-card{background:#fff;border-radius:8px;border-top:5px solid var(--tn-gold);width:100%;max-width:520px;max-height:90vh;overflow:auto;padding:18px 18px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.sec-card h3{margin:0 0 10px;color:var(--tn-navy)}
 @media(max-width:560px){.container,#stage5{margin:10px 8px!important}}
 </style>
 
@@ -751,7 +770,8 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 <form id="contingentForm">
 <div id="existingWarning" class="success" style="display:none;"></div>
 <div id="stage4A" class="sub-stage">
-    <h4>படி 1/2: 📰 நாளிதழ்கள் செலவினம் (தொகை ₹)</h4>
+    <h4>படி 1/7: 📰 நாளிதழ்கள் செலவினம் (தொகை ₹)</h4>
+    <div class="step-bar"><i style="width:14%"></i></div>
     <div style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
         <!-- ✅ நாளிதழ் input fields இப்போது dynamic ஆக renderNewspaperInputs() மூலம் இங்கே render ஆகும் -->
         <!-- "NEWSPAPER LIST" Master Sheet-ல் Active=Yes உள்ள நாளிதழ்கள் மட்டும், அந்த நூலகத்திற்கு ஏற்ப தெரியும் -->
@@ -759,11 +779,15 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
           <p style="text-align:center;color:#888;">நாளிதழ் பட்டியல் ஏற்றப்படுகிறது...</p>
         </div>
     </div>
-   <button type="button" id="nextBtn4B" onclick="nextStage(4, '4B')">அடுத்து (தினக்கூலி விவரங்கள்)</button>
+   <div class="nav-row">
+      <button type="button" onclick="show(3)" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" id="nextBtn4B" onclick="nextStage(4, '4B')">அடுத்து (தினக்கூலி விவரங்கள்) →</button>
+    </div>
 </div>
 
            <div id="stage4B" class="sub-stage" style="display:none;">
-    <h4>படி 2/2: 👩‍💻 தினக்கூலி விவரங்கள்</h4>
+    <h4>படி 2/7: 👩‍💻 தினக்கூலி விவரங்கள்</h4>
+    <div class="step-bar"><i style="width:29%"></i></div>
     <div id="stage4BError" class="error" style="display:none; margin:15px 0; padding:12px;"></div>
     <div id="wdInfo" class="wd-info" style="display:none;"></div>
     <div style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
@@ -798,10 +822,10 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 </div>
    </div>
     
-       <button type="button" id="nextBtnFrom4B" onclick="validateAndNextFrom4B()">
-  அடுத்து (மின்கட்டணம், வாடகை, wifi, Xerox விவரங்கள்) →
-</button>
-        <button type="button" onclick="prevStage('4A')" class="back-btn">⬅️ முன்பக்கம்</button>
+       <div class="nav-row">
+      <button type="button" onclick="prevStage('4A')" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" id="nextBtnFrom4B" onclick="validateAndNextFrom4B()">அடுத்து (மின்கட்டணம், வாடகை…) →</button>
+    </div>
 </div>
  
      <!-- ==================== stage4C: மின் கட்டணம் முதல் நகலெடுத்தல் வரை ==================== -->
@@ -809,6 +833,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
   <!-- stage4C உள்ளே -->
 
     <h4>படி 3/7: ⚡ மின் கட்டணம் முதல் நகலெடுத்தல் வரை</h4>
+    <div class="step-bar"><i style="width:43%"></i></div>
     <div id="stage4CError" class="error" style="display:none; margin:12px 0; padding:10px;"></div>
     <div style="border:1px solid #ccc; padding:15px; border-radius:10px; margin-bottom:20px;">
         <label>மின்சார கட்டணத் தொகை (₹)</label>
@@ -829,14 +854,17 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
         <label>நகல் எடுத்த செலவினம் (₹)</label>
         <input type="number" id="photocopyAmount" min="0" value="0">
     </div>
-        <button type="button" onclick="validateAndNextFrom4C()">அடுத்து(பேருந்து கட்டணம், போக்குவரத்துக் கட்டணம்) →</button>
-        <button type="button" onclick="prevStage('4B')" class="back-btn">⬅️ முன்பக்கம்</button>
+        <div class="nav-row">
+      <button type="button" onclick="prevStage('4B')" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" onclick="validateAndNextFrom4C()">அடுத்து (பேருந்து, போக்குவரத்து) →</button>
+    </div>
 </div>
 
       <!-- ==================== stage4D: பேருந்து & போக்குவரத்து கட்டணம் ==================== -->
 <!-- stage4D உள்ளே (முழு div) -->
 <div id="stage4D" class="sub-stage" style="display:none;">
     <h4>படி 4/7: 🚌 பேருந்து & போக்குவரத்துக் கட்டணம்</h4>
+    <div class="step-bar"><i style="width:57%"></i></div>
     
     <!-- Error display area -->
     <div id="stage4DError" class="error" style="display:none; margin:12px 0; padding:10px 14px;"></div>
@@ -878,8 +906,10 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
         <input type="number" id="travelAmount" min="0" value="0">
     </div>
     
-    <button type="button" onclick="validateAndNextFrom4D()">அடுத்து(அஞ்சல், பதிவேடுகள், நுகர்பொருள் போன்றவை) →</button>
-    <button type="button" onclick="prevStage('4C')" class="back-btn">⬅️ முன் பக்கம்</button>
+    <div class="nav-row">
+      <button type="button" onclick="prevStage('4C')" class="back-btn">⬅️ முன் பக்கம்</button>
+      <button type="button" onclick="validateAndNextFrom4D()">அடுத்து (அஞ்சல், பதிவேடு…) →</button>
+    </div>
 </div>
        
 
@@ -978,6 +1008,32 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
      உண்மையில் stage4G-இல் submit button தேவையில்லை (ஏற்கனவே stage4F-இல் இருக்கும்).
      ஆனால் நீங்கள் அனுப்பிய code-இல் இருப்பதால் சரியாக fix செய்து தருகிறேன். -->
 <button type="button" onclick="prevStage('4A')" class="back-btn">⬅️ ஆரம்ப பக்கத்திறகு</button>
+
+<!-- ==================== stage4S: ஏற்கனவே பதிவு செய்த சுருக்கம் ==================== -->
+<div id="stage4S" class="sub-stage" style="display:none;">
+    <div class="sum-banner">
+      <div class="sum-ok">✅</div>
+      <div>இந்த மாதத்திற்கு (<b id="sumMonth"></b>) நீங்கள் ஏற்கனவே பதிவு செய்துள்ளீர்கள்.<br>
+      <span>பதிவு செய்யப்பட்ட விவரங்கள் மட்டும் கீழே காட்டப்படுகின்றன. தேவையானதைத் திருத்தலாம், நீக்கலாம் அல்லது புதிதாகச் சேர்க்கலாம்.</span></div>
+    </div>
+    <div id="sumMsg" class="success" style="display:none;"></div>
+    <h4>📋 பதிவு செய்யப்பட்ட விவரங்கள்</h4>
+    <div id="sumList"></div>
+    <div class="nav-row"><button type="button" onclick="sumToggleAdd()" id="sumAddBtn">➕ சேர்</button></div>
+    <div id="sumAddBox" style="display:none;"></div>
+</div>
+
+<div id="secOverlay" class="sec-overlay">
+  <div class="sec-card">
+    <h3 id="secTitle"></h3>
+    <div id="secBody"></div>
+    <div id="secErr" class="exp-warn" style="display:none"></div>
+    <div class="nav-row">
+      <button type="button" class="back-btn" onclick="secCancel()">❌ ரத்து</button>
+      <button type="button" onclick="secSave()">💾 சேமி</button>
+    </div>
+  </div>
+</div>
 
 <div id="contingentPreviewOverlay" class="preview-overlay">
   <div class="preview-card">
@@ -1637,7 +1693,7 @@ function submitContingent() {
     const libraryType = document.getElementById("typeSelect").value.trim();
 
     // பகுதி நேர நூலகம் அல்லாத போது மட்டுமே stage4F இருக்க வேண்டும் என்று சரிபார்க்க
-    if (libraryType !== "பகுதி நேர நூலகம்") {
+    if (libraryType !== "பகுதி நேர நூலகம்" && !window.__summaryEdit) {
         if (document.getElementById('stage4F').style.display !== 'block') {
             alert("தயவுசெய்து அனைத்து படிகளையும் முடிக்கவும். பதிவு செய்ய முடியவில்லை!");
             return;
@@ -1727,6 +1783,10 @@ if (submitBtn) {
       submitBtn.disabled = false;
     }
 
+      if (window.__summaryEdit) {
+        window.__summaryEdit = false;
+        if (res.success) { window.__sumFlash = '✅ மாற்றம் சேமிக்கப்பட்டது.'; go(4); return; }
+      }
       showSubStage('4G');
 
      if (res.success) {
@@ -1742,6 +1802,7 @@ if (submitBtn) {
 }
     })
     .withFailureHandler(err => {
+      window.__summaryEdit = false;
       if (submitBtn) {
         submitBtn.textContent = "✅ பதிவு செய்யவும்";
         submitBtn.disabled = false;
@@ -2456,8 +2517,8 @@ function go(n, title){
             if (i.id !== 'monthYear') i.value = 0;
           });
         }
-        showSubStage('4A');
         document.getElementById('contingentErrorTop').style.display = 'none';
+        if (res.success) { openSummary(); } else { showSubStage('4A'); }
       }).getExistingContingentData(selectedLib, currentMonthYear);
 
     }).getActiveNewspapersForLibrary(selectedLib, currentMonthYear);
@@ -3165,6 +3226,162 @@ function calculateRemainingAmount() {
         ✅ நீங்கள் செலுத்திய தொகைக்கு உண்டான பதிவுகளை செய்துவிட்டீர்கள்.<br>
              </div>`;
   }
+}
+
+
+/* ===================== ஏற்கனவே பதிவான மாதம்: சுருக்கம் + திருத்து / நீக்கு / சேர் ===================== */
+const SEC_DEFS = [
+  {k:'news',     ic:'📰', t:'நாளிதழ்கள்', news:true},
+  {k:'partner',  ic:'👩‍💻', t:'தினக்கூலி கூட்டுநர்', f:['partnerNameTamil','partnerDays'], amt:'partnerDays', days:true, when:'nonPT', need:['partnerNameTamil']},
+  {k:'staff',    ic:'🧑‍💼', t:'தினக்கூலி நூலகப் பணியாளர்', f:['staffNameTamil','staffDays'], amt:'staffDays', days:true, when:'nonPT', perm:'staff', need:['staffNameTamil']},
+  {k:'part',     ic:'🧑‍🔧', t:'பகுதி நேர நூலகப் பணியாளர்', f:['partTimeStaffName','partTimeStaffDays'], amt:'partTimeStaffDays', days:true, when:'PT', need:['partTimeStaffName']},
+  {k:'elec',     ic:'⚡', t:'மின் கட்டணம்', f:['electricityBill'], amt:'electricityBill'},
+  {k:'rent',     ic:'🏢', t:'கட்டட வாடகை', f:['rentOwnerName','rentAmount'], amt:'rentAmount', perm:'rent', need:['rentOwnerName']},
+  {k:'wifi',     ic:'📶', t:'வைஃபை / தொலைபேசி', f:['phoneWifiAmount'], amt:'phoneWifiAmount'},
+  {k:'water',    ic:'🚰', t:'குடிநீர் வரி', f:['waterTax'], amt:'waterTax'},
+  {k:'xerox',    ic:'🖨️', t:'நகல் எடுத்த செலவினம்', f:['photocopyAmount'], amt:'photocopyAmount'},
+  {k:'bus',      ic:'🚌', t:'பேருந்து கட்டணம்', f:['busPurpose','busDate','busAmount'], amt:'busAmount', need:['busPurpose','busDate']},
+  {k:'travel',   ic:'🚚', t:'போக்குவரத்துக் கட்டணம்', f:['travelPurpose','travelDate','travelAmount'], amt:'travelAmount', need:['travelPurpose','travelDate']},
+  {k:'postal',   ic:'✉️', t:'அஞ்சல் செலவினம்', f:['postalAmount'], amt:'postalAmount'},
+  {k:'register', ic:'📒', t:'பதிவேடு', f:['registerItem','registerAmount'], amt:'registerAmount', desc:['registerItem']},
+  {k:'station',  ic:'✏️', t:'எழுதுபொருள்', f:['stationeryItem','stationeryAmount'], amt:'stationeryAmount', desc:['stationeryItem']},
+  {k:'electric', ic:'💡', t:'மின்சாதனம்', f:['electricalItem','electricalAmount'], amt:'electricalAmount', desc:['electricalItem']},
+  {k:'consumer', ic:'🧴', t:'நுகர்பொருள்', f:['consumerItem','consumerAmount'], amt:'consumerAmount', desc:['consumerItem']},
+  {k:'other1',   ic:'📌', t:'பிற செலவினம் - 1', f:['otherExpense1Desc','otherExpense1Amount'], amt:'otherExpense1Amount', when:'nonPT', desc:['otherExpense1Desc']},
+  {k:'other2',   ic:'📌', t:'பிற செலவினம் - 2', f:['otherExpense2Desc','otherExpense2Amount'], amt:'otherExpense2Amount', when:'nonPT', desc:['otherExpense2Desc']}
+];
+let sumPerm = {staff: true, rent: true};
+let secCur = null, secMode = '', secMoved = [], secSnap = {};
+const sumEsc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sumNum = id => { const e = document.getElementById(id); return e ? (parseFloat(e.value) || 0) : 0; };
+const sumFmt = n => '₹' + Number(n).toLocaleString('en-IN');
+const newsEls = () => [...document.querySelectorAll('#newsPaperSection [data-key]')];
+
+function secRecorded(sec){
+  if (sec.news) return newsEls().some(e => (parseFloat(e.value) || 0) > 0);
+  return sumNum(sec.amt) > 0;
+}
+function secApplicable(sec){
+  const pt = document.getElementById('typeSelect').value === 'பகுதி நேர நூலகம்';
+  if (sec.when === 'nonPT' && pt) return false;
+  if (sec.when === 'PT' && !pt) return false;
+  if (sec.perm && !sumPerm[sec.perm]) return false;
+  return true;
+}
+function openSummary(){
+  const w = document.getElementById('existingWarning'); if (w) w.style.display = 'none';
+  document.getElementById('sumMonth').textContent = document.getElementById('monthYear').value;
+  document.getElementById('sumList').innerHTML = '<p style="text-align:center;color:#888;">ஏற்றப்படுகிறது…</p>';
+  document.getElementById('sumAddBox').style.display = 'none';
+  showSubStage('4S');
+  const lib = selectedLib;
+  google.script.run.withSuccessHandler(r => {
+    sumPerm.staff = !!(r && r.allowed);
+    const n = document.getElementById('staffNameTamil'), d = document.getElementById('staffDays');
+    if (sumPerm.staff){ staffWorkers = parseInt(r.workers) || 1; n.disabled = false; d.disabled = false; n.readOnly = false; d.readOnly = false; }
+    else { staffWorkers = 1; try { disableDailyWageFields(n, d); } catch(e){} }
+    google.script.run.withSuccessHandler(rr => {
+      sumPerm.rent = !!(rr && rr.success && rr.ownerName);
+      const o = document.getElementById('rentOwnerName'), a = document.getElementById('rentAmount');
+      if (sumPerm.rent){ o.value = rr.ownerName; a.value = rr.rentAmount; o.readOnly = true; a.readOnly = true; }
+      else { o.disabled = true; a.disabled = true; }
+      sumRender();
+    }).withFailureHandler(() => sumRender()).getRentDetailsForLibrary(lib);
+  }).withFailureHandler(() => sumRender()).isDailyWagePermissionAllowed(lib);
+}
+function sumDetail(sec){
+  if (sec.news){
+    return newsEls().filter(e => (parseFloat(e.value) || 0) > 0)
+      .map(e => '<div class="sum-line"><span>' + sumEsc(newsPaperDisplayNames[e.dataset.key] || e.dataset.key) + '</span><b>' + sumFmt(parseFloat(e.value)) + '</b></div>').join('');
+  }
+  return sec.f.filter(id => id !== sec.amt).map(id => {
+    const e = document.getElementById(id); let v = e ? String(e.value || '').trim() : '';
+    if (!v) return '';
+    if (e.type === 'date'){ const q = v.split('-'); if (q.length === 3) v = q[2] + '/' + q[1] + '/' + q[0]; }
+    return '<div class="sum-line"><span>' + sumEsc(v) + '</span></div>';
+  }).join('');
+}
+function sumRender(){
+  const rec = SEC_DEFS.filter(secRecorded);
+  const box = document.getElementById('sumList'), msg = document.getElementById('sumMsg');
+  if (window.__sumFlash){ msg.textContent = window.__sumFlash; msg.style.display = 'block'; window.__sumFlash = ''; setTimeout(() => { msg.style.display = 'none'; }, 4000); }
+  else msg.style.display = 'none';
+  if (!rec.length){ box.innerHTML = '<p class="exp-note">பதிவு செய்யப்பட்ட விவரங்கள் எதுவும் இல்லை. "➕ சேர்" மூலம் சேர்க்கலாம்.</p>'; return; }
+  box.innerHTML = rec.map(sec => {
+    const amt = sec.news ? newsEls().reduce((t, e) => t + (parseFloat(e.value) || 0), 0) : sumNum(sec.amt);
+    return '<div class="sum-row"><div class="exp-ic">' + sec.ic + '</div><div class="sum-main"><div class="sum-t">' + sumEsc(sec.t) + '</div>' +
+      sumDetail(sec) + '</div><div class="sum-amt">' + (sec.days ? amt + ' நாட்கள்' : sumFmt(amt)) + '</div><div class="sum-act">' +
+      '<button type="button" class="btn-sm" onclick="secOpen(\'' + sec.k + '\',\'edit\')">✏️ திருத்து</button>' +
+      '<button type="button" class="btn-sm btn-del" onclick="secDelete(\'' + sec.k + '\')">🗑️ நீக்கு</button></div></div>';
+  }).join('');
+}
+function sumToggleAdd(){
+  const box = document.getElementById('sumAddBox');
+  if (box.style.display === 'block'){ box.style.display = 'none'; return; }
+  const free = SEC_DEFS.filter(x => !secRecorded(x) && secApplicable(x));
+  box.innerHTML = free.length
+    ? '<p class="exp-note">சேர்க்க விரும்பும் விவரத்தைத் தேர்ந்தெடுக்கவும்:</p><div class="add-grid">' +
+      free.map(x => '<button type="button" class="back-btn" onclick="secOpen(\'' + x.k + '\',\'add\')">' + x.ic + ' ' + sumEsc(x.t) + '</button>').join('') + '</div>'
+    : '<p class="exp-note">அனைத்து விவரங்களும் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளன.</p>';
+  box.style.display = 'block';
+  box.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+function secFieldNodes(sec){
+  if (sec.news) return [[document.getElementById('newsPaperSection')]];
+  return sec.f.map(id => {
+    const el = document.getElementById(id), nodes = [];
+    const lb = el.previousElementSibling; if (lb && lb.tagName === 'LABEL') nodes.push(lb);
+    nodes.push(el);
+    const hint = el.nextElementSibling; if (hint && hint.classList.contains('wage-hint')) nodes.push(hint);
+    return nodes;
+  });
+}
+function secOpen(k, mode){
+  secCur = SEC_DEFS.find(x => x.k === k); secMode = mode; secMoved = []; secSnap = {};
+  const body = document.getElementById('secBody'); body.innerHTML = '';
+  (secCur.news ? newsEls().map(e => e.id) : secCur.f).forEach(id => { secSnap[id] = document.getElementById(id).value; });
+  secFieldNodes(secCur).forEach(nodes => {
+    const ph = document.createComment('ph'); nodes[0].parentNode.insertBefore(ph, nodes[0]);
+    secMoved.push({ph, nodes}); nodes.forEach(n => body.appendChild(n));
+  });
+  document.getElementById('secTitle').textContent = (mode === 'add' ? '➕ சேர்: ' : '✏️ திருத்து: ') + secCur.ic + ' ' + secCur.t;
+  document.getElementById('secErr').style.display = 'none';
+  document.getElementById('secOverlay').style.display = 'flex';
+}
+function secRestoreNodes(){
+  secMoved.forEach(m => m.ph.replaceWith(...m.nodes)); secMoved = [];
+  document.getElementById('secOverlay').style.display = 'none';
+}
+function secCancel(){
+  Object.keys(secSnap).forEach(id => { const e = document.getElementById(id); if (e) e.value = secSnap[id]; });
+  secRestoreNodes();
+  try { updateWageHints(); } catch(e){}
+}
+function secErr(m){ const er = document.getElementById('secErr'); er.textContent = '⚠️ ' + m; er.style.display = 'block'; }
+function secSave(){
+  const sec = secCur;
+  if (sec.news){
+    if (!newsEls().some(e => (parseFloat(e.value) || 0) > 0)) return secErr('குறைந்தது ஒரு நாளிதழுக்கான தொகையை உள்ளிடவும்.');
+  } else {
+    if (sumNum(sec.amt) <= 0) return secErr(sec.days ? 'பணிபுரிந்த நாட்களை உள்ளிடவும்.' : 'தொகையை உள்ளிடவும்.');
+    for (const id of (sec.desc || [])){
+      const st = expDescState(document.getElementById(id).value);
+      if (st === 'empty') return secErr('முதலில் விவரத்தை எழுத்துகளில் பதிவு செய்யவும்; பிறகே தொகையை உள்ளிடவும்.');
+      if (st === 'numeric') return secErr('விவரத்தை எழுத்துகளில் உள்ளிடவும் (எண்கள் மட்டும் கூடாது).');
+    }
+    for (const id of (sec.need || [])){
+      if (!String(document.getElementById(id).value || '').trim()) return secErr('தேவையான விவரங்கள் அனைத்தையும் பூர்த்தி செய்யவும்.');
+    }
+  }
+  secRestoreNodes();
+  window.__summaryEdit = true; submitContingent();
+}
+function secDelete(k){
+  const sec = SEC_DEFS.find(x => x.k === k);
+  if (!confirm('"' + sec.t + '" பதிவை நீக்க வேண்டுமா?')) return;
+  if (sec.news) newsEls().forEach(e => { e.value = 0; });
+  else sec.f.forEach(id => { const e = document.getElementById(id); e.value = (e.type === 'number') ? 0 : ''; });
+  window.__summaryEdit = true; submitContingent();
 }
 
 function showContingentPreview() {
