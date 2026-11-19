@@ -583,10 +583,15 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 .sec-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:14px}
 .sec-card{background:#fff;border-radius:8px;border-top:5px solid var(--tn-gold);width:100%;max-width:520px;max-height:90vh;overflow:auto;padding:18px 18px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .sec-card h3{margin:0 0 10px;color:var(--tn-navy)}
+
+.btn-voucher{background:linear-gradient(180deg,#1b9a4b,#12733a)!important;width:100%}
+.voucher-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;padding:14px 16px;background:#fff8e6;border:1px solid #f0d58a;border-left:5px solid var(--tn-gold);border-radius:8px}
+.voucher-strip span{font-size:13px;color:#64748b}.voucher-strip .btn-voucher{width:auto;padding:10px 18px;margin:0}
 @media(max-width:560px){.container,#stage5{margin:10px 8px!important}}
 </style>
 
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <a href="/logout" title="வெளியேறு / பயனர் மாற்று" style="position:fixed;top:8px;right:10px;z-index:9999;background:#fff;border:1.5px solid #cbd5e1;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:#334155;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.15);">🚪 வெளியேறு</a>
@@ -996,9 +1001,14 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 
      <!-- ==================== stage4G: முடிவு பக்கம் (தற்போதைய stage4C-ஐ இங்கு மாற்றவும்) ==================== -->
 <div id="stage4G" class="sub-stage" style="display:none;">
-    <h4>பதிவு முடிவு</h4>
+    <h4>படி 7/7: ✅ பதிவு முடிவு</h4>
+    <div class="step-bar"><i style="width:100%"></i></div>
     <div id="contingentMsg" class="success" style="display:none;"></div>
     <div id="contingentError" class="error" style="display:none;"></div>
+    <div id="voucherBox4G" style="display:none;">
+      <p class="exp-note">அனைத்து பதிவுகளும் முடிந்தன. நீங்கள் பதிவு செய்த விவரங்கள் மட்டும் அடங்கிய சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) PDF-ஐ இப்போது உருவாக்கலாம்.</p>
+      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">📄 வவுச்சர் தயார் செய்</button>
+    </div>
     <button type="button" onclick="show(3)" class="back-btn" style="margin-top:20px;">
         மெனுவுக்கு திரும்பு
     </button>
@@ -1021,6 +1031,10 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     <div id="sumList"></div>
     <div class="nav-row"><button type="button" onclick="sumToggleAdd()" id="sumAddBtn">➕ சேர்</button></div>
     <div id="sumAddBox" style="display:none;"></div>
+    <div class="voucher-strip">
+      <div>📄 <b>சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்)</b><br><span>பதிவு செய்த விவரங்கள் அடங்கிய A4 PDF</span></div>
+      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">⬇️ வவுச்சர் PDF பதிவிறக்கு</button>
+    </div>
 </div>
 
 <div id="secOverlay" class="sec-overlay">
@@ -1796,6 +1810,7 @@ if (submitBtn) {
   
   document.getElementById('contingentMsg').textContent = msg;
   document.getElementById('contingentMsg').style.display = 'block';
+  document.getElementById('voucherBox4G').style.display = 'block';
 } else {
   document.getElementById('contingentError').textContent = `❌ ${res.message}`;
   document.getElementById('contingentError').style.display = 'block';
@@ -3382,6 +3397,132 @@ function secDelete(k){
   if (sec.news) newsEls().forEach(e => { e.value = 0; });
   else sec.f.forEach(id => { const e = document.getElementById(id); e.value = (e.type === 'number') ? 0 : ''; });
   window.__summaryEdit = true; submitContingent();
+}
+
+
+/* ===================== சில்லறைச் செலவினப் பட்டியல் (Voucher) PDF — A4 portrait ===================== */
+function vcWords(n){
+  n = Math.round(n);
+  if (n === 0) return 'Zero';
+  const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  const h = x => {
+    let t = '';
+    if (x >= 100){ t += a[Math.floor(x / 100)] + ' Hundred'; x %= 100; if (x) t += ' and '; }
+    if (x >= 20){ t += b[Math.floor(x / 10)]; if (x % 10) t += ' ' + a[x % 10]; }
+    else if (x) t += a[x];
+    return t;
+  };
+  const parts = [];
+  [[10000000, 'Crore'], [100000, 'Lakh'], [1000, 'Thousand']].forEach(([v, nm]) => {
+    if (n >= v){ parts.push(h(Math.floor(n / v)) + ' ' + nm); n %= v; }
+  });
+  if (n) parts.push(h(n));
+  return parts.join(' ');
+}
+const vcMoney = n => '₹' + Number(n).toFixed(2);
+function vcDate(v){ const q = String(v || '').split('-'); return q.length === 3 ? q[2] + '/' + q[1] + '/' + q[0] : String(v || ''); }
+function vcItems(){
+  const rows = [];                       // {text, amt, subs:[]}
+  const T = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  const N = id => sumNum(id);
+  SEC_DEFS.forEach(sec => {
+    if (!secRecorded(sec)) return;
+    let r = null;
+    switch (sec.k){
+      case 'news': {
+        const subs = newsEls().filter(e => (parseFloat(e.value) || 0) > 0)
+          .map(e => (newsPaperDisplayNames[e.dataset.key] || e.dataset.key) + ' - ' + vcMoney(parseFloat(e.value)));
+        r = {text: 'நாளிதழ்கள்', amt: newsEls().reduce((t, e) => t + (parseFloat(e.value) || 0), 0), subs}; break; }
+      case 'partner': r = {text: 'தினக்கூலி கூட்டுநர் - ' + T('partnerNameTamil') + ' - பணிநாள் ' + N('partnerDays'), amt: N('partnerDays') * (wageRates.partner || 0)}; break;
+      case 'staff':   r = {text: 'தினக்கூலி நூலகப் பணியாளர் - ' + T('staffNameTamil') + ' - பணிநாள் ' + N('staffDays'), amt: N('staffDays') * (wageRates.staff || 0)}; break;
+      case 'part':    r = {text: 'பகுதி நேர நூலகத் தினக்கூலிப் பணியாளர் - ' + T('partTimeStaffName') + ' - பணிநாள் ' + N('partTimeStaffDays'), amt: N('partTimeStaffDays') * (wageRates.partTime || 0)}; break;
+      case 'elec':    r = {text: 'மின் கட்டணம்', amt: N('electricityBill')}; break;
+      case 'rent':    r = {text: 'கட்டட வாடகை - ' + T('rentOwnerName'), amt: N('rentAmount')}; break;
+      case 'wifi':    r = {text: 'வைஃபை / தொலைபேசி கட்டணம்', amt: N('phoneWifiAmount')}; break;
+      case 'water':   r = {text: 'குடிநீர் வரி', amt: N('waterTax')}; break;
+      case 'xerox':   r = {text: 'நகல் எடுத்த செலவினம்', amt: N('photocopyAmount')}; break;
+      case 'bus':     r = {text: 'பேருந்து கட்டணம் - ' + vcDate(T('busDate')) + ' அன்று - ' + T('busPurpose'), amt: N('busAmount')}; break;
+      case 'travel':  r = {text: 'போக்குவரத்துக் கட்டணம் - ' + vcDate(T('travelDate')) + ' அன்று - ' + T('travelPurpose'), amt: N('travelAmount')}; break;
+      case 'postal':  r = {text: 'அஞ்சல் செலவினம்', amt: N('postalAmount')}; break;
+      case 'register': r = {text: 'வாங்கிய பதிவேடு - ' + T('registerItem'), amt: N('registerAmount')}; break;
+      case 'station':  r = {text: 'வாங்கிய எழுதுபொருள் - ' + T('stationeryItem'), amt: N('stationeryAmount')}; break;
+      case 'electric': r = {text: 'வாங்கிய மின்சாதனம் - ' + T('electricalItem'), amt: N('electricalAmount')}; break;
+      case 'consumer': r = {text: 'வாங்கிய நுகர்பொருள் - ' + T('consumerItem'), amt: N('consumerAmount')}; break;
+      case 'other1':   r = {text: T('otherExpense1Desc'), amt: N('otherExpense1Amount')}; break;
+      case 'other2':   r = {text: T('otherExpense2Desc'), amt: N('otherExpense2Amount')}; break;
+    }
+    if (r){ r.subs = r.subs || []; rows.push(r); }
+  });
+  return rows;
+}
+function vcBuildHtml(){
+  const items = vcItems();
+  const total = items.reduce((t, r) => t + r.amt, 0);
+  const my = (document.getElementById('monthYear').value || '').split('/');
+  const mm = parseInt(my[0]) || (new Date().getMonth() + 1), yy = my[1] || new Date().getFullYear();
+  const monthTxt = getTamilMonthName(mm - 1) + '-' + yy;
+  const lib = sumEsc(selectedLib), type = sumEsc(document.getElementById('typeSelect').value);
+  let body = '', count = 0;
+  items.forEach((r, i) => {
+    count++;
+    body += '<tr><td class="c">' + (i + 1) + '</td><td class="b">' + sumEsc(r.text) + '</td><td class="r b">' + vcMoney(r.amt) + '</td></tr>';
+    r.subs.forEach((sub, j) => { count++; body += '<tr class="sub"><td></td><td>' + (i + 1) + '.' + (j + 1) + ' ' + sumEsc(sub) + '</td><td></td></tr>'; });
+  });
+  for (let k = count; k < 13; k++) body += '<tr class="blank"><td></td><td></td><td></td></tr>';
+  const w = vcWords(total);
+  return '<div id="vcPage">' +
+    '<div class="vc-head"><img src="/voucher-logo" onerror="this.style.visibility=\'hidden\'" alt="">' +
+    '<div class="vc-title">மாவட்ட நூலக ஆணைக்குழு, திண்டுக்கல்<br>சில்லறைச் செலவினப் பட்டியல்</div></div>' +
+    '<div class="vc-meta"><span>நூலகம் பெயர்: <b>' + lib + ' - ' + type + '</b></span><span>மாதம்: <b>' + sumEsc(monthTxt) + '</b></span></div>' +
+    '<table class="vc-tbl"><thead><tr><th style="width:9%">S.No.</th><th>Description of Charges</th><th style="width:19%">Amount<br>Rs. P</th></tr></thead><tbody>' + body +
+    '<tr class="tot"><td colspan="2" class="r">Total</td><td class="r">' + vcMoney(total) + '</td></tr></tbody></table>' +
+    '<p class="vc-words">Rs.' + total.toFixed(2) + '/- (Rupees: ' + w + ' Rupees)</p>' +
+    '<p class="vc-txt">Recived Payment, I Certifity that the expenditure charged in this bill could not, with due regarded to the interest of the public service be avoided and that, so for as I could as certain the rates allowed are reasonbale and do not exceed local current rates. I have satisfied myself that the charges entered in this bill have been really paid or will be paid on receipt of the money drawn on this bill. voucher for all sums above Rs. 25 in amount and for all sums paid for postage stamps telegrams and house rents are attached to the bill save thouse noted below which will be obtained as soon as the amounts have been paid. i have as for posible obtained voucher for other sums and i am personally reasonable that they been on defaced that they cannot be used again.</p>' +
+    '<p class="vc-txt">Certified that the work truned out is satsfactory and is worth the amount paid for. Received the above articles in good condition and entered in the stock register; quantities are correct and qualities are good and suitable for the purpose.</p>' +
+    '<div class="vc-sign"><b>நூலகர் ஒப்பம்</b><br><b>நூலக முத்திரையுடன்</b></div>' +
+    '<div class="vc-stn">Station: ' + lib.replace(/ - .*$/, '') + '<br>Date: ......' + String(mm).padStart(2, '0') + '.' + yy + '</div>' +
+    '<div class="vc-pass">Passed for ₹' + total.toFixed(2) + ' (' + w + ' Rupees)</div>' +
+    '<div class="vc-dlo">District Library Officer</div>' +
+    '<div class="vc-foot"><div>Head of Account:<i></i></div><div>Classification:<i></i></div><div>Accountant:<i></i></div><div>Commissioner:<i></i></div></div>' +
+    '</div>';
+}
+const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:40px 48px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.35}' +
+  '#vcPage .vc-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}#vcPage .vc-head img{width:70px;height:70px;object-fit:contain}' +
+  '#vcPage .vc-title{flex:1;text-align:center;font-weight:700;font-size:18px;padding-right:70px}' +
+  '#vcPage .vc-meta{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px}' +
+  '#vcPage .vc-tbl{width:100%;border-collapse:collapse;table-layout:fixed}#vcPage .vc-tbl th,#vcPage .vc-tbl td{border:1.5px solid #000;padding:6px 8px;vertical-align:top;word-wrap:break-word}' +
+  '#vcPage .vc-tbl th{font-size:13px}#vcPage .c{text-align:center}#vcPage .r{text-align:right}#vcPage .b{font-weight:700}' +
+  '#vcPage .sub td{font-size:12px;border-top:1px solid #000;border-bottom:1px solid #000}#vcPage .blank td{height:24px}#vcPage .tot td{font-weight:700;font-size:14px}' +
+  '#vcPage .vc-words{text-align:center;font-weight:700;margin:14px 0}#vcPage .vc-txt{text-align:justify;font-family:Arial,sans-serif;font-size:11.5px;text-indent:40px;margin:6px 0}' +
+  '#vcPage .vc-sign{text-align:right;margin-top:34px}#vcPage .vc-stn{margin-top:-6px;font-size:12.5px}' +
+  '#vcPage .vc-pass{text-align:center;font-weight:700;font-size:17px;font-family:Arial,sans-serif;margin:14px 0 30px}' +
+  '#vcPage .vc-dlo{text-align:right;font-weight:700;font-size:18px;font-family:Arial,sans-serif;margin-bottom:14px}' +
+  '#vcPage .vc-foot{display:flex;gap:22px;font-weight:700;font-family:Arial,sans-serif}#vcPage .vc-foot div{flex:1}#vcPage .vc-foot i{display:block;border-bottom:1.5px solid #000;height:20px}';
+async function makeVoucherPdf(btn){
+  if (typeof html2pdf === 'undefined'){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
+  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
+  host.innerHTML = '<style>' + VC_CSS + '</style>' + vcBuildHtml();
+  document.body.appendChild(host);
+  try{
+    try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch(e){}
+    await Promise.all([...host.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    const my = (document.getElementById('monthYear').value || '').replace('/', '-');
+    await html2pdf().set({
+      margin: 0,
+      filename: 'Voucher_' + String(selectedLib).replace(/[\\/:*?"<>|\s]+/g, '_') + '_' + my + '.pdf',
+      image: {type: 'jpeg', quality: 0.98},
+      html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794},
+      jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
+      pagebreak: {mode: ['css', 'legacy'], avoid: ['tr']}
+    }).from(host.querySelector('#vcPage')).save();
+  } catch(e){
+    alert('வவுச்சர் உருவாக்க முடியவில்லை: ' + (e && e.message ? e.message : e));
+  } finally {
+    host.remove(); btn.disabled = false; btn.innerHTML = old;
+  }
 }
 
 function showContingentPreview() {

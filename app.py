@@ -64,6 +64,24 @@ def rpc(fn):
 _schema = {"ready": False, "tries": 0}
 
 
+_LOGO_CACHE = {}
+
+
+@app.get("/voucher-logo")
+def voucher_logo():
+    """வவுச்சர் PDF-இல் லோகோ (Drive படம் CORS தடையின்றி இதே தளத்திலிருந்து வழங்கப்படும்)"""
+    import urllib.request
+    if "img" not in _LOGO_CACHE:
+        try:
+            url = "https://drive.google.com/thumbnail?id=1AwZy-uxszelJlyda0Kfvv4_CVgEUBayX&sz=w200"
+            with urllib.request.urlopen(url, timeout=8) as r:
+                _LOGO_CACHE["img"] = (r.read(), r.headers.get_content_type() or "image/png")
+        except Exception:
+            return Response(status=404)
+    data, ctype = _LOGO_CACHE["img"]
+    return Response(data, mimetype=ctype, headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.before_request
 def _ensure_schema():
     if _schema["ready"] or _schema["tries"] >= 3 or request.path == "/healthz":
