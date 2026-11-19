@@ -97,7 +97,9 @@ def _ensure_schema():
 
 # admin மட்டும் சேமிக்கக்கூடியவை
 ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
-              "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions"}
+              "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
+              "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
+              "approveClaims", "revokeClaimApproval"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -226,6 +228,144 @@ def submitOrUpdateContingent(data):
 
     claim_id, inserted = db.run(f)
     return {"success": True, "row": claim_id, "action": "created" if inserted else "updated"}
+
+
+
+# ------------------------------------------------------------------
+#  சில்லறை செலவின மேலாண்மை (Admin): பதிவு நிலை + திருத்தம் + அனுமதி
+# ------------------------------------------------------------------
+CLAIM_MONEY = ["electricity_bill", "rent_amount", "phone_wifi_amount", "water_tax", "photocopy_amount",
+               "bus_amount", "travel_amount", "postal_amount", "register_amount", "stationery_amount",
+               "electrical_amount", "consumer_amount", "other_expense1_amount", "other_expense2_amount"]
+CLAIM_LABELS = {
+    "partnerNameTamil": "கூட்டுநர் பெயர்", "partnerDays": "கூட்டுநர் பணிநாட்கள்",
+    "staffNameTamil": "நூலகப் பணியாளர் பெயர்", "staffDays": "நூலகப் பணியாளர் பணிநாட்கள்",
+    "partTimeStaffName": "பகுதி நேரப் பணியாளர் பெயர்", "partTimeStaffDays": "பகுதி நேரப் பணியாளர் பணிநாட்கள்",
+    "electricityBill": "மின் கட்டணம் (₹)", "rentOwnerName": "கட்டட உரிமையாளர்", "rentAmount": "வாடகை (₹)",
+    "phoneWifiAmount": "வைஃபை / தொலைபேசி (₹)", "waterTax": "குடிநீர் வரி (₹)", "photocopyAmount": "நகல் செலவினம் (₹)",
+    "busPurpose": "பேருந்து - காரணம்", "busDate": "பேருந்து - நாள்", "busAmount": "பேருந்து கட்டணம் (₹)",
+    "travelPurpose": "போக்குவரத்து - காரணம்", "travelDate": "போக்குவரத்து - நாள்", "travelAmount": "போக்குவரத்துக் கட்டணம் (₹)",
+    "postalAmount": "அஞ்சல் (₹)", "registerItem": "பதிவேடு - விவரம்", "registerAmount": "பதிவேடு (₹)",
+    "stationeryItem": "எழுதுபொருள் - விவரம்", "stationeryAmount": "எழுதுபொருள் (₹)",
+    "electricalItem": "மின்சாதனம் - விவரம்", "electricalAmount": "மின்சாதனம் (₹)",
+    "consumerItem": "நுகர்பொருள் - விவரம்", "consumerAmount": "நுகர்பொருள் (₹)",
+    "otherExpense1Desc": "பிற செலவினம் 1 - விவரம்", "otherExpense1Amount": "பிற செலவினம் 1 (₹)",
+    "otherExpense2Desc": "பிற செலவினம் 2 - விவரம்", "otherExpense2Amount": "பிற செலவினம் 2 (₹)",
+}
+
+
+def _month_or_now(month_year):
+    m = str(month_year or "").strip()
+    if len(m) == 7 and m[2] == "/" and m[:2].isdigit() and m[3:].isdigit():
+        return m
+    now = dt.datetime.now(IST)
+    return "%02d/%d" % (now.month, now.year)
+
+
+def _claim_total(row, paper_sum, rates):
+    d = lambda v: Decimal(str(v or 0))
+    t = d(paper_sum)
+    t += d(row["partner_days"]) * d(rates.get("partner"))
+    t += d(row["staff_days"]) * d(rates.get("staff"))
+    t += d(row["part_time_staff_days"]) * d(rates.get("partTime"))
+    for k in CLAIM_MONEY:
+        t += d(row[k])
+    return t
+
+
+@rpc
+def getRegistrationStatus(monthYear=None):
+    """நடப்பு (அல்லது தேர்ந்த) மாதம்: பதிவு செய்தவர்கள் / செய்யாதவர்கள்"""
+    m = _month_or_now(monthYear)
+    libs = db.fetch_all("SELECT name, lib_type FROM libraries ORDER BY id")
+    done = {r["library_name"] for r in
+            db.fetch_all("SELECT DISTINCT library_name FROM claims WHERE month_year = %s", (m,))}
+    reg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] in done]
+    notreg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] not in done]
+    return {"success": True, "month": m, "registered": reg, "notRegistered": notreg, "total": len(libs)}
+
+
+@rpc
+def getClaimsForApproval(monthYear=None):
+    m = _month_or_now(monthYear)
+    rates = getWageRates()
+    rows = db.fetch_all("SELECT c.*, l.id AS lib_id FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
+                        "WHERE c.month_year = %s ORDER BY l.id NULLS LAST, c.library_name", (m,))
+    papers = {}
+    for p in db.fetch_all("SELECT claim_id, SUM(amount) AS s FROM claim_newspapers GROUP BY claim_id"):
+        papers[p["claim_id"]] = p["s"]
+    out = []
+    for r in rows:
+        tot = _claim_total(r, papers.get(r["id"], 0), rates)
+        out.append({"id": r["id"], "name": r["library_name"], "type": r["library_type"],
+                    "total": float(tot), "approved": bool(r["approved"]),
+                    "approvedAmount": float(r["approved_amount"]) if r["approved_amount"] is not None else None,
+                    "approvedAt": r["approved_at"].astimezone(IST).strftime("%d/%m/%Y %H:%M") if r["approved_at"] else ""})
+    return {"success": True, "month": m, "rows": out,
+            "approvedTotal": sum(x["approvedAmount"] or 0 for x in out if x["approved"]),
+            "grandTotal": sum(x["total"] for x in out)}
+
+
+@rpc
+def getClaimForEdit(claimId):
+    row = db.fetch_one("SELECT * FROM claims WHERE id = %s", (claimId,))
+    if not row:
+        return {"success": False, "message": "பதிவு கிடைக்கவில்லை"}
+    names = {n["slot"]: n["name"] for n in db.fetch_all("SELECT slot, name FROM newspapers")}
+    paps = db.fetch_all("SELECT slot, amount FROM claim_newspapers WHERE claim_id = %s ORDER BY slot", (claimId,))
+    fields = []
+    for k in CLAIM_TEXT + CLAIM_NUM:
+        v = row[snake(k)]
+        fields.append({"key": k, "label": CLAIM_LABELS.get(k, k), "num": k in CLAIM_NUM,
+                       "value": jnum(v) if k in CLAIM_NUM else (v or "")})
+    return {"success": True, "id": claimId, "library": row["library_name"], "month": row["month_year"],
+            "approved": bool(row["approved"]), "fields": fields,
+            "papers": [{"slot": p["slot"], "name": names.get(p["slot"]) or ("நாளிதழ் " + str(p["slot"])),
+                        "amount": jnum(p["amount"])} for p in paps]}
+
+
+@rpc
+def adminSaveClaim(claimId, data, papers):
+    row = db.fetch_one("SELECT * FROM claims WHERE id = %s", (claimId,))
+    if not row:
+        return {"success": False, "message": "பதிவு கிடைக்கவில்லை"}
+    data = data or {}
+    head = {"unique_key": row["unique_key"], "library_name": row["library_name"],
+            "library_code": row["library_code"], "month_year": row["month_year"],
+            "login_email": row["login_email"], "library_type": row["library_type"]}
+    pap = {int(k): to_num(v) for k, v in (papers or {}).items()}
+
+    def f(conn):
+        with conn.cursor() as cur:
+            return upsert_claim(cur, head, data, pap)
+    db.run(f)
+    return {"success": True}
+
+
+@rpc
+def approveClaims(claimIds):
+    ids = [int(i) for i in (claimIds or [])]
+    if not ids:
+        return {"success": False, "message": "எதுவும் தேர்ந்தெடுக்கப்படவில்லை"}
+    rates = getWageRates()
+    rows = db.fetch_all("SELECT * FROM claims WHERE id = ANY(%s)", (ids,))
+    papers = {p["claim_id"]: p["s"] for p in
+              db.fetch_all("SELECT claim_id, SUM(amount) AS s FROM claim_newspapers WHERE claim_id = ANY(%s) GROUP BY claim_id", (ids,))}
+    vals = [(r["id"], _claim_total(r, papers.get(r["id"], 0), rates)) for r in rows]
+
+    def f(conn):
+        with conn.cursor() as cur:
+            for cid, tot in vals:
+                cur.execute("UPDATE claims SET approved = TRUE, approved_at = now(), approved_amount = %s WHERE id = %s",
+                            (tot, cid))
+    db.run(f)
+    return {"success": True, "count": len(vals), "amount": float(sum(t for _, t in vals))}
+
+
+@rpc
+def revokeClaimApproval(claimId):
+    db.execute("UPDATE claims SET approved = FALSE, approved_at = NULL, approved_amount = NULL WHERE id = %s", (claimId,))
+    return {"success": True}
 
 
 # ------------------------------------------------------------------

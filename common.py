@@ -80,7 +80,8 @@ def upsert_claim(cur, head, data, newspapers, pdf_url=None):
             + [pdf_url])
     updates = ",".join(f"{c}=EXCLUDED.{c}" for c in cols if c != "unique_key")
     sql = (f"INSERT INTO claims ({','.join(cols)}) VALUES ({','.join(['%s'] * len(cols))}) "
-           f"ON CONFLICT (unique_key) DO UPDATE SET {updates}, updated_at = now() "
+           f"ON CONFLICT (unique_key) DO UPDATE SET {updates}, updated_at = now(), "
+           f"approved = FALSE, approved_at = NULL, approved_amount = NULL "
            f"RETURNING id, (xmax = 0) AS inserted")
     cur.execute(sql, vals)
     claim_id, inserted = cur.fetchone()

@@ -129,6 +129,11 @@ CREATE TABLE IF NOT EXISTS claims (
 );
 CREATE INDEX IF NOT EXISTS idx_claims_lib_month ON claims(library_name, month_year);
 
+-- சில்லறை செலவின அனுமதி (Admin): அனுமதிக்கப்பட்டதா, எப்போது, அனுமதிக்கப்பட்ட மொத்தத் தொகை
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS approved        BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS approved_at     TIMESTAMPTZ;
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS approved_amount NUMERIC(14,2);
+
 -- 18 நாளிதழ் slot தொகைகள் (பழைய 18 column-களுக்குப் பதிலாக)
 CREATE TABLE IF NOT EXISTS claim_newspapers (
   claim_id INT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,

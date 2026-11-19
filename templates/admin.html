@@ -146,6 +146,28 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   .ngrid{grid-template-columns:34px 1fr 90px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== பதிவு நிலை + அனுமதி ===== */
+.regbar{height:14px;background:#f3c9c6;border-radius:8px;overflow:hidden;margin:6px 0 14px;border:1px solid #e6a6a2}
+.regbar i{display:block;height:100%;background:linear-gradient(90deg,#2e9e5b,#1f7a45)}
+.regcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:760px){.regcols{grid-template-columns:1fr}}
+.regcard{border-radius:8px;border:1px solid;overflow:hidden;background:#fff}
+.regcard .rh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#fff;font-weight:700;font-size:18px}
+.regcard .rh b{font-size:28px}
+.regcard .rl{max-height:460px;overflow:auto;padding:6px 0}
+.regcard .rl div{padding:7px 16px;border-bottom:1px solid #eef1f5;font-size:15px}
+.regcard .rl small{color:#64748b;display:block}
+.okc{border-color:#9fd2b3}.okc .rh{background:linear-gradient(180deg,#2e9e5b,#1f7a45)}.okc .rl div{background:#f3fbf6}
+.badc{border-color:#e6a6a2}.badc .rh{background:linear-gradient(180deg,#d9534f,#b3261e)}.badc .rl div{background:#fff5f4}
+.ap-ok{background:var(--okbg);color:var(--ok)}.ap-pend{background:var(--warnbg);color:var(--warn)}
+.ap-btn{padding:4px 12px;font-size:14px;margin-right:6px}
+.clm-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:14px}
+.clm-card{background:#fff;border-radius:8px;border-top:5px solid #c8961e;width:100%;max-width:760px;max-height:92vh;overflow:auto;padding:18px}
+.clm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+@media(max-width:640px){.clm-grid{grid-template-columns:1fr}}
+.clm-grid label{font-size:14px;font-weight:600;color:#243b53;display:block;margin-bottom:3px}
+.clm-grid h4{grid-column:1/-1;margin:8px 0 0;color:var(--navy);border-bottom:2px solid #c8961e;padding-bottom:3px}
 </style>
 </head>
 <body>
@@ -166,16 +188,19 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <h2>நிர்வாக மெனு</h2>
   <a href="#home" data-v="home"><span class="n">⌂</span><span>முகப்பு</span></a>
   <div class="grp">தரவு ஏற்றம் (Excel)</div>
-  <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலகங்கள் பெயர் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
-  <a href="#leave" data-v="leave"><span class="n">2</span><span>நூலகர் விடுப்பு விவரம் ஏற்று</span></a>
+  <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலக விவரம் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
+  <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
+  <div class="grp">சில்லறை செலவின மேலாண்மை</div>
   <a href="#permission" data-v="permission"><span class="n">3</span><span>தினக்கூலி பணியாளர் அனுமதி</span></a>
-  <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
-  <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி விவரம்<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
+  <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
+  <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
+  <a href="#status" data-v="status"><span class="n">6</span><span>நடப்பு மாதப் பதிவு நிலை<small>பதிவு செய்தவர்கள் / செய்யாதவர்கள்</small></span></a>
+  <a href="#approval" data-v="approval"><span class="n">7</span><span>சில்லறை செலவின அனுமதி<small>திருத்தி அனுமதிக்க</small></span></a>
   <div class="grp">நாளிதழ் மேலாண்மை</div>
-  <a href="#newspapers" data-v="newspapers"><span class="n">6</span><span>நாளிதழ் விவரம்</span></a>
-  <a href="#newsmap" data-v="newsmap"><span class="n">7</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
+  <a href="#newspapers" data-v="newspapers"><span class="n">8</span><span>நாளிதழ் விவரம்</span></a>
+  <a href="#newsmap" data-v="newsmap"><span class="n">9</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
   <div class="grp">பணி நாட்கள்</div>
-  <a href="#holidays" data-v="holidays"><span class="n">8</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
+  <a href="#holidays" data-v="holidays"><span class="n">10</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -196,14 +221,16 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
     <table>
       <thead><tr><th style="width:60px">எண்</th><th>பணி</th><th style="width:130px">நிலை</th></tr></thead>
       <tbody>
-        <tr><td>1</td><td><a href="#libraries">நூலகங்கள் பெயர் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>2</td><td><a href="#leave">நூலகர் விடுப்பு விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>1</td><td><a href="#libraries">நூலக விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>2</td><td><a href="#leave">விடுப்பு விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>3</td><td><a href="#permission">தினக்கூலி பணியாளர் அனுமதி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>4</td><td><a href="#wages">தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>5</td><td><a href="#cleaner">தினக்கூலி கூட்டுநர் கூலி விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>6</td><td><a href="#newspapers">நாளிதழ் விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>7</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
-        <tr><td>8</td><td><a href="#holidays">அரசு விடுமுறை நாட்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>4</td><td><a href="#wages">தினக்கூலி நூலகப் பணியாளர் கூலி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>5</td><td><a href="#cleaner">தினக்கூலி கூட்டுநர் கூலி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>6</td><td><a href="#status">நடப்பு மாதப் பதிவு நிலை</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>7</td><td><a href="#approval">சில்லறை செலவின அனுமதி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>8</td><td><a href="#newspapers">நாளிதழ் விவரம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>9</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>10</td><td><a href="#holidays">அரசு விடுமுறை நாட்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
       </tbody>
     </table>
   </div></div>
@@ -212,7 +239,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <!-- ================= 1. நூலகங்கள் ================= -->
 <section class="view" id="v-libraries">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › நூலகங்கள் பெயர்</p>
-  <h2 class="pt">1. நூலகங்கள் பெயர் ஏற்று</h2>
+  <h2 class="pt">1. நூலக விவரம் ஏற்று</h2>
   <p class="lead">நூலகப் பட்டியல் Excel கோப்பை ஏற்றியவுடன் நூலகர் உள்நுழைவுப் பக்கத்தில் நூலகங்களின் பெயர்கள் காட்டப்படும். மீண்டும் ஏற்றினால் பழைய பதிவுகள் புதுப்பிக்கப்படும்; நகல் உருவாகாது.</p>
 
   <div class="panel"><h3>ஏற்றும் படிகள்</h3><div class="bd">
@@ -241,7 +268,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <!-- ================= 2. விடுப்பு ================= -->
 <section class="view" id="v-leave">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › விடுப்பு</p>
-  <h2 class="pt">2. நூலகர் விடுப்பு விவரம் ஏற்று</h2>
+  <h2 class="pt">2. விடுப்பு விவரம் ஏற்று</h2>
   <p class="lead">முதலில் நூலகப் பட்டியலை ஏற்றியிருக்க வேண்டும். முதல் இரண்டு வரிகள் தலைப்பாகத் தவிர்க்கப்படும்: A நூலகப் பெயர், B விடுப்பு நாட்கள். <a href="/admin/template/leave.xlsx">மாதிரி Excel</a></p>
   <div class="panel"><h3>Excel ஏற்றம்</h3><div class="bd">
     <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_leave" accept=".xlsx,.xls,.csv" aria-label="விடுப்பு Excel"></div><button class="btn go" id="b_leave">Excel ஏற்று</button></div>
@@ -271,7 +298,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <!-- ================= 4, 5 கூலி விவரம் ================= -->
 <section class="view" id="v-wages">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூலி விவரம்</p>
-  <h2 class="pt">4. தினக்கூலி நூலகப் பணியாளர் கூலி விவரம்</h2>
+  <h2 class="pt">4. தினக்கூலி நூலகப் பணியாளர் கூலி</h2>
   <p class="lead">நாள் ஒன்றுக்கான கூலித் தொகையை இங்கே உள்ளிடுக. நூலகர் பணி நாட்களை உள்ளிட்டவுடன் <b>நாட்கள் × இந்தத் தொகை</b> தானாகக் காட்டப்படும்.</p>
   <div class="panel"><h3>நாள் கூலி (₹)</h3><div class="bd">
     <div class="rate">
@@ -287,7 +314,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 </section>
 <section class="view" id="v-cleaner">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › கூட்டுநர் கூலி</p>
-  <h2 class="pt">5. தினக்கூலி கூட்டுநர் கூலி விவரம்</h2>
+  <h2 class="pt">5. தினக்கூலி கூட்டுநர் கூலி</h2>
   <p class="lead">கூட்டுநருக்கான நாள் கூலித் தொகையை உள்ளிடுக. நூலகர் பணிபுரிந்த நாட்களை உள்ளிட்டவுடன் நாட்கள் × தொகை தானாகக் காட்டப்படும்.</p>
   <div class="panel"><h3>நாள் கூலி (₹)</h3><div class="bd">
     <div class="rate">
@@ -300,10 +327,55 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   </div></div>
 </section>
 
-<!-- ================= 6. நாளிதழ் விவரம் ================= -->
+<!-- ================= 6. நடப்பு மாதப் பதிவு நிலை ================= -->
+<section class="view" id="v-status">
+  <p class="crumb">நிர்வாகம் › சில்லறை செலவின மேலாண்மை</p>
+  <h2 class="pt">6. நடப்பு மாதப் பதிவு நிலை</h2>
+  <p class="lead">இந்த மாதம் சில்லறை செலவினம் பதிவு செய்த நூலகங்கள் பச்சை நிறத்திலும், இன்னும் பதிவு செய்யாதவை சிவப்பு நிறத்திலும் அருகருகே காட்டப்படுகின்றன.</p>
+  <div class="toolbar"><label style="margin:0">மாதம்: <input type="month" id="stMonth" style="width:auto"></label>
+    <button class="btn" id="btnStRefresh">⟳ புதுப்பி</button>
+    <input type="text" id="stSearch" placeholder="நூலகம் தேடு…" style="max-width:220px"></div>
+  <div id="stMsg"></div>
+  <div class="regbar" id="regBar"></div>
+  <div class="regcols">
+    <div class="regcard okc"><div class="rh"><span>✅ பதிவு செய்தவர்கள்</span><b id="stDoneN">0</b></div><div class="rl" id="stDone"></div></div>
+    <div class="regcard badc"><div class="rh"><span>❌ பதிவு செய்யாதவர்கள்</span><b id="stPendN">0</b></div><div class="rl" id="stPend"></div></div>
+  </div>
+</section>
+
+<!-- ================= 7. சில்லறை செலவின அனுமதி ================= -->
+<section class="view" id="v-approval">
+  <p class="crumb">நிர்வாகம் › சில்லறை செலவின மேலாண்மை</p>
+  <h2 class="pt">7. சில்லறை செலவின அனுமதி</h2>
+  <p class="lead">நூலகர்கள் பதிவு செய்த சில்லறை செலவினங்களைச் சரிபார்த்து, தேவையெனில் ✏️ திருத்தி, பின்னர் அனுமதிக்கவும். அனுமதிக்கப்பட்ட பின் நூலகர் மீண்டும் மாற்றினால் அந்த அனுமதி தானாக நீங்கி, மீண்டும் அனுமதி தேவைப்படும்.</p>
+  <div class="toolbar"><label style="margin:0">மாதம்: <input type="month" id="apMonth" style="width:auto"></label>
+    <button class="btn" id="btnApRefresh">⟳ புதுப்பி</button>
+    <input type="text" id="apSearch" placeholder="நூலகம் தேடு…" style="max-width:220px">
+    <select id="apFilter" style="width:auto"><option value="">எல்லாம்</option><option value="p">நிலுவை மட்டும்</option><option value="a">அனுமதிக்கப்பட்டவை மட்டும்</option></select></div>
+  <div class="stats" id="apStats"></div>
+  <div id="apMsg"></div>
+  <div class="panel"><h3>பதிவு செய்த நூலகங்கள் &amp; தொகை</h3><div class="bd">
+    <div class="tw" style="max-height:520px"><table>
+      <thead><tr><th style="width:36px"><input type="checkbox" id="apAll" aria-label="அனைத்தும்"></th><th style="width:44px">#</th><th>நூலகம்</th><th>வகை</th>
+        <th style="width:130px;text-align:right">மொத்தத் தொகை (₹)</th><th style="width:150px">நிலை</th><th style="width:210px">செயல்</th></tr></thead>
+      <tbody id="apRows"><tr><td colspan="7">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+    <div style="margin-top:12px"><button class="btn go" id="btnApprove">✅ சில்லறை செலவின அனுமதி (தேர்ந்தெடுத்தவை)</button></div>
+  </div></div>
+</section>
+
+<div id="clmOverlay" class="clm-overlay"><div class="clm-card">
+  <h3 id="clmTitle"></h3>
+  <div id="clmBody" class="clm-grid"></div>
+  <div id="clmErr"></div>
+  <div class="toolbar" style="margin:14px 0 0;justify-content:flex-end">
+    <button class="btn" style="background:#fff;color:var(--navy)" id="clmCancel">❌ ரத்து</button>
+    <button class="btn go" id="clmSave">💾 சேமி</button></div>
+</div></div>
+
+<!-- ================= 8. நாளிதழ் விவரம் ================= -->
 <section class="view" id="v-newspapers">
   <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நாளிதழ் விவரம்</p>
-  <h2 class="pt">6. நாளிதழ் விவரம்</h2>
+  <h2 class="pt">8. நாளிதழ் விவரம்</h2>
   <p class="lead">ஒவ்வொரு நாளிதழுக்கும் திங்கள்–சனி விலை, ஞாயிறு விலை, சிறப்பு விலை நாட்கள் (தேதி + விலை) ஆகியவற்றை உள்ளிடுக. நூலகர் படிவத்தில் அந்த மாதத்தின் அதிகபட்சத் தொகை தானாகக் கணக்காகும்:
     (சாதாரண நாட்கள் × விலை) + (ஞாயிறுகள் × ஞாயிறு விலை) + சிறப்பு நாட்கள். சிறப்பு நாள் ஞாயிறில் வந்தால் சிறப்பு விலையே எடுக்கப்படும். பெயர் காலியான இடம் எந்த நூலகத்திலும் தெரியாது. <b>சிறப்பு விலை நாள் இருந்தால் மட்டும் அதை உள்ளிடவும்; இல்லையெனில் காலியாக விடலாம்.</b></p>
   <div class="panel"><h3>நாளிதழ் பட்டியல்</h3><div class="bd">
@@ -320,7 +392,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <!-- ================= 7. நூலகம் வாரியாக ================= -->
 <section class="view" id="v-newsmap">
   <p class="crumb">நிர்வாகம் › நாளிதழ் மேலாண்மை › நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</p>
-  <h2 class="pt">7. நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</h2>
+  <h2 class="pt">9. நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</h2>
   <p class="lead">பல நாளிதழ்களையும் பல நூலகங்களையும் தேர்ந்தெடுத்து, ஒரே முறையில் அனுமதி கொடுக்கலாம் அல்லது நீக்கலாம். தேர்ந்தெடுக்காத மற்ற நாளிதழ் இணைப்புகள் மாறாது.</p>
   <div class="two">
     <div class="panel"><h3>1) நாளிதழ்கள் (பல தேர்வு)</h3><div class="bd">
@@ -354,7 +426,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <!-- ================= 8. அரசு விடுமுறை ================= -->
 <section class="view" id="v-holidays">
   <p class="crumb">நிர்வாகம் › பணி நாட்கள் › அரசு விடுமுறை நாட்கள்</p>
-  <h2 class="pt">8. அரசு விடுமுறை நாட்கள்</h2>
+  <h2 class="pt">10. அரசு விடுமுறை நாட்கள்</h2>
   <p class="lead">அரசு விடுமுறைகளைச் சேர்க்க / நீக்க / Excel மூலம் ஏற்றலாம். <b>ஒவ்வொரு வெள்ளிக்கிழமை, இரண்டாவது சனிக்கிழமை</b> ஏற்கனவே தானாகக் கழிக்கப்படுகின்றன. அவற்றுடன் இங்குள்ள விடுமுறைகளும் கழிக்கப்பட்டு, ஒவ்வொரு மாதமும் (முந்தைய மாதம் 16 முதல் நடப்பு மாதம் 15 வரை) நூலகரின் பணி நாட்கள் தானாகக் கணக்காகும். விடுமுறை வெள்ளி / இரண்டாம் சனியில் வந்தால் இரு முறை கழிக்கப்படாது.</p>
 
   <div class="two">
@@ -410,6 +482,120 @@ async function rpc(name, args){
 }
 
 /* ---------- பக்க மாற்றம் ---------- */
+
+/* ===================== 6. நடப்பு மாதப் பதிவு நிலை ===================== */
+function curMonthInput(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function toMY(v){ const q = String(v || '').split('-'); return q.length === 2 ? q[1] + '/' + q[0] : ''; }
+let stData = null;
+function stRender(){
+  if (!stData) return;
+  const q = $('#stSearch').value.trim().toLowerCase();
+  const f = list => list.filter(x => !q || x.name.toLowerCase().includes(q));
+  const li = x => '<div>' + esc(x.name) + '<small>' + esc(x.type || '') + '</small></div>';
+  const d = f(stData.registered), p = f(stData.notRegistered);
+  $('#stDone').innerHTML = d.map(li).join('') || '<div>இல்லை</div>';
+  $('#stPend').innerHTML = p.map(li).join('') || '<div>இல்லை</div>';
+  $('#stDoneN').textContent = stData.registered.length; $('#stPendN').textContent = stData.notRegistered.length;
+  const pct = stData.total ? Math.round(stData.registered.length * 100 / stData.total) : 0;
+  $('#regBar').innerHTML = '<i style="width:' + pct + '%"></i>';
+  $('#regBar').title = pct + '% பதிவு';
+}
+async function loadStatus(){
+  if (!$('#stMonth').value) $('#stMonth').value = curMonthInput();
+  try{
+    stData = await rpc('getRegistrationStatus', [toMY($('#stMonth').value)]);
+    if (!stData.success) throw new Error(stData.message || 'பிழை');
+    $('#stMsg').innerHTML = ''; stRender();
+  }catch(e){ note($('#stMsg'), 'bad', e.message); }
+}
+$('#btnStRefresh').addEventListener('click', loadStatus);
+$('#stMonth').addEventListener('change', loadStatus);
+$('#stSearch').addEventListener('input', stRender);
+
+/* ===================== 7. சில்லறை செலவின அனுமதி ===================== */
+let apData = null;
+const rs = n => '₹' + Number(n || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+function apRender(){
+  if (!apData) return;
+  const q = $('#apSearch').value.trim().toLowerCase(), fl = $('#apFilter').value;
+  const rows = apData.rows.filter(r => (!q || r.name.toLowerCase().includes(q)) && (!fl || (fl === 'a') === r.approved));
+  const ap = apData.rows.filter(r => r.approved);
+  $('#apStats').innerHTML =
+    '<div class="stat"><div class="v">' + apData.rows.length + '</div><div class="l">பதிவு செய்த நூலகங்கள்</div></div>' +
+    '<div class="stat s3"><div class="v">' + ap.length + '</div><div class="l">அனுமதிக்கப்பட்டவை</div></div>' +
+    '<div class="stat s2"><div class="v" style="font-size:24px">' + rs(apData.grandTotal) + '</div><div class="l">மொத்தப் பதிவுத் தொகை · அனுமதித் தொகை ' + rs(apData.approvedTotal) + '</div></div>';
+  $('#apRows').innerHTML = rows.map((r, i) =>
+    '<tr><td><input type="checkbox" class="apChk" data-id="' + r.id + '"' + (r.approved ? ' disabled' : '') + '></td><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.type || '') + '</td>' +
+    '<td style="text-align:right"><b>' + rs(r.total) + '</b></td>' +
+    '<td>' + (r.approved ? '<span class="tag ap-ok">✅ அனுமதிக்கப்பட்டது</span><br><small>' + esc(r.approvedAt) + ' · ' + rs(r.approvedAmount) + '</small>' : '<span class="tag ap-pend">நிலுவை</span>') + '</td>' +
+    '<td><button class="btn ap-btn" onclick="clmOpen(' + r.id + ')">✏️ திருத்து</button>' +
+    (r.approved ? '<button class="btn ap-btn" style="background:#fff;color:var(--navy)" onclick="apRevoke(' + r.id + ')">↩ ரத்து</button>'
+                : '<button class="btn go ap-btn" onclick="apApprove([' + r.id + '])">✅ அனுமதி</button>') + '</td></tr>'
+  ).join('') || '<tr><td colspan="7">பதிவுகள் இல்லை</td></tr>';
+  $('#apAll').checked = false;
+}
+async function loadApproval(){
+  if (!$('#apMonth').value) $('#apMonth').value = curMonthInput();
+  try{
+    apData = await rpc('getClaimsForApproval', [toMY($('#apMonth').value)]);
+    if (!apData.success) throw new Error(apData.message || 'பிழை');
+    apRender();
+  }catch(e){ note($('#apMsg'), 'bad', e.message); }
+}
+async function apApprove(ids){
+  if (!ids.length){ note($('#apMsg'), 'warn', 'அனுமதிக்க நூலகங்களைத் தேர்ந்தெடுக்கவும்.'); return; }
+  if (!confirm(ids.length + ' நூலகத்தின் சில்லறை செலவினத்தை அனுமதிக்கவா?')) return;
+  try{
+    const j = await rpc('approveClaims', [ids]);
+    note($('#apMsg'), j.success ? 'ok' : 'bad', j.success ? ('அனுமதிக்கப்பட்டது: ' + j.count + ' நூலகங்கள், மொத்தம் ' + rs(j.amount)) : (j.message || 'பிழை'));
+    loadApproval();
+  }catch(e){ note($('#apMsg'), 'bad', e.message); }
+}
+async function apRevoke(id){
+  if (!confirm('இந்த அனுமதியை ரத்து செய்யவா?')) return;
+  try{ await rpc('revokeClaimApproval', [id]); note($('#apMsg'), 'ok', 'அனுமதி ரத்து செய்யப்பட்டது.'); loadApproval(); }
+  catch(e){ note($('#apMsg'), 'bad', e.message); }
+}
+$('#btnApprove').addEventListener('click', () => apApprove([...document.querySelectorAll('.apChk:checked')].map(c => +c.dataset.id)));
+$('#apAll').addEventListener('change', e => document.querySelectorAll('.apChk:not(:disabled)').forEach(c => { c.checked = e.target.checked; }));
+$('#btnApRefresh').addEventListener('click', loadApproval);
+$('#apMonth').addEventListener('change', loadApproval);
+$('#apSearch').addEventListener('input', apRender);
+$('#apFilter').addEventListener('change', apRender);
+
+/* ---- திருத்து சாளரம் ---- */
+let clmCur = null;
+async function clmOpen(id){
+  try{
+    const j = await rpc('getClaimForEdit', [id]);
+    if (!j.success) throw new Error(j.message || 'பிழை');
+    clmCur = j;
+    $('#clmTitle').textContent = '✏️ ' + j.library + ' — ' + j.month;
+    const inp = f => '<div><label>' + esc(f.label) + '</label><input ' + (f.num ? 'type="number" min="0" step="1"' : 'type="text"') +
+      ' data-k="' + f.key + '" value="' + esc(f.value) + '"></div>';
+    $('#clmBody').innerHTML =
+      (j.papers.length ? '<h4>📰 நாளிதழ்கள் (₹)</h4>' + j.papers.map(p => '<div><label>' + esc(p.name) + '</label><input type="number" min="0" step="0.01" data-p="' + p.slot + '" value="' + p.amount + '"></div>').join('') : '') +
+      '<h4>தினக்கூலி · செலவினங்கள்</h4>' + j.fields.map(inp).join('');
+    $('#clmErr').innerHTML = j.approved ? '<div class="msg warn">இது ஏற்கனவே அனுமதிக்கப்பட்டது. சேமித்தால் அனுமதி நீங்கி, மீண்டும் அனுமதிக்க வேண்டும்.</div>' : '';
+    $('#clmOverlay').style.display = 'flex';
+  }catch(e){ note($('#apMsg'), 'bad', e.message); }
+}
+$('#clmCancel').addEventListener('click', () => { $('#clmOverlay').style.display = 'none'; });
+$('#clmSave').addEventListener('click', async () => {
+  const data = {}, papers = {};
+  document.querySelectorAll('#clmBody [data-k]').forEach(e => { data[e.dataset.k] = e.value; });
+  document.querySelectorAll('#clmBody [data-p]').forEach(e => { papers[e.dataset.p] = e.value; });
+  const b = $('#clmSave'); b.disabled = true;
+  try{
+    const j = await rpc('adminSaveClaim', [clmCur.id, data, papers]);
+    if (!j.success) throw new Error(j.message || 'சேமிக்க முடியவில்லை');
+    $('#clmOverlay').style.display = 'none';
+    note($('#apMsg'), 'ok', 'திருத்தம் சேமிக்கப்பட்டது. இப்போது அனுமதிக்கலாம்.');
+    loadApproval();
+  }catch(e){ $('#clmErr').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+  b.disabled = false;
+});
+
 const loaded = {};
 function route(){
   const id = (location.hash || '#home').slice(1);
@@ -422,6 +608,8 @@ function route(){
   if (v === 'newsmap'){ loadMapLibs(); loadAssign(); }
   if (v === 'wages' || v === 'cleaner') loadWages();
   if (v === 'holidays') loadHolidays();
+  if (v === 'status') loadStatus();
+  if (v === 'approval') loadApproval();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
