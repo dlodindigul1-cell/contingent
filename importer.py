@@ -534,15 +534,9 @@ def _do_vendors(raw, kind):
         if not name:
             skipped.append(f"வரி {n} ({lcode}): NAME இல்லை")
             continue
-        pan = re.sub(r"\s", "", g("pan")).upper()
-        ifsc = re.sub(r"\s", "", g("ifsc")).upper()
+        pan = g("pan").strip()        # PAN / IFSC — கோப்பில் உள்ளபடியே ஏற்றப்படும் (வடிவச் சரிபார்ப்பு இல்லை)
+        ifsc = g("ifsc").strip()
         acct = re.sub(r"[\s\-]", "", g("acct"))
-        if pan and not PAN_RE.match(pan):
-            skipped.append(f"வரி {n} ({lcode} / {vcode}): PAN வடிவம் சரியில்லை '{pan}'")
-            continue
-        if ifsc and not IFSC_RE.match(ifsc):
-            skipped.append(f"வரி {n} ({lcode} / {vcode}): IFSC வடிவம் சரியில்லை '{ifsc}'")
-            continue
         share = Decimal(0)      # வாடகை எப்போதும் சமமாகப் பிரிக்கப்படுவதால் தொகை நெடுவரிசை தேவையில்லை
         items[(lid, vcode)] = (kind, lid, vcode, name, pan, g("bank"), g("branch"), ifsc, acct, share)
     run_batch("INSERT INTO vendors (kind, library_id, vendor_code, name, pan_no, bank_name, branch, ifsc, account_no, rent_share) "

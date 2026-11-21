@@ -1914,8 +1914,8 @@ def admin_vendor_save():
         lib_id = 0
     code = "".join(str(j.get("code") or "").split()).upper()
     name = _clean(j.get("name"))
-    pan = "".join(str(j.get("pan") or "").split()).upper()
-    ifsc = "".join(str(j.get("ifsc") or "").split()).upper()
+    pan = _clean(j.get("pan"))
+    ifsc = _clean(j.get("ifsc"))
     account = "".join(str(j.get("account") or "").replace("-", "").split())
     bank, branch = _clean(j.get("bank")), _clean(j.get("branch"))
     share = to_num(j.get("share"))
@@ -1927,10 +1927,6 @@ def admin_vendor_save():
         return _bad("Vendor Code உள்ளிடவும்.")
     if not name:
         return _bad("Vendor பெயரை உள்ளிடவும்.")
-    if pan and not _PAN_RE.match(pan):
-        return _bad("PAN எண் வடிவம் சரியில்லை (எ.கா. ABCDE1234F).")
-    if ifsc and not _IFSC_RE.match(ifsc):
-        return _bad("IFSC வடிவம் சரியில்லை (எ.கா. SBIN0000001).")
 
     def f(conn):
         with conn.cursor() as cur:
