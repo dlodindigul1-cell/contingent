@@ -203,3 +203,28 @@ WITH mv AS (
   FROM mv WHERE c.id = mv.id RETURNING c.id
 )
 DELETE FROM claim_newspapers WHERE slot = 1 AND claim_id IN (SELECT id FROM upd);
+
+
+-- ============================================================
+--  Vendor விவரம் (நாளிதழ் vendor / வாடகை — கட்டட உரிமையாளர்): நேரடிப் பணம் செலுத்த
+--  kind = paper (நாளிதழ்) | rent (வாடகை). ஒரு vendor பல நூலகங்களுக்கு இருக்கலாம்; ஒரு நூலகத்துக்கு (வாடகைக்கு) 2 vendor-உம் இருக்கலாம்.
+--  rent_share = வாடகை vendor-இன் மாதத் தொகை (2 vendor இருக்கும்போது வாடகையைப் பிரிக்க; விருப்பம்)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vendors (
+  id          SERIAL PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('paper', 'rent')),
+  library_id  INT  NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  vendor_code TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  pan_no      TEXT NOT NULL DEFAULT '',
+  bank_name   TEXT NOT NULL DEFAULT '',
+  branch      TEXT NOT NULL DEFAULT '',
+  ifsc        TEXT NOT NULL DEFAULT '',
+  account_no  TEXT NOT NULL DEFAULT '',
+  rent_share  NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (kind, library_id, vendor_code)
+);
+CREATE INDEX IF NOT EXISTS idx_vendors_lib  ON vendors(library_id);
+CREATE INDEX IF NOT EXISTS idx_vendors_code ON vendors(kind, vendor_code);

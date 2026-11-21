@@ -483,6 +483,85 @@ def do_claims_approved(raw):
 
 
 # வகை -> (function, விளக்கம்)
+# ---------------------------------------------------------------- Vendor விவரம் (நாளிதழ் / வாடகை)
+# நெடுவரிசைகள்: LIBRARY CODE, VENDOR CODE, NAME, PAN NUMBER, BANK NAME, BRANCH, IFSC CODE, ACCOUNT NUMBER
+# தலைப்பின் பெயரைக் கொண்டே அடையாளம் காணும்; புரியாவிட்டால் A..I வரிசை.
+VENDOR_KEYS = ["lib", "vcode", "name", "pan", "bank", "branch", "ifsc", "acct", "share"]
+VENDOR_HEAD_MAP = {
+    "LIBRARYCODE": "lib", "LIBCODE": "lib", "VENDORCODE": "vcode",
+    "NAME": "name", "VENDORNAME": "name",
+    "PANNUMBER": "pan", "PANNO": "pan", "PAN": "pan",
+    "BANKNAME": "bank", "BANK": "bank", "BRANCH": "branch",
+    "IFSCCODE": "ifsc", "IFSC": "ifsc",
+    "ACCOUNTNUMBER": "acct", "ACCOUNTNO": "acct", "ACCOUNT": "acct", "ACNO": "acct",
+    "RENTAMOUNT": "share", "AMOUNT": "share",
+}
+PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+IFSC_RE = re.compile(r"^[A-Z]{4}[0-9A-Z]{7}$")
+
+
+def _vend_head(s):
+    return re.sub(r"[^A-Z0-9]", "", (s or "").upper())
+
+
+def _do_vendors(raw, kind):
+    rows = read_rows(raw, skip=0)
+    if not rows:
+        raise ValueError("கோப்பு காலியாக உள்ளது")
+    col = {}
+    for i, h in enumerate(rows[0]):
+        k = VENDOR_HEAD_MAP.get(_vend_head(h))
+        if k and k not in col:
+            col[k] = i
+    if "lib" not in col or "vcode" not in col:
+        col = {k: i for i, k in enumerate(VENDOR_KEYS)}
+    libs = db.fetch_all("SELECT id, name, code FROM libraries")
+    by_code = {(l["code"] or "").upper(): l["id"] for l in libs if l["code"]}
+    by_name = {l["name"]: l["id"] for l in libs}
+    items, skipped = {}, []
+    for n, r in enumerate(rows[1:], start=2):
+        g = lambda k: cell(r, col[k]) if k in col else ""
+        lcode, vcode, name = g("lib"), re.sub(r"\s", "", g("vcode")).upper(), g("name")
+        if not (lcode or vcode or name):
+            continue
+        lid = by_code.get(lcode.upper()) or by_name.get(lcode)
+        if not lid:
+            skipped.append(f"வரி {n}: நூலக குறியீடு '{lcode}' நூலகப் பட்டியலில் இல்லை")
+            continue
+        if not vcode:
+            skipped.append(f"வரி {n} ({lcode}): VENDOR CODE இல்லை")
+            continue
+        if not name:
+            skipped.append(f"வரி {n} ({lcode}): NAME இல்லை")
+            continue
+        pan = re.sub(r"\s", "", g("pan")).upper()
+        ifsc = re.sub(r"\s", "", g("ifsc")).upper()
+        acct = re.sub(r"[\s\-]", "", g("acct"))
+        if pan and not PAN_RE.match(pan):
+            skipped.append(f"வரி {n} ({lcode} / {vcode}): PAN வடிவம் சரியில்லை '{pan}'")
+            continue
+        if ifsc and not IFSC_RE.match(ifsc):
+            skipped.append(f"வரி {n} ({lcode} / {vcode}): IFSC வடிவம் சரியில்லை '{ifsc}'")
+            continue
+        share = Decimal(0)      # வாடகை எப்போதும் சமமாகப் பிரிக்கப்படுவதால் தொகை நெடுவரிசை தேவையில்லை
+        items[(lid, vcode)] = (kind, lid, vcode, name, pan, g("bank"), g("branch"), ifsc, acct, share)
+    run_batch("INSERT INTO vendors (kind, library_id, vendor_code, name, pan_no, bank_name, branch, ifsc, account_no, rent_share) "
+              "VALUES %s ON CONFLICT (kind, library_id, vendor_code) DO UPDATE SET name = EXCLUDED.name, "
+              "pan_no = EXCLUDED.pan_no, bank_name = EXCLUDED.bank_name, branch = EXCLUDED.branch, ifsc = EXCLUDED.ifsc, "
+              "account_no = EXCLUDED.account_no, "
+              "rent_share = CASE WHEN EXCLUDED.rent_share > 0 THEN EXCLUDED.rent_share ELSE vendors.rent_share END, "
+              "updated_at = now()", list(items.values()))
+    return result(len(items), skipped)
+
+
+def do_vendors_paper(raw):
+    return _do_vendors(raw, "paper")
+
+
+def do_vendors_rent(raw):
+    return _do_vendors(raw, "rent")
+
+
 IMPORTERS = {
     "libraries":  (do_libraries,  "நூலகப் பட்டியல் (Sheet1)"),
     "newspapers": (do_newspapers, "நாளிதழ் பட்டியல் (NEWSPAPER LIST)"),
@@ -492,5 +571,7 @@ IMPORTERS = {
     "rent":       (do_rent,       "வாடகை (RENT)"),
     "dailywage":  (do_dailywage,  "தினக்கூலி அனுமதி (DAILYWAGES PERMISSION)"),
     "claims":     (do_claims,     "பழைய contingent பதிவுகள் (contingent)"),
+    "vendors_paper": (do_vendors_paper, "நாளிதழ் Vendor விவரம்"),
+    "vendors_rent": (do_vendors_rent, "வாடகை Vendor விவரம்"),
     "claims_approved": (do_claims_approved, "ஏற்கனவே அனுமதித்த சில்லறை செலவின மாதங்கள்"),
 }

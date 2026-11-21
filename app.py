@@ -100,7 +100,8 @@ ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewsp
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval",
-              "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport"}
+              "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
+              "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -1125,6 +1126,159 @@ def getYearlySummaryReport(fy):
             "totals": _row_json("ஆண்டு மொத்தம்", grand)}
 
 
+# ------------------------------------------------------------------
+#  Vendor சார்ந்த அறிக்கைகள் — நாளிதழ் / வாடகைத் தொகையை vendor-க்கு நேரடியாகச் செலுத்த (அனுமதிக்கப்பட்ட பதிவுகள் மட்டும்)
+# ------------------------------------------------------------------
+VENDOR_MISSING = {"success": False, "message": "Vendor அட்டவணை இன்னும் உருவாகவில்லை. Render-ஐ மீண்டும் தொடங்கி (Restart) முயலவும்."}
+
+
+def _vendor_map(kind):
+    """{library_id: [vendor, ...]}"""
+    by = {}
+    for v in db.fetch_all("SELECT library_id, vendor_code, name, rent_share FROM vendors WHERE kind = %s ORDER BY library_id, id", (kind,)):
+        by.setdefault(v["library_id"], []).append(v)
+    return by
+
+
+def _lib_order():
+    def rank(t):
+        t = (t or "").strip()
+        return LIB_TYPE_ORDER.index(t) if t in LIB_TYPE_ORDER else len(LIB_TYPE_ORDER)
+    return {l["id"]: (rank(l["lib_type"]), l["id"]) for l in db.fetch_all("SELECT id, lib_type FROM libraries")}
+
+
+def _month_libs(my, field):
+    """தேர்ந்த மாதத்தில் அனுமதிக்கப்பட்ட, தொகை > 0 உள்ள நூலகங்கள் (வகை, id வரிசையில்): [{lib_id, name, amount}]"""
+    acc = {}
+    for r, parts, total in _approved_claims([my]):
+        key = r.get("lib_id") if r.get("lib_id") is not None else "n:" + r["library_name"]
+        d = acc.setdefault(key, {"lib_id": r.get("lib_id"), "name": r["library_name"], "amount": Decimal(0)})
+        d["amount"] += parts[field]
+    order = _lib_order()
+    last = (len(LIB_TYPE_ORDER) + 1, 10 ** 9)
+    return sorted((d for d in acc.values() if d["amount"] > 0), key=lambda d: order.get(d["lib_id"], last))
+
+
+def _split_amount(amount, weights):
+    """தொகையை எடைகளின்படி பிரிக்கும் (கூட்டுத்தொகை சரியாக அமையும்; எடை இல்லையெனில் சமம்)."""
+    n, tot = len(weights), sum(weights)
+    if tot <= 0:
+        weights, tot = [Decimal(1)] * n, Decimal(n)
+    shares, acc = [], Decimal(0)
+    for i, w in enumerate(weights):
+        s = (amount - acc) if i == n - 1 else (amount * w / tot).quantize(Decimal("0.01"))
+        shares.append(s)
+        acc += s
+    return shares
+
+
+def _vendor_report_base(monthYear):
+    my = _valid_my(monthYear)
+    return my, (None if my else {"success": False, "message": "மாதத்தைத் தேர்ந்தெடுக்கவும்."})
+
+
+@rpc
+def getPaperVendorExpenseReport(monthYear):
+    """அறிக்கை: நூலகங்கள் வாரியாக நாளிதழ்கள் வாங்குதல் செலவினம் (நூலகம் · vendor · code · தொகை)."""
+    my, err = _vendor_report_base(monthYear)
+    if err:
+        return err
+    try:
+        vend = _vendor_map("paper")
+    except Exception:
+        return VENDOR_MISSING
+    rows, grand, missing = [], Decimal(0), []
+    for i, d in enumerate(_month_libs(my, "papers"), 1):
+        vs = vend.get(d["lib_id"], [])
+        if not vs:
+            missing.append(d["name"])
+        rows.append({"no": i, "library": d["name"], "vendor": " / ".join(v["name"] for v in vs),
+                     "code": " / ".join(v["vendor_code"] for v in vs), "amount": jnum(d["amount"])})
+        grand += d["amount"]
+    return {"success": True, "month": my, "rows": rows, "total": jnum(grand), "inWords": amount_in_words(grand),
+            "missing": missing, "notes": []}
+
+
+@rpc
+def getPaperVendorPaymentReport(monthYear):
+    """அறிக்கை: நாளிதழ்கள் vendor-க்குத் தொகை செலுத்துதல் (ஒரு vendor-இன் எல்லா நூலகங்களும் கூட்டப்படும்)."""
+    my, err = _vendor_report_base(monthYear)
+    if err:
+        return err
+    try:
+        vend = _vendor_map("paper")
+    except Exception:
+        return VENDOR_MISSING
+    agg, unassigned, missing, multi = {}, Decimal(0), [], []
+    for d in _month_libs(my, "papers"):
+        vs = vend.get(d["lib_id"], [])
+        if not vs:
+            unassigned += d["amount"]
+            missing.append(d["name"])
+            continue
+        if len(vs) > 1:
+            multi.append(d["name"])
+        for v, share in zip(vs, _split_amount(d["amount"], [Decimal(1)] * len(vs))):
+            a = agg.setdefault(v["vendor_code"], {"vendor": v["name"], "code": v["vendor_code"], "amount": Decimal(0)})
+            a["amount"] += share
+    rows = [dict(a, no=0) for _, a in sorted(agg.items())]
+    if unassigned > 0:
+        rows.append({"no": 0, "vendor": "Vendor விவரம் இல்லாத நூலகங்கள்", "code": "", "amount": unassigned})
+    grand = sum((r["amount"] for r in rows), Decimal(0))
+    for i, r in enumerate(rows, 1):
+        r["no"], r["amount"] = i, jnum(r["amount"])
+    notes = []
+    if multi:
+        notes.append("ஒன்றுக்கு மேற்பட்ட நாளிதழ் vendor உள்ள நூலகங்கள் (தொகை சமமாகப் பிரிக்கப்பட்டது): " + ", ".join(multi))
+    return {"success": True, "month": my, "rows": rows, "total": jnum(grand), "inWords": amount_in_words(grand),
+            "missing": missing, "notes": notes}
+
+
+@rpc
+def getRentPaymentReport(monthYear):
+    """அறிக்கை: வாடகை செலுத்துதல் (நூலகம் · vendor · code · தொகை). ஒரு நூலகத்துக்கு 2 vendor இருந்தால் வாடகை சமமாகப் பிரியும்."""
+    my, err = _vendor_report_base(monthYear)
+    if err:
+        return err
+    try:
+        vend = _vendor_map("rent")
+    except Exception:
+        return VENDOR_MISSING
+    rows, grand, missing = [], Decimal(0), []
+    n = 0
+    for d in _month_libs(my, "rent"):
+        vs = vend.get(d["lib_id"], [])
+        if not vs:
+            missing.append(d["name"])
+            n += 1
+            rows.append({"no": n, "library": d["name"], "vendor": "", "code": "", "amount": jnum(d["amount"])})
+            grand += d["amount"]
+            continue
+        for v, share in zip(vs, _split_amount(d["amount"], [Decimal(1)] * len(vs))):
+            n += 1
+            rows.append({"no": n, "library": d["name"], "vendor": v["name"], "code": v["vendor_code"], "amount": jnum(share)})
+            grand += share
+    return {"success": True, "month": my, "rows": rows, "total": jnum(grand), "inWords": amount_in_words(grand),
+            "missing": missing, "notes": []}
+
+
+# Excel பதிவிறக்கத்துக்கான அமைப்பு
+VENDOR_REPORTS = {
+    "papervendor": {"fn": getPaperVendorExpenseReport, "sheet": "நாளிதழ் செலவினம்", "file": "Paper_Expense_Libraries",
+                    "title": "நூலகங்கள் வாரியாக நாளிதழ்கள் வாங்குதல் செலவினம்",
+                    "heads": ["நூலகத்தின் பெயர்", "Vendor பெயர்", "Vendor Code", "நாளிதழ் தொகை (₹)"],
+                    "keys": ["library", "vendor", "code", "amount"], "widths": [8, 44, 36, 20, 20]},
+    "paperpay": {"fn": getPaperVendorPaymentReport, "sheet": "நாளிதழ் Vendor தொகை", "file": "Paper_Vendor_Payment",
+                 "title": "நாளிதழ்கள் Vendor-க்கு தொகை செலுத்துதல்",
+                 "heads": ["Vendor பெயர்", "Vendor Code", "தொகை (₹)"],
+                 "keys": ["vendor", "code", "amount"], "widths": [8, 48, 22, 20]},
+    "rentpay": {"fn": getRentPaymentReport, "sheet": "வாடகை செலுத்துதல்", "file": "Rent_Payment",
+                "title": "வாடகை செலுத்துதல்",
+                "heads": ["நூலகத்தின் பெயர்", "Vendor பெயர்", "Vendor Code", "தொகை (₹)"],
+                "keys": ["library", "vendor", "code", "amount"], "widths": [8, 44, 36, 20, 20]},
+}
+
+
 @app.get("/admin/report/<kind>.xlsx")
 def admin_report_xlsx(kind):
     """அறிக்கை Excel பதிவிறக்கம் (திரையில் உள்ள அதே தரவு)."""
@@ -1143,6 +1297,8 @@ def admin_report_xlsx(kind):
         data = getPayCenterExpenseReport(a.get("month", ""))
     elif kind == "yearly":
         data = getYearlySummaryReport(a.get("fy", ""))
+    elif kind in VENDOR_REPORTS:
+        data = VENDOR_REPORTS[kind]["fn"](a.get("month", ""))
     else:
         return jsonify({"success": False, "message": "தெரியாத அறிக்கை"}), 404
     if not data.get("success"):
@@ -1182,6 +1338,31 @@ def admin_report_xlsx(kind):
         ws.cell(row=r + 2, column=1, value="In Words: " + data["inWords"])
         for c, w in enumerate([9, 48, 22], 1): ws.column_dimensions[get_column_letter(c)].width = w
         fname = "Librarian_Report_%s_%s.xlsx" % (data["payCenter"], data["month"].replace("/", "-"))
+    elif kind in VENDOR_REPORTS:
+        spec = VENDOR_REPORTS[kind]
+        ws.title = spec["sheet"]
+        ncols = len(spec["heads"]) + 1
+        title("திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு", ncols, 1, 14)
+        title(spec["title"], ncols, 2, 12)
+        title("மாதம்: " + data["month"], ncols, 3, 12)
+        for c, h in enumerate(["வ.எண்."] + spec["heads"], 1):
+            x = ws.cell(row=5, column=c, value=h); x.font = bold; x.fill = head_fill; x.alignment = center; x.border = box
+        r = 6
+        for row in data["rows"]:
+            for c, v in enumerate([row["no"]] + [row[k] for k in spec["keys"]], 1):
+                x = ws.cell(row=r, column=c, value=v); x.border = box
+                if c == 1: x.alignment = Alignment(horizontal="center")
+                if c == ncols: x.number_format = money
+            r += 1
+        ws.cell(row=r, column=ncols - 1, value="மொத்தம்").font = bold
+        t = ws.cell(row=r, column=ncols, value=data["total"]); t.font = bold; t.number_format = money
+        for c in range(1, ncols + 1): ws.cell(row=r, column=c).border = box
+        ws.cell(row=r + 2, column=1, value="In Words: " + data["inWords"])
+        for c, w in enumerate(spec["widths"], 1): ws.column_dimensions[get_column_letter(c)].width = w
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+        fname = "%s_%s.xlsx" % (spec["file"], data["month"].replace("/", "-"))
     else:
         cols = data["cols"]
         n = len(cols) + 4                       # வ.எண். + பெயர் + தலைப்புகள் + மொத்த செலவினம் (நாளிதழ்/வாடகை தவிர்த்து) + மொத்தம்
@@ -1351,6 +1532,14 @@ TEMPLATE_XLSX = {
                   [["தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்கள்", "பணியாளர் எண்ணிக்கை"]],
                   ["எடுத்துக்காட்டு நூலகம்", 1],
                   [44, 22]),
+    "vendors_paper": ("vendors_paper_template.xlsx",
+                      [["LIBRARY CODE", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
+                      ["TNDPL00001", "V001", "எடுத்துக்காட்டு Vendor", "ABCDE1234F", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
+                      [18, 16, 34, 16, 26, 22, 16, 24]),
+    "vendors_rent": ("vendors_rent_template.xlsx",
+                     [["LIBRARY CODE", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
+                     ["TNDPL00001", "R001", "எடுத்துக்காட்டு உரிமையாளர்", "", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
+                     [18, 16, 34, 16, 26, 22, 16, 24]),
 }
 
 
@@ -1371,6 +1560,14 @@ def _template_rows(kind):
             return [[r["name"], int(r["workers"])] for r in
                     db.fetch_all("SELECT l.name, d.workers FROM daily_wage_permission d "
                                  "JOIN libraries l ON l.id = d.library_id ORDER BY l.id")]
+        if kind in ("vendors_paper", "vendors_rent"):
+            k = "paper" if kind == "vendors_paper" else "rent"
+            out = []
+            for r in db.fetch_all("SELECT l.code AS lib_code, v.* FROM vendors v JOIN libraries l ON l.id = v.library_id "
+                                  "WHERE v.kind = %s ORDER BY l.id, v.id", (k,)):
+                row = [r["lib_code"] or "", r["vendor_code"], r["name"], r["pan_no"], r["bank_name"], r["branch"], r["ifsc"], r["account_no"]]
+                out.append(row)
+            return out
     except Exception:
         app.logger.exception("template data %s", kind)
     return []
@@ -1410,6 +1607,10 @@ def build_template(kind):
     if kind == "libraries":
         for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             ws.cell(r, 2).number_format = "@"
+    if kind in ("vendors_paper", "vendors_rent"):      # குறியீடு / PAN / IFSC / கணக்கு எண் உரையாகவே இருக்க (முன் பூஜ்யம் போகாமல்)
+        for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
+            for c in range(1, 9):
+                ws.cell(r, c).number_format = "@"
     buf = io.BytesIO()
     wb.save(buf)
     return fname, buf.getvalue()
@@ -1658,6 +1859,120 @@ def admin_library_delete():
                         "message": f"இந்த நூலகத்துக்கு {claims} contingent பதிவுகள் உள்ளன. நீக்கினாலும் அவை அழியாது; "
                                    f"ஆனால் நூலகப் பட்டியலில் இருந்து நீங்கும். தொடரவா?"})
     db.execute("DELETE FROM libraries WHERE id = %s", (int(j["id"]),))   # இணைப்பு / வாடகை / விடுப்பு தானாக நீங்கும்
+    return _ok()
+
+
+# ------------------------------------------------------------------
+#  Admin — Vendor விவரம்: பட்டியல் · சேர்க்க / திருத்த · நீக்க
+# ------------------------------------------------------------------
+import re as _re
+_PAN_RE = _re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+_IFSC_RE = _re.compile(r"^[A-Z]{4}[0-9A-Z]{7}$")
+_VENDOR_SELECT = "SELECT v.*, l.name AS lib_name, l.code AS lib_code FROM vendors v JOIN libraries l ON l.id = v.library_id "
+
+
+def _vendor_json(r):
+    return {"id": r["id"], "kind": r["kind"], "libraryId": r["library_id"], "library": r["lib_name"],
+            "libraryCode": r["lib_code"] or "", "code": r["vendor_code"], "name": r["name"], "pan": r["pan_no"],
+            "bank": r["bank_name"], "branch": r["branch"], "ifsc": r["ifsc"], "account": r["account_no"],
+            "share": jnum(r["rent_share"])}
+
+
+@app.get("/admin/api/vendors")
+def admin_vendors():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    where, params = [], []
+    kind, lib = request.args.get("kind", ""), request.args.get("library", "")
+    if kind in ("paper", "rent"):
+        where.append("v.kind = %s")
+        params.append(kind)
+    if lib.isdigit():
+        where.append("v.library_id = %s")
+        params.append(int(lib))
+    sql = _VENDOR_SELECT + ("WHERE " + " AND ".join(where) + " " if where else "") + "ORDER BY l.id, v.kind, v.id"
+    try:
+        rows = db.fetch_all(sql, tuple(params))
+    except Exception:
+        app.logger.exception("vendors list")
+        return _bad("Vendor பட்டியலைப் படிக்க முடியவில்லை — Render-ஐ மீண்டும் தொடங்கி (Restart) முயலவும்.")
+    return _ok(rows=[_vendor_json(r) for r in rows])
+
+
+@app.post("/admin/api/vendor/save")
+def admin_vendor_save():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    j = request.get_json(silent=True) or {}
+    vid = int(j["id"]) if j.get("id") else None
+    kind = _clean(j.get("kind"))
+    try:
+        lib_id = int(j.get("libraryId") or 0)
+    except ValueError:
+        lib_id = 0
+    code = "".join(str(j.get("code") or "").split()).upper()
+    name = _clean(j.get("name"))
+    pan = "".join(str(j.get("pan") or "").split()).upper()
+    ifsc = "".join(str(j.get("ifsc") or "").split()).upper()
+    account = "".join(str(j.get("account") or "").replace("-", "").split())
+    bank, branch = _clean(j.get("bank")), _clean(j.get("branch"))
+    share = to_num(j.get("share"))
+    if not vid and kind not in ("paper", "rent"):
+        return _bad("Vendor வகை சரியில்லை.")
+    if not db.fetch_one("SELECT 1 FROM libraries WHERE id = %s", (lib_id,)):
+        return _bad("நூலகத்தைத் தேர்ந்தெடுக்கவும்.")
+    if not code:
+        return _bad("Vendor Code உள்ளிடவும்.")
+    if not name:
+        return _bad("Vendor பெயரை உள்ளிடவும்.")
+    if pan and not _PAN_RE.match(pan):
+        return _bad("PAN எண் வடிவம் சரியில்லை (எ.கா. ABCDE1234F).")
+    if ifsc and not _IFSC_RE.match(ifsc):
+        return _bad("IFSC வடிவம் சரியில்லை (எ.கா. SBIN0000001).")
+
+    def f(conn):
+        with conn.cursor() as cur:
+            k = kind
+            if vid:
+                cur.execute("SELECT kind, vendor_code FROM vendors WHERE id = %s", (vid,))
+                old = cur.fetchone()
+                if not old:
+                    return None
+                k = old[0]
+            cur.execute("SELECT 1 FROM vendors WHERE kind = %s AND library_id = %s AND vendor_code = %s "
+                        "AND id IS DISTINCT FROM %s", (k, lib_id, code, vid))
+            if cur.fetchone():
+                return "dup"
+            if vid:
+                cur.execute("UPDATE vendors SET library_id=%s, vendor_code=%s, name=%s, pan_no=%s, bank_name=%s, branch=%s, "
+                            "ifsc=%s, account_no=%s, rent_share=%s, updated_at=now() WHERE id=%s",
+                            (lib_id, code, name, pan, bank, branch, ifsc, account, share, vid))
+                if j.get("applyAll"):      # அதே Vendor Code உள்ள மற்ற நூலகப் பதிவுகளிலும் வங்கி விவரம் புதுப்பிப்பு
+                    cur.execute("UPDATE vendors SET name=%s, pan_no=%s, bank_name=%s, branch=%s, ifsc=%s, account_no=%s, "
+                                "updated_at=now() WHERE kind=%s AND vendor_code=%s AND id<>%s",
+                                (name, pan, bank, branch, ifsc, account, k, old[1], vid))
+                    return cur.rowcount
+                return 0
+            cur.execute("INSERT INTO vendors (kind, library_id, vendor_code, name, pan_no, bank_name, branch, ifsc, account_no, rent_share) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (k, lib_id, code, name, pan, bank, branch, ifsc, account, share))
+            return 0
+    res = db.run(f)
+    if res is None:
+        return _bad("Vendor பதிவு கிடைக்கவில்லை.")
+    if res == "dup":
+        return _bad("இந்த நூலகத்துக்கு இதே Vendor Code ஏற்கனவே உள்ளது.")
+    return _ok(others=res)
+
+
+@app.post("/admin/api/vendor/delete")
+def admin_vendor_delete():
+    denied = admin_required_json()
+    if denied:
+        return denied
+    j = request.get_json(silent=True) or {}
+    db.execute("DELETE FROM vendors WHERE id = %s", (int(j.get("id") or 0),))
     return _ok()
 
 
