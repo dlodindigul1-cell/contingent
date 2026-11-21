@@ -538,7 +538,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <section class="view" id="v-rptpay">
   <p class="crumb">நிர்வாகம் › அறிக்கைகள் › மொத்த ஊதிய மையச் செலவின அறிக்கை</p>
   <h2 class="pt">13. மொத்த ஊதிய மையச் செலவின அறிக்கை</h2>
-  <p class="lead">மாதத்தைத் தேர்ந்தெடுத்தால் ஊதிய மையங்கள் வாரியாக எல்லாச் செலவினத் தலைப்புகளும் காட்டப்படும். அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே சேரும். PDF அகலப் பக்க (landscape) வடிவில் வரும்.</p>
+  <p class="lead">மாதத்தைத் தேர்ந்தெடுத்தால் ஊதிய மையங்கள் வாரியாக எல்லாச் செலவினத் தலைப்புகளும் காட்டப்படும். அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே சேரும். PDF Legal அகலப் பக்க (landscape) வடிவில், ஒரே பக்கத்தில் வரும்.</p>
   <div class="panel"><div class="bd">
     <div class="toolbar">
       <input type="month" id="rp_month" style="width:auto" aria-label="மாதம்">
@@ -741,8 +741,11 @@ function rptFileName(s){ return String(s).replace(/[\\/:*?"<>|\s]+/g, '_'); }
 function rptFY(){ const d = new Date(); const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; return y + '-' + String((y + 1) % 100).padStart(2, '0'); }
 const rptCache = {lib: null, pay: null, year: null};
 
-/* PDF: அட்டவணையைப் படமாக்கி (Tamil எழுத்துரு சரியாக வர) பக்கங்களாகப் பிரிக்கும்; வரிசை நடுவில் வெட்டாது */
-async function rptPdf(bodyHtml, css, landscape, width, filename){
+/* PDF: அட்டவணையைப் படமாக்கி (Tamil எழுத்துரு சரியாக வர) PDF ஆக்கும்.
+   opt.format: 'a4' (இயல்பு) | 'legal'; opt.onePage: true எனில் எப்போதும் ஒரே பக்கத்தில் சுருக்கிப் பொருத்தும்.
+   onePage அல்லாதபோது பக்கங்களாகப் பிரிக்கும் (வரிசை நடுவில் வெட்டாது). */
+async function rptPdf(bodyHtml, css, landscape, width, filename, opt){
+  opt = opt || {};
   if (typeof html2canvas === 'undefined' || !window.jspdf) throw new Error('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்.');
   const host = document.createElement('div');
   host.style.cssText = 'position:absolute;left:0;top:0;width:' + width + 'px;z-index:-1;pointer-events:none;background:#fff;';
@@ -754,12 +757,27 @@ async function rptPdf(bodyHtml, css, landscape, width, filename){
   try{
     try{ await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; }catch(e){}
     const page = host.querySelector('#rptPage');
+    /* அட்டவணை நிர்ணயித்த அகலம் அமைத்த அகலத்தை விட அதிகமெனில் பக்கத்தையும் அதற்கேற்ப விரிவாக்கு (வலப்பக்கம் வெட்டுப்படாமல்) */
+    const realW = Math.max(width, page.scrollWidth);
+    if (realW > width){ page.style.width = realW + 'px'; host.style.width = realW + 'px'; }
+    const realH = page.scrollHeight;
     const SC = 2;
-    const canvas = await html2canvas(page, {scale: SC, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, width: width, height: page.scrollHeight, windowWidth: width});
+    const canvas = await html2canvas(page, {scale: SC, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, width: realW, height: realH, windowWidth: realW});
     const base = page.getBoundingClientRect().top;
     const bottoms = Array.from(page.querySelectorAll('tr')).map(tr => (tr.getBoundingClientRect().bottom - base) * SC);
-    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait'});
-    const PW = landscape ? 297 : 210, PH = landscape ? 210 : 297, M = 8;
+    const fmt = opt.format === 'legal' ? 'legal' : 'a4';
+    const SIZE = fmt === 'legal' ? [215.9, 355.6] : [210, 297];   // [அகலம், உயரம்] mm (portrait)
+    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: fmt, orientation: landscape ? 'landscape' : 'portrait'});
+    const PW = landscape ? SIZE[1] : SIZE[0], PH = landscape ? SIZE[0] : SIZE[1], M = 8;
+    if (opt.onePage){
+      /* ஒரே பக்கம்: அகலம்/உயரம் இரண்டில் எது தடையோ அதற்கேற்பச் சுருக்கி, நடுவில் வை */
+      const availW = PW - 2 * M, availH = PH - 2 * M;
+      let w = availW, h = canvas.height * w / canvas.width;
+      if (h > availH){ h = availH; w = canvas.width * h / canvas.height; }
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', M + (availW - w) / 2, M, w, h);
+      pdf.save(filename);
+      return;
+    }
     const pxPerMm = canvas.width / (PW - 2 * M);
     const pageH = (PH - 2 * M) * pxPerMm;
     let y = 0, first = true;
@@ -834,8 +852,8 @@ function rptLibPdf(){
     '<tr class="b"><td></td><td>மொத்தம்</td><td class="r">' + rptMoney(d.total) + '</td></tr></tbody></table>' +
     '<div style="margin-top:14px;font-weight:700;font-size:15px">மொத்தத் தொகை: ₹' + rptMoney(d.total) + '</div>' +
     '<div style="margin-top:4px;font-family:Arial,sans-serif;font-size:14px">In Words: ' + esc(d.inWords) + '</div>' +
-    '<div style="margin-top:50px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
-  return rptPdf(html, '', false, 794, 'Librarian_Report_' + rptFileName(d.payCenter) + '_' + d.month.replace('/', '-') + '.pdf');
+    '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
+  return rptPdf(html, '', false, 794, 'Librarian_Report_' + rptFileName(d.payCenter) + '_' + d.month.replace('/', '-') + '.pdf', {onePage: true});
 }
 $('#rl_go').addEventListener('click', rptLibRun);
 $('#rl_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#rl_msg'), rptLibPdf));
@@ -861,7 +879,7 @@ function rptPayPdf(){
   const d = rptCache.pay; if (!d) return Promise.resolve();
   const html = '<div class="h1" style="font-size:22px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div><div class="h2" style="font-size:18px">ஊதிய மையங்கள் வாரியாகச் செலவினம்</div>' +
     '<div class="h3" style="font-size:16px">' + esc(rptMonthLabel(d.month)) + '</div><table style="font-size:12px">' + rptWideTable(d, 'ஊதிய மையம் பெயர்') + '</table>';
-  return rptPdf(html, '#rptPage th{font-size:11.5px}', true, 1500, 'PayCentre_Expense_' + d.month.replace('/', '-') + '.pdf');
+  return rptPdf(html, '#rptPage th{font-size:11.5px}#rptPage th,#rptPage td{padding:4px 4px}', true, 1500, 'PayCentre_Expense_' + d.month.replace('/', '-') + '.pdf', {onePage: true, format: 'legal'});
 }
 $('#rp_go').addEventListener('click', rptPayRun);
 $('#rp_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#rp_msg'), rptPayPdf));
@@ -892,7 +910,7 @@ function rptYearPdf(){
   const d = rptCache.year; if (!d) return Promise.resolve();
   const html = '<div class="h1" style="font-size:22px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div><div class="h2" style="font-size:18px">ஆண்டுச் சுருக்கம் — மாதாந்திரச் செலவினம்</div>' +
     '<div class="h3" style="font-size:16px">நிதியாண்டு: ' + esc(d.fy) + '</div><table style="font-size:12px">' + rptWideTable(d, 'மாதம்') + '</table>';
-  return rptPdf(html, '#rptPage th{font-size:11.5px}', true, 1500, 'Yearly_Summary_' + d.fy + '.pdf');
+  return rptPdf(html, '#rptPage th{font-size:11.5px}#rptPage th,#rptPage td{padding:4px 4px}', true, 1500, 'Yearly_Summary_' + d.fy + '.pdf', {onePage: true, format: 'legal'});
 }
 $('#ry_go').addEventListener('click', rptYearRun);
 $('#ry_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#ry_msg'), rptYearPdf));
