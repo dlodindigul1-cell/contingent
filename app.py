@@ -261,7 +261,8 @@ CLAIM_MONEY = ["electricity_bill", "rent_amount", "phone_wifi_amount", "water_ta
                "daily_guard_amount", "toilet_cleaning_amount"]
 
 # Admin மட்டும் நிரப்பும் தலைப்புகள் (நூலகர் படிவத்தில் வராது): key -> (column, தலைப்பு)
-ADMIN_HEADS = {"toiletCleaningAmount": ("toilet_cleaning_amount", "கழிவறை சுத்தம் (₹)")}
+ADMIN_HEADS = {"toiletCleaningAmount": ("toilet_cleaning_amount", "கழிவறை சுத்தம் (₹)"),
+               "newspaperTotalAmount": ("newspaper_total_amount", "நாளிதழ்கள் - மொத்தம் (₹)")}
 CLAIM_LABELS = {
     "partnerNameTamil": "கூட்டுநர் பெயர்", "partnerDays": "கூட்டுநர் பணிநாட்கள்",
     "staffNameTamil": "நூலகப் பணியாளர் பெயர்", "staffDays": "நூலகப் பணியாளர் பணிநாட்கள்",
@@ -276,6 +277,7 @@ CLAIM_LABELS = {
     "consumerItem": "நுகர்பொருள் - விவரம்", "consumerAmount": "நுகர்பொருள் (₹)",
     "otherExpense1Desc": "பிற செலவினம் 1 - விவரம்", "otherExpense1Amount": "பிற செலவினம் 1 (₹)",
     "otherExpense2Desc": "பிற செலவினம் 2 - விவரம்", "otherExpense2Amount": "பிற செலவினம் 2 (₹)",
+    "dailyGuardAmount": "Night Watchman (₹)",
 }
 
 
@@ -289,7 +291,7 @@ def _month_or_now(month_year):
 
 def _claim_total(row, paper_sum, rates):
     d = lambda v: Decimal(str(v or 0))
-    t = d(paper_sum)
+    t = d(paper_sum) + d(row.get("newspaper_total_amount"))
     # தினக்கூலி: பதிவின் போது நிலையாகச் சேமித்த தொகை. (தொகை 0 ஆகவும் நாட்கள் > 0 ஆகவும் இருந்தால் மட்டும்,
     # அதாவது schema புதுப்பிப்புக்கு முந்தைய பதிவு எனில், தற்போதைய விகிதத்தில் கணக்கிடும்)
     for amt_col, days_col, rate_key in (("partner_amount", "partner_days", "partner"),
@@ -312,6 +314,122 @@ def getRegistrationStatus(monthYear=None):
     reg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] in done]
     notreg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] not in done]
     return {"success": True, "month": m, "registered": reg, "notRegistered": notreg, "total": len(libs)}
+
+
+# ------------------------------------------------------------------
+#  அனுமதிக்கப்பட்ட சில்லறை செலவினம் (நூலகர் பட்டன்) — அனுமதித்த செலவினங்கள் மட்டும்
+# ------------------------------------------------------------------
+_ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
+         "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+_TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+
+def _words_below_1000(n):
+    out = []
+    if n >= 100:
+        out.append(_ONES[n // 100] + " Hundred")
+        n %= 100
+        if n:
+            out.append("and")
+    if n >= 20:
+        out.append(_TENS[n // 10] + ((" " + _ONES[n % 10]) if n % 10 else ""))
+    elif n:
+        out.append(_ONES[n])
+    return " ".join(out)
+
+
+def amount_in_words(amount):
+    """இந்திய முறை (Lakh / Crore): 52941 -> 'Fifty Two Thousand Nine Hundred and Forty One rupees only'"""
+    amt = Decimal(str(amount or 0)).quantize(Decimal("0.01"))
+    rupees, paise = int(amt), int((amt - int(amt)) * 100)
+    parts = []
+    for div, name in ((10000000, "Crore"), (100000, "Lakh"), (1000, "Thousand")):
+        q, rupees = divmod(rupees, div)
+        if q:
+            parts.append(_words_below_1000(q) + " " + name)
+    if rupees:
+        w = _words_below_1000(rupees)
+        parts.append(("and " + w) if parts and rupees < 100 else w)
+    text = " ".join(parts) or "Zero"
+    text += " rupees"
+    if paise:
+        text += " and " + _words_below_1000(paise) + " paise"
+    return text + " only"
+
+
+@rpc
+def getApprovedMonthsForLibrary(libraryName):
+    """இந்த நூலகத்தின் அனுமதிக்கப்பட்ட மாதங்கள் (புதியது முதலில்)."""
+    rows = db.fetch_all("SELECT month_year FROM claims WHERE library_name = %s AND approved "
+                        "ORDER BY substr(month_year, 4, 4) DESC, substr(month_year, 1, 2) DESC",
+                        (str(libraryName or "").strip(),))
+    if not rows:
+        return {"success": False, "message": "இந்த நூலகத்துக்கு அனுமதிக்கப்பட்ட மாதங்கள் எதுவும் இல்லை."}
+    return {"success": True, "months": [r["month_year"] for r in rows]}
+
+
+# (தலைப்பு, claims நெடுவரிசை) — Excel வரிசைப்படி; தொகை 0 எனில் அறிக்கையில் வராது
+STATEMENT_ITEMS = [
+    ("தினக்கூலி பகுதி நேரத் துப்புரவாளர்", "partner_amount"),
+    ("தினக்கூலி நூலகர்", "staff_amount"),
+    ("தினக்கூலிக் காவலர்", "daily_guard_amount"),
+    ("தினக்கூலி பகுதி நேர நூலகர்", "part_time_amount"),
+    ("பேருந்து கட்டணம்", "bus_amount"),
+    ("எழுது பொருட்கள் வாங்குதல்", "stationery_amount"),
+    ("பதிவேடு வாங்குதல்", "register_amount"),
+    ("நுகர்பொருள் வாங்குதல்", "consumer_amount"),
+    ("மின்சாதனங்கள் வாங்குதல்", "electrical_amount"),
+    ("அஞ்சல் செலவினம்", "postal_amount"),
+    ("நகலெடுக்கும் கட்டணம்", "photocopy_amount"),
+    ("@1", "other_expense1_amount"),
+    ("@2", "other_expense2_amount"),
+    ("போக்குவரத்து கட்டணம்", "travel_amount"),
+    ("குடிநீர் கட்டணம்", "water_tax"),
+    ("தொலைபேசி கட்டணம்", "phone_wifi_amount"),
+    ("கழிவறை சுத்தம் செய்தல்", "toilet_cleaning_amount"),
+]
+
+
+@rpc
+def getApprovedExpenseStatement(libraryName, monthYear):
+    """அனுமதிக்கப்பட்ட மாதத்தின் செலவினங்கள் — தொகை உள்ளவை மட்டும் (PDF அறிக்கைக்கு)."""
+    name, my = str(libraryName or "").strip(), str(monthYear or "").strip()
+    row = db.fetch_one("SELECT * FROM claims WHERE library_name = %s AND month_year = %s", (name, my))
+    if not row:
+        return {"success": False, "message": "இந்த மாதத்துக்குப் பதிவு இல்லை."}
+    if not row["approved"]:
+        return {"success": False, "message": "இந்த மாதம் இன்னும் அனுமதிக்கப்படவில்லை."}
+    rates = getWageRates()
+    papers = db.fetch_one("SELECT COALESCE(SUM(amount), 0) AS s FROM claim_newspapers WHERE claim_id = %s", (row["id"],))
+    paper_total = Decimal(str(papers["s"] or 0)) + Decimal(str(row["newspaper_total_amount"] or 0))
+    d = lambda v: Decimal(str(v or 0))
+
+    def amount_of(col):
+        v = d(row.get(col))
+        if v == 0 and col in ("partner_amount", "staff_amount", "part_time_amount"):   # பழைய பதிவு (நாட்கள் மட்டும்)
+            days_col, rk = {"partner_amount": ("partner_days", "partner"), "staff_amount": ("staff_days", "staff"),
+                            "part_time_amount": ("part_time_staff_days", "partTime")}[col]
+            v = d(row[days_col]) * d(rates.get(rk))
+        return v
+
+    items = []
+    def add(desc, v):
+        if v and v != 0:
+            items.append({"desc": desc, "amount": jnum(v)})
+    add("நாளிதழ்கள்", paper_total)
+    rent = d(row["rent_amount"])
+    add("வாடகை", rent)
+    add("மின் கட்டணம்", d(row["electricity_bill"]))
+    for title, col in STATEMENT_ITEMS:
+        if title == "@1":
+            title = (row["other_expense1_desc"] or "").strip() or "பிற செலவினம் 1"
+        elif title == "@2":
+            title = (row["other_expense2_desc"] or "").strip() or "பிற செலவினம் 2"
+        add(title, amount_of(col))
+    total = d(row["approved_amount"]) if row["approved_amount"] is not None else sum((Decimal(str(i["amount"])) for i in items), Decimal(0))
+    total_ex = total - paper_total - rent
+    return {"success": True, "library": row["library_name"], "month": row["month_year"], "items": items,
+            "totalExcl": jnum(total_ex), "total": jnum(total), "inWords": amount_in_words(total_ex)}
 
 
 @rpc

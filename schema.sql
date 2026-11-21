@@ -186,3 +186,20 @@ UPDATE claims SET
                      THEN part_time_staff_days * COALESCE((SELECT rate FROM wage_rates WHERE kind = 'part_time'), 100) ELSE part_time_amount END
 WHERE (partner_amount = 0 AND partner_days > 0) OR (staff_amount = 0 AND staff_days > 0)
    OR (part_time_amount = 0 AND part_time_staff_days > 0);
+
+-- நாளிதழ்கள் — மொத்தத் தொகை (பழைய மாதங்கள் Excel-ல் 18 நாளிதழ்களின் கூட்டுத்தொகையாக மட்டுமே உள்ளன)
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS newspaper_total_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+-- Excel மூலம் ஏற்றி (login_email காலி), அனுமதிக்கப்பட்டு, தினத்தந்தி (slot 1) தொகை மட்டுமே உள்ள பதிவுகளில்
+-- அந்தத் தொகையை நாளிதழ் மொத்தத்துக்கு நகர்த்து (மொத்த அனுமதித் தொகை மாறாது). மீண்டும் இயக்கினாலும் தீங்கில்லை.
+WITH mv AS (
+  SELECT c.id, n.amount
+  FROM claims c
+  JOIN claim_newspapers n ON n.claim_id = c.id AND n.slot = 1
+  WHERE c.approved AND COALESCE(c.login_email, '') = ''
+    AND NOT EXISTS (SELECT 1 FROM claim_newspapers o WHERE o.claim_id = c.id AND o.slot <> 1)
+), upd AS (
+  UPDATE claims c SET newspaper_total_amount = c.newspaper_total_amount + mv.amount
+  FROM mv WHERE c.id = mv.id RETURNING c.id
+)
+DELETE FROM claim_newspapers WHERE slot = 1 AND claim_id IN (SELECT id FROM upd);

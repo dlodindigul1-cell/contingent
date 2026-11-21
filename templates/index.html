@@ -2086,41 +2086,113 @@ function openClaimPdf(btn) {
     })
     .shareContingentBill(loginEmail, libraryName);
 }
+// ==================== அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் — அனுமதித்த செலவினங்கள் மட்டும் (PDF பதிவிறக்கம்) ====================
 function openApprovedExpenseMail(btn) {
-  startLoading(btn);
-
-  // ✅ stage3-ல் already set செய்யப்பட்ட library
   const libraryName = document.getElementById("finalLib").innerText.trim();
-  const loginEmail  = window.selectedEmail;
-
-  if (!libraryName || !loginEmail) {
-    stopLoading(btn); // 🔴 இதுதான் முக்கிய fix
-    alert("நூலக பெயர் அல்லது மின்னஞ்சல் கிடைக்கவில்லை");
-    return;
-  }
-
-  // 🔥 Drive folder-ல் இருந்து இந்த நூலகத்திற்கான அனைத்து மாத PDF-களையும் தேடு
+  if (!libraryName) { alert("நூலக பெயர் கிடைக்கவில்லை"); return; }
+  startLoading(btn);
   google.script.run
     .withSuccessHandler(res => {
       stopLoading(btn);
-
-      if (!res.success) {
+      if (!res || !res.success) {
         const card = document.getElementById("mailSuccessCard");
-        card.innerHTML = `❌ ${res.message}`;
+        card.innerHTML = "❌ " + ((res && res.message) || "அனுமதிக்கப்பட்ட மாதங்கள் கிடைக்கவில்லை");
         card.style.display = "block";
         return;
       }
+      showApprovedMonthPicker(libraryName, res.months);
+    })
+    .withFailureHandler(err => { stopLoading(btn); alert("Server பிழை: " + err.message); })
+    .getApprovedMonthsForLibrary(libraryName);
+}
 
-      showMonthPickerModal(res.months, loginEmail, {
-        submitFn: "shareApprovedExpenseMailByFileId",
-        successLabel: "சில்லறை செலவின அனுமதி"
-      });
-    })
-    .withFailureHandler(err => {
-      stopLoading(btn);
-      alert("Server பிழை: " + err.message);
-    })
-    .getAvailableMonthsForLibrary(libraryName);
+function showApprovedMonthPicker(libraryName, months) {
+  const old = document.getElementById("monthPickerModal");
+  if (old) old.remove();
+  const modal = document.createElement("div");
+  modal.id = "monthPickerModal";
+  modal.style = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;";
+  modal.innerHTML = `
+    <div style="background:#fff;padding:20px 24px;border-radius:10px;min-width:280px;max-width:90%;">
+      <h3 style="margin-top:0;">அனுமதிக்கப்பட்ட மாதம்</h3>
+      <select id="monthPickSelect" style="width:100%;padding:10px;font-size:15px;border-radius:6px;border:1px solid #ccc;">
+        ${months.map(m => `<option value="${m}">${m}</option>`).join("")}
+      </select>
+      <div style="margin-top:18px;text-align:right;">
+        <button id="closeMonthBtn" style="margin-right:8px;padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f3f4f6;color:#111;font-weight:600;">மூடு</button>
+        <button id="confirmMonthBtn" style="background:#ff9800;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📥 PDF பதிவிறக்கு</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById("closeMonthBtn").onclick = () => modal.remove();
+  document.getElementById("confirmMonthBtn").onclick = async function () {
+    const my = document.getElementById("monthPickSelect").value;
+    const btn = this, old = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = "⏳ தயாராகிறது…";
+    const st = await new Promise(res => google.script.run.withSuccessHandler(res)
+      .withFailureHandler(e => res({ success: false, message: "Server பிழை: " + e.message }))
+      .getApprovedExpenseStatement(libraryName, my));
+    if (!st || !st.success) {
+      alert((st && st.message) || "அறிக்கை உருவாக்க முடியவில்லை");
+      btn.disabled = false; btn.innerHTML = old; return;
+    }
+    try { await makeApprovedExpensePdf(st); modal.remove(); }
+    catch (e) { alert("PDF உருவாக்க முடியவில்லை: " + (e && e.message ? e.message : e)); btn.disabled = false; btn.innerHTML = old; }
+  };
+}
+
+function aeEsc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function aeMoney(n) { return Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 }).replace(/,/g, ""); }
+
+async function makeApprovedExpensePdf(st) {
+  if (typeof html2canvas === "undefined" || !window.jspdf) throw new Error("PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்.");
+  const rows = st.items.map((it, i) =>
+    `<tr><td class="c">${i + 1}</td><td>${aeEsc(it.desc)}</td><td class="r">${aeMoney(it.amount)}</td></tr>`).join("");
+  const n = st.items.length;
+  const css = '#aePage{width:794px;box-sizing:border-box;padding:40px 52px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:14px;line-height:1.4}' +
+    '#aePage .h1{text-align:center;font-weight:700;font-size:19px}#aePage .h2{text-align:center;font-weight:700;font-size:17px;margin-top:4px}' +
+    '#aePage .lib{text-align:center;font-weight:700;font-size:16px;margin-top:14px}#aePage .mon{text-align:center;font-weight:700;font-family:Arial,sans-serif;margin:4px 0 16px}' +
+    '#aePage table{width:100%;border-collapse:collapse;table-layout:fixed}#aePage th,#aePage td{border:1.5px solid #000;padding:7px 9px;vertical-align:top;word-wrap:break-word}' +
+    '#aePage .c{text-align:center}#aePage .r{text-align:right}#aePage .b td{font-weight:700}' +
+    '#aePage .tot{margin-top:18px;font-weight:700;font-size:16px}#aePage .wd{margin-top:6px;font-family:Arial,sans-serif;font-size:14px}' +
+    '#aePage .sig{margin-top:60px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:16px;line-height:1.5}';
+  const html = `<style>${css}</style><div id="aePage">
+    <div class="h1">மாவட்ட நூலக ஆணைக்குழு திண்டுக்கல்</div>
+    <div class="h2">சில்லறை செலவின அனுமதி</div>
+    <div class="lib">${aeEsc(st.library)}</div>
+    <div class="mon">FOR THE MONTH OF ${aeEsc(st.month)}</div>
+    <table>
+      <colgroup><col style="width:9%"><col style="width:67%"><col style="width:24%"></colgroup>
+      <thead><tr><th>S.No</th><th>Description</th><th>Amount</th></tr></thead>
+      <tbody>${rows}
+        <tr class="b"><td class="c">${n + 1}</td><td>மொத்த செலவினம் (நாளிதழ்/வாடகை தவிர்த்து)</td><td class="r">${aeMoney(st.totalExcl)}</td></tr>
+        <tr class="b"><td class="c">${n + 2}</td><td>மொத்த செலவினம்</td><td class="r">${aeMoney(st.total)}</td></tr>
+      </tbody>
+    </table>
+    <div class="tot">Total Amount: ₹${aeMoney(st.totalExcl)}</div>
+    <div class="wd">In Words: ${aeEsc(st.inWords)}</div>
+    <div class="sig">District Library Officer<br>Dindigul</div>
+  </div>`;
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;left:0;top:0;width:794px;z-index:-1;pointer-events:none;background:#fff;";
+  host.innerHTML = html;
+  document.body.appendChild(host);
+  try {
+    try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch (e) {}
+    const page = host.querySelector("#aePage");
+    const canvas = await html2canvas(page, { scale: 2, useCORS: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0,
+                                             width: 794, height: page.scrollHeight, windowWidth: 794 });
+    const pdf = new window.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const PW = 210, PH = 297;
+    let w = PW, h = canvas.height * PW / canvas.width;
+    if (h > PH) { w = canvas.width * PH / canvas.height; h = PH; }
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.98), "JPEG", (PW - w) / 2, 0, w, h);
+    pdf.save("Approved_Expense_" + String(st.library).replace(/[\\/:*?"<>|\s]+/g, "_") + "_" + String(st.month).replace("/", "-") + ".pdf");
+  } finally {
+    host.remove();
+  }
 }
 
 // 🔥 மாதம் தேர்ந்தெடுக்கும் modal (dropdown) — பல பட்டன்களுக்கும் பொதுவாக பயன்படும்

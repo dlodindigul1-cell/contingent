@@ -426,15 +426,17 @@ def do_claims_approved(raw):
             v = cell(r, col[key])
             data[key] = _hist_date(v) if key in ("busDate", "travelDate") else v
         papers = {s: to_num(cell(r, i)) for s, i in paper_cols.items()}
+        paper_total = Decimal(0)
         if newspaper_total_col is not None:
-            # ஒரே மொத்தத் தொகையை slot 1-ல் சேமிக்கிறோம்; மொத்தக் கணக்கில் முழுத் தொகையும் சேரும்.
-            papers = {1: to_num(cell(r, newspaper_total_col))}
+            # 18 நாளிதழ்களின் மொத்தத் தொகை — தனி நெடுவரிசையில் (newspaper_total_amount) சேமிக்கப்படும்
+            paper_total = to_num(cell(r, newspaper_total_col))
+            papers = {}
         toilet = to_num(data.get("toiletCleaningAmount"))
         approved_txt = cell(r, col["_approved"]) if "_approved" in col else ""
         if approved_txt != "":
             approved = to_num(approved_txt)
         else:
-            approved = (sum(papers.values(), Decimal(0))
+            approved = (sum(papers.values(), Decimal(0)) + paper_total
                         + to_num(data.get("partnerDays")) * rates.get("partner", Decimal(0))
                         + to_num(data.get("staffDays")) * rates.get("staff", Decimal(0))
                         + to_num(data.get("partTimeStaffDays")) * rates.get("part_time", Decimal(0))
@@ -442,7 +444,7 @@ def do_claims_approved(raw):
         head = {"unique_key": make_unique_key(code, my), "library_name": lib, "library_code": code,
                 "month_year": my, "login_email": "", "library_type": L.get("lib_type") or ""}
         entries.append((head, data, papers, None))
-        meta[head["unique_key"]] = (toilet, approved)
+        meta[head["unique_key"]] = (toilet, approved, paper_total)
 
     if not entries:
         return result(0, skipped) | {"inserted": 0, "updated": 0}
@@ -466,11 +468,13 @@ def do_claims_approved(raw):
         def f(conn, chunk=chunk):
             with conn.cursor() as cur:
                 a, b = bulk_upsert_claims(cur, chunk)
-                vals = [(c[0]["unique_key"], meta[c[0]["unique_key"]][0], meta[c[0]["unique_key"]][1]) for c in chunk]
+                vals = [(c[0]["unique_key"], meta[c[0]["unique_key"]][0], meta[c[0]["unique_key"]][1],
+                         meta[c[0]["unique_key"]][2]) for c in chunk]
                 execute_values(cur,
                     "UPDATE claims c SET toilet_cleaning_amount = v.t, approved = TRUE, approved_at = now(), "
-                    "approved_amount = v.a FROM (VALUES %s) AS v(k, t, a) WHERE c.unique_key = v.k",
-                    vals, template="(%s, %s::numeric, %s::numeric)")
+                    "approved_amount = v.a, newspaper_total_amount = v.p "
+                    "FROM (VALUES %s) AS v(k, t, a, p) WHERE c.unique_key = v.k",
+                    vals, template="(%s, %s::numeric, %s::numeric, %s::numeric)")
                 return a, b
         a, b = db.run(f)
         inserted += a
