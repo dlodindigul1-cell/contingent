@@ -203,6 +203,10 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <a href="#holidays" data-v="holidays"><span class="n">10</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
   <div class="grp">நூலக மேலாண்மை</div>
   <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
+  <div class="grp">அறிக்கைகள்</div>
+  <a href="#rptlib" data-v="rptlib"><span class="n">12</span><span>ஊதிய மைய நூலகர் அறிக்கை<small>ஊதிய மையம் + மாதம்</small></span></a>
+  <a href="#rptpay" data-v="rptpay"><span class="n">13</span><span>மொத்த ஊதிய மையச் செலவின அறிக்கை<small>ஊதிய மையங்கள் வாரியாக</small></span></a>
+  <a href="#rptyear" data-v="rptyear"><span class="n">14</span><span>ஆண்டுச் சுருக்கம்<small>நிதியாண்டு · மாதம் வாரியாக</small></span></a>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -234,6 +238,9 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
         <tr><td>9</td><td><a href="#newsmap">நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>10</td><td><a href="#holidays">அரசு விடுமுறை நாட்கள்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>11</td><td><a href="#manage">நூலகம் · வகை · ஊதிய மையம் மேலாண்மை</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>12</td><td><a href="#rptlib">ஊதிய மைய நூலகர் அறிக்கை</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>13</td><td><a href="#rptpay">மொத்த ஊதிய மையச் செலவின அறிக்கை</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>14</td><td><a href="#rptyear">ஆண்டுச் சுருக்கம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
       </tbody>
     </table>
   </div></div>
@@ -510,10 +517,62 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   </div>
 </section>
 
+<!-- ================= அறிக்கைகள் ================= -->
+<section class="view" id="v-rptlib">
+  <p class="crumb">நிர்வாகம் › அறிக்கைகள் › ஊதிய மைய நூலகர் அறிக்கை</p>
+  <h2 class="pt">12. ஊதிய மைய நூலகர் அறிக்கை</h2>
+  <p class="lead">ஊதிய மையம், மாதத்தைத் தேர்ந்தெடுக்கவும். அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே சேரும்; மொத்தத் தொகையில் நாளிதழ் மற்றும் வாடகை சேராது.</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <select id="rl_pc" style="width:auto;min-width:240px" aria-label="ஊதிய மையம்"><option value="">ஊதிய மையம் தேர்க…</option></select>
+      <input type="month" id="rl_month" style="width:auto" aria-label="மாதம்">
+      <button class="btn go sm" id="rl_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm rl-dl" type="button" id="rl_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm rl-dl" type="button" id="rl_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+    </div>
+    <div id="rl_msg"></div>
+    <div id="rl_out"></div>
+  </div></div>
+</section>
+
+<section class="view" id="v-rptpay">
+  <p class="crumb">நிர்வாகம் › அறிக்கைகள் › மொத்த ஊதிய மையச் செலவின அறிக்கை</p>
+  <h2 class="pt">13. மொத்த ஊதிய மையச் செலவின அறிக்கை</h2>
+  <p class="lead">மாதத்தைத் தேர்ந்தெடுத்தால் ஊதிய மையங்கள் வாரியாக எல்லாச் செலவினத் தலைப்புகளும் காட்டப்படும். அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே சேரும். PDF அகலப் பக்க (landscape) வடிவில் வரும்.</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <input type="month" id="rp_month" style="width:auto" aria-label="மாதம்">
+      <button class="btn go sm" id="rp_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm rp-dl" type="button" id="rp_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm rp-dl" type="button" id="rp_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+    </div>
+    <div id="rp_msg"></div>
+    <div id="rp_out"></div>
+  </div></div>
+</section>
+
+<section class="view" id="v-rptyear">
+  <p class="crumb">நிர்வாகம் › அறிக்கைகள் › ஆண்டுச் சுருக்கம்</p>
+  <h2 class="pt">14. ஆண்டுச் சுருக்கம்</h2>
+  <p class="lead">நிதியாண்டு (ஏப்ரல் முதல் மார்ச்) தேர்ந்தெடுக்கவும். ஒவ்வொரு மாதத்தின் தொகையும் எல்லா ஊதிய மையங்களையும் கூட்டியது; அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே சேரும்.</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <select id="ry_fy" style="width:auto" aria-label="நிதியாண்டு"></select>
+      <button class="btn go sm" id="ry_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm ry-dl" type="button" id="ry_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm ry-dl" type="button" id="ry_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+    </div>
+    <div id="ry_msg"></div>
+    <div id="ry_out"></div>
+  </div></div>
+</section>
+
 </main>
 </div>
 <footer>மாவட்ட நூலக அலுவலகம், திண்டுக்கல் — உள்ளடக்கம் மற்றும் தரவு மேலாண்மை: மாவட்ட நூலக அலுவலர்.</footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -672,6 +731,173 @@ $('#clmSave').addEventListener('click', async () => {
   b.disabled = false;
 });
 
+/* ===================== அறிக்கைகள் ===================== */
+const RPT_TA_MONTHS = ['ஜனவரி','பிப்ரவரி','மார்ச்','ஏப்ரல்','மே','ஜூன்','ஜூலை','ஆகஸ்ட்','செப்டம்பர்','அக்டோபர்','நவம்பர்','டிசம்பர்'];
+const RPT_NO_PC = 'ஊதிய மையம் குறிப்பிடப்படவில்லை';
+function rptMoney(n){ return Number(n || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function rptCell(n){ return Number(n) === 0 ? '–' : rptMoney(n); }
+function rptMonthLabel(my){ const m = String(my).split('/'); return RPT_TA_MONTHS[parseInt(m[0], 10) - 1] + ' ' + m[1]; }
+function rptFileName(s){ return String(s).replace(/[\\/:*?"<>|\s]+/g, '_'); }
+function rptFY(){ const d = new Date(); const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; return y + '-' + String((y + 1) % 100).padStart(2, '0'); }
+const rptCache = {lib: null, pay: null, year: null};
+
+/* PDF: அட்டவணையைப் படமாக்கி (Tamil எழுத்துரு சரியாக வர) பக்கங்களாகப் பிரிக்கும்; வரிசை நடுவில் வெட்டாது */
+async function rptPdf(bodyHtml, css, landscape, width, filename){
+  if (typeof html2canvas === 'undefined' || !window.jspdf) throw new Error('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்.');
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:0;top:0;width:' + width + 'px;z-index:-1;pointer-events:none;background:#fff;';
+  host.innerHTML = '<style>#rptPage{width:' + width + 'px;box-sizing:border-box;padding:20px 24px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;line-height:1.35}' +
+    '#rptPage table{border-collapse:collapse;width:100%}#rptPage th,#rptPage td{border:1.2px solid #000;padding:4px 6px;vertical-align:middle}' +
+    '#rptPage th{text-align:center;font-weight:700;background:#fff}#rptPage .r{text-align:right}#rptPage .c{text-align:center}#rptPage .b td{font-weight:700}' +
+    '#rptPage .h1{text-align:center;font-weight:700}#rptPage .h2{text-align:center;font-weight:700;margin-top:3px}#rptPage .h3{text-align:center;font-weight:700;margin:3px 0 10px}' + css + '</style><div id="rptPage">' + bodyHtml + '</div>';
+  document.body.appendChild(host);
+  try{
+    try{ await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; }catch(e){}
+    const page = host.querySelector('#rptPage');
+    const SC = 2;
+    const canvas = await html2canvas(page, {scale: SC, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, width: width, height: page.scrollHeight, windowWidth: width});
+    const base = page.getBoundingClientRect().top;
+    const bottoms = Array.from(page.querySelectorAll('tr')).map(tr => (tr.getBoundingClientRect().bottom - base) * SC);
+    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait'});
+    const PW = landscape ? 297 : 210, PH = landscape ? 210 : 297, M = 8;
+    const pxPerMm = canvas.width / (PW - 2 * M);
+    const pageH = (PH - 2 * M) * pxPerMm;
+    let y = 0, first = true;
+    while (y < canvas.height - 1){
+      let end = Math.min(y + pageH, canvas.height);
+      if (end < canvas.height){
+        const c = bottoms.filter(b => b > y + pageH * 0.4 && b <= end);
+        if (c.length) end = Math.max.apply(null, c);
+      }
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = Math.ceil(end - y);
+      const ctx = part.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, end - y, 0, 0, canvas.width, end - y);
+      if (!first) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.98), 'JPEG', M, M, PW - 2 * M, (end - y) / pxPerMm);
+      first = false; y = end;
+    }
+    pdf.save(filename);
+  } finally { host.remove(); }
+}
+async function rptPdfBtn(btn, msgEl, fn){
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'PDF உருவாகிறது…';
+  try{ await fn(); }catch(e){ note(msgEl, 'bad', e.message || 'PDF உருவாக்க முடியவில்லை'); }
+  btn.disabled = false; btn.textContent = old;
+}
+function rptWideTable(d, firstHead){
+  const head = '<tr><th style="width:34px">வ.எண்.</th><th>' + esc(firstHead) + '</th>' +
+    d.cols.map(c => '<th>' + esc(c.title) + '</th>').join('') + '<th>மொத்தம்</th></tr>';
+  const body = d.rows.map((r, i) => '<tr><td class="c">' + (i + 1) + '</td><td>' + esc(r.label) + '</td>' +
+    r.vals.map(v => '<td class="r">' + rptCell(v) + '</td>').join('') + '<td class="r"><b>' + rptMoney(r.total) + '</b></td></tr>').join('');
+  const t = d.totals;
+  const foot = '<tr class="b"><td></td><td>' + esc(t.label) + '</td>' + t.vals.map(v => '<td class="r">' + rptMoney(v) + '</td>').join('') + '<td class="r">' + rptMoney(t.total) + '</td></tr>';
+  return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
+}
+
+/* ---- 12. ஊதிய மைய நூலகர் அறிக்கை ---- */
+async function rptLibInit(){
+  if (!$('#rl_month').value) $('#rl_month').value = curMonthInput();
+  if ($('#rl_pc').options.length > 1) return;
+  try{
+    const j = await getJSON('/admin/api/lists');
+    const names = (j.paycenters || []).map(x => x.name).concat([RPT_NO_PC]);
+    $('#rl_pc').innerHTML = '<option value="">ஊதிய மையம் தேர்க…</option>' + names.map(n => '<option>' + esc(n) + '</option>').join('');
+  }catch(e){ note($('#rl_msg'), 'bad', e.message); }
+}
+async function rptLibRun(){
+  const pc = $('#rl_pc').value, my = toMY($('#rl_month').value);
+  $('#rl_out').innerHTML = ''; $('#rl_msg').innerHTML = '';
+  document.querySelectorAll('.rl-dl').forEach(b => b.style.display = 'none'); rptCache.lib = null;
+  if (!pc || !my){ note($('#rl_msg'), 'warn', 'ஊதிய மையம் மற்றும் மாதத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  try{
+    const d = await rpc('getLibrarianReport', [pc, my]);
+    if (!d.success){ note($('#rl_msg'), 'bad', d.message); return; }
+    rptCache.lib = d;
+    const rows = d.rows.map(r => '<tr><td>' + r.no + '</td><td>' + esc(r.name) + '</td><td class="num">' + rptMoney(r.amount) + '</td></tr>').join('') ||
+      '<tr><td colspan="3">இந்த ஊதிய மையத்தில் நூலகங்கள் இல்லை.</td></tr>';
+    $('#rl_out').innerHTML = '<p><b>ஊதிய மையம்:</b> ' + esc(d.payCenter) + ' &nbsp; <b>மாதம்:</b> ' + esc(rptMonthLabel(d.month)) + '</p>' +
+      '<div class="tw" style="max-height:none"><table><thead><tr><th style="width:70px">வ.எண்.</th><th>நூலகத்தின் பெயர்</th><th class="num">மொத்தத் தொகை (₹)</th></tr></thead><tbody>' + rows +
+      '<tr><td></td><td><b>மொத்தம்</b></td><td class="num"><b>' + rptMoney(d.total) + '</b></td></tr></tbody></table></div>' +
+      '<p><b>மொத்தத் தொகை:</b> ₹' + rptMoney(d.total) + '<br><b>In Words:</b> ' + esc(d.inWords) + '</p>';
+    document.querySelectorAll('.rl-dl').forEach(b => b.style.display = '');
+  }catch(e){ note($('#rl_msg'), 'bad', e.message); }
+}
+function rptLibPdf(){
+  const d = rptCache.lib; if (!d) return Promise.resolve();
+  const rows = d.rows.map(r => '<tr><td class="c">' + r.no + '</td><td>' + esc(r.name) + '</td><td class="r">' + rptMoney(r.amount) + '</td></tr>').join('');
+  const html = '<div class="h1" style="font-size:19px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div>' +
+    '<div class="h3" style="font-size:15px;margin-top:8px">ஊதிய மையம்: ' + esc(d.payCenter) + ' &nbsp;&nbsp; மாதம்: ' + esc(rptMonthLabel(d.month)) + '</div>' +
+    '<table style="font-size:14px"><colgroup><col style="width:9%"><col style="width:63%"><col style="width:28%"></colgroup>' +
+    '<thead><tr><th>வ.எண்.</th><th>நூலகத்தின் பெயர்</th><th>மொத்தத் தொகை (₹)</th></tr></thead><tbody>' + rows +
+    '<tr class="b"><td></td><td>மொத்தம்</td><td class="r">' + rptMoney(d.total) + '</td></tr></tbody></table>' +
+    '<div style="margin-top:14px;font-weight:700;font-size:15px">மொத்தத் தொகை: ₹' + rptMoney(d.total) + '</div>' +
+    '<div style="margin-top:4px;font-family:Arial,sans-serif;font-size:14px">In Words: ' + esc(d.inWords) + '</div>' +
+    '<div style="margin-top:50px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
+  return rptPdf(html, '', false, 794, 'Librarian_Report_' + rptFileName(d.payCenter) + '_' + d.month.replace('/', '-') + '.pdf');
+}
+$('#rl_go').addEventListener('click', rptLibRun);
+$('#rl_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#rl_msg'), rptLibPdf));
+$('#rl_xls').addEventListener('click', () => { const d = rptCache.lib; if (d) location.href = '/admin/report/librarian.xlsx?payCenter=' + encodeURIComponent(d.payCenter) + '&month=' + encodeURIComponent(d.month); });
+
+/* ---- 13. மொத்த ஊதிய மையச் செலவின அறிக்கை ---- */
+function rptPayInit(){ if (!$('#rp_month').value) $('#rp_month').value = curMonthInput(); }
+async function rptPayRun(){
+  const my = toMY($('#rp_month').value);
+  $('#rp_out').innerHTML = ''; $('#rp_msg').innerHTML = '';
+  document.querySelectorAll('.rp-dl').forEach(b => b.style.display = 'none'); rptCache.pay = null;
+  if (!my){ note($('#rp_msg'), 'warn', 'மாதத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  try{
+    const d = await rpc('getPayCenterExpenseReport', [my]);
+    if (!d.success){ note($('#rp_msg'), 'bad', d.message); return; }
+    rptCache.pay = d;
+    $('#rp_out').innerHTML = '<p><b>திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</b><br>ஊதிய மையங்கள் வாரியாகச் செலவினம் — ' + esc(rptMonthLabel(d.month)) + '</p>' +
+      '<div class="tw" style="max-height:none"><table style="font-size:13px;white-space:nowrap">' + rptWideTable(d, 'ஊதிய மையம் பெயர்') + '</table></div>';
+    document.querySelectorAll('.rp-dl').forEach(b => b.style.display = '');
+  }catch(e){ note($('#rp_msg'), 'bad', e.message); }
+}
+function rptPayPdf(){
+  const d = rptCache.pay; if (!d) return Promise.resolve();
+  const html = '<div class="h1" style="font-size:22px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div><div class="h2" style="font-size:18px">ஊதிய மையங்கள் வாரியாகச் செலவினம்</div>' +
+    '<div class="h3" style="font-size:16px">' + esc(rptMonthLabel(d.month)) + '</div><table style="font-size:12px">' + rptWideTable(d, 'ஊதிய மையம் பெயர்') + '</table>';
+  return rptPdf(html, '#rptPage th{font-size:11.5px}', true, 1500, 'PayCentre_Expense_' + d.month.replace('/', '-') + '.pdf');
+}
+$('#rp_go').addEventListener('click', rptPayRun);
+$('#rp_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#rp_msg'), rptPayPdf));
+$('#rp_xls').addEventListener('click', () => { const d = rptCache.pay; if (d) location.href = '/admin/report/paycenter.xlsx?month=' + encodeURIComponent(d.month); });
+
+/* ---- 14. ஆண்டுச் சுருக்கம் ---- */
+function rptYearInit(){
+  if ($('#ry_fy').options.length) return;
+  const cur = rptFY(), y0 = parseInt(cur.slice(0, 4), 10);
+  let h = '';
+  for (let y = y0 + 1; y >= 2025; y--){ const v = y + '-' + String((y + 1) % 100).padStart(2, '0'); h += '<option' + (v === cur ? ' selected' : '') + '>' + v + '</option>'; }
+  $('#ry_fy').innerHTML = h;
+}
+async function rptYearRun(){
+  const fy = $('#ry_fy').value;
+  $('#ry_out').innerHTML = ''; $('#ry_msg').innerHTML = '';
+  document.querySelectorAll('.ry-dl').forEach(b => b.style.display = 'none'); rptCache.year = null;
+  try{
+    const d = await rpc('getYearlySummaryReport', [fy]);
+    if (!d.success){ note($('#ry_msg'), 'bad', d.message); return; }
+    rptCache.year = d;
+    $('#ry_out').innerHTML = '<p><b>திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</b><br>ஆண்டுச் சுருக்கம் — நிதியாண்டு ' + esc(d.fy) + '</p>' +
+      '<div class="tw" style="max-height:none"><table style="font-size:13px;white-space:nowrap">' + rptWideTable(d, 'மாதம்') + '</table></div>';
+    document.querySelectorAll('.ry-dl').forEach(b => b.style.display = '');
+  }catch(e){ note($('#ry_msg'), 'bad', e.message); }
+}
+function rptYearPdf(){
+  const d = rptCache.year; if (!d) return Promise.resolve();
+  const html = '<div class="h1" style="font-size:22px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div><div class="h2" style="font-size:18px">ஆண்டுச் சுருக்கம் — மாதாந்திரச் செலவினம்</div>' +
+    '<div class="h3" style="font-size:16px">நிதியாண்டு: ' + esc(d.fy) + '</div><table style="font-size:12px">' + rptWideTable(d, 'மாதம்') + '</table>';
+  return rptPdf(html, '#rptPage th{font-size:11.5px}', true, 1500, 'Yearly_Summary_' + d.fy + '.pdf');
+}
+$('#ry_go').addEventListener('click', rptYearRun);
+$('#ry_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#ry_msg'), rptYearPdf));
+$('#ry_xls').addEventListener('click', () => { const d = rptCache.year; if (d) location.href = '/admin/report/yearly.xlsx?fy=' + encodeURIComponent(d.fy); });
+
 const loaded = {};
 function route(){
   const id = (location.hash || '#home').slice(1);
@@ -687,6 +913,9 @@ function route(){
   if (v === 'holidays') loadHolidays();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
+  if (v === 'rptlib') rptLibInit();
+  if (v === 'rptpay') rptPayInit();
+  if (v === 'rptyear') rptYearInit();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);

@@ -99,7 +99,8 @@ def _ensure_schema():
 ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
-              "approveClaims", "revokeClaimApproval"}
+              "approveClaims", "revokeClaimApproval",
+              "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -938,6 +939,297 @@ def saveDailyWagePermissions(rows):
 
     db.run(f)
     return {"success": True, "allowed": len(allow)}
+
+
+# ------------------------------------------------------------------
+#  அறிக்கைகள் (Admin): அனுமதிக்கப்பட்ட பதிவுகளிலிருந்து மட்டும்
+# ------------------------------------------------------------------
+# (key, தலைப்பு) — அறிக்கை 2 மற்றும் ஆண்டுச் சுருக்கத்தின் நெடுவரிசைகள்
+REPORT_COLS = [
+    ("papers", "நாளிதழ்கள்"), ("rent", "வாடகை"), ("electricity", "மின் கட்டணம்"),
+    ("partner", "தினக்கூலி பகுதி நேரத் துப்புரவாளர்"), ("staff", "தினக்கூலி நூலகர்"),
+    ("guard", "தினக்கூலிக் காவலர்"), ("part_time", "தினக்கூலி பகுதி நேர நூலகர்"),
+    ("bus", "பேருந்து கட்டணம்"), ("stationery", "எழுது பொருட்கள்"), ("register", "பதிவேடு"),
+    ("consumer", "நுகர்பொருள்"), ("electrical", "மின்சாதனங்கள்"), ("postal", "அஞ்சல்"),
+    ("copy", "நகலெடுக்கும் கட்டணம்"), ("other", "பிற செலவினம்"), ("travel", "போக்குவரத்து"),
+    ("water", "குடிநீர்"), ("phone", "தொலைபேசி"), ("toilet", "கழிவறை சுத்தம்"),
+]
+LIB_TYPE_ORDER = ["மாவட்ட மைய நூலகம்", "முழு நேர கிளை நூலகம்", "கிளை நூலகம்",
+                  "ஊர்ப்புற நூலகம்", "பகுதி நேர நூலகம்"]
+NO_PAYCENTER = "ஊதிய மையம் குறிப்பிடப்படவில்லை"
+MONTH_NAMES_TA = ["ஏப்ரல்", "மே", "ஜூன்", "ஜூலை", "ஆகஸ்ட்", "செப்டம்பர்", "அக்டோபர்",
+                  "நவம்பர்", "டிசம்பர்", "ஜனவரி", "பிப்ரவரி", "மார்ச்"]
+
+
+def _claim_parts(row, paper_total, rates):
+    """ஒரு claim-ன் தலைப்பு வாரியான தொகைகள் + மொத்தம் (அனுமதித் தொகை இருந்தால் அதுவே மொத்தம்)."""
+    d = lambda v: Decimal(str(v or 0))
+
+    def wage(col, days_col, rk):
+        v = d(row.get(col))
+        return v if v else d(row.get(days_col)) * d(rates.get(rk))
+
+    p = {
+        "papers": d(paper_total), "rent": d(row.get("rent_amount")),
+        "electricity": d(row.get("electricity_bill")),
+        "partner": wage("partner_amount", "partner_days", "partner"),
+        "staff": wage("staff_amount", "staff_days", "staff"),
+        "guard": d(row.get("daily_guard_amount")),
+        "part_time": wage("part_time_amount", "part_time_staff_days", "partTime"),
+        "bus": d(row.get("bus_amount")), "stationery": d(row.get("stationery_amount")),
+        "register": d(row.get("register_amount")), "consumer": d(row.get("consumer_amount")),
+        "electrical": d(row.get("electrical_amount")), "postal": d(row.get("postal_amount")),
+        "copy": d(row.get("photocopy_amount")),
+        "other": d(row.get("other_expense1_amount")) + d(row.get("other_expense2_amount")),
+        "travel": d(row.get("travel_amount")), "water": d(row.get("water_tax")),
+        "phone": d(row.get("phone_wifi_amount")), "toilet": d(row.get("toilet_cleaning_amount")),
+    }
+    total = d(row["approved_amount"]) if row.get("approved_amount") is not None else sum(p.values(), Decimal(0))
+    return p, total
+
+
+def _approved_claims(month_years):
+    """கொடுத்த மாதங்களின் அனுமதிக்கப்பட்ட claims — [(row, parts, total)] (ஊதிய மையத்துடன்)."""
+    my = list(month_years)
+    rows = db.fetch_all(
+        "SELECT c.*, COALESCE(btrim(l.pay_center), '') AS pc, l.id AS lib_id, COALESCE(l.lib_type, c.library_type, '') AS ltype "
+        "FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
+        "WHERE c.approved AND c.month_year = ANY(%s)", (my,))
+    ids = [r["id"] for r in rows]
+    papers = {}
+    if ids:
+        papers = {p["claim_id"]: p["s"] for p in db.fetch_all(
+            "SELECT claim_id, SUM(amount) AS s FROM claim_newspapers WHERE claim_id = ANY(%s) GROUP BY claim_id", (ids,))}
+    rates = getWageRates()
+    out = []
+    for r in rows:
+        pt = Decimal(str(papers.get(r["id"]) or 0)) + Decimal(str(r["newspaper_total_amount"] or 0))
+        parts, total = _claim_parts(r, pt, rates)
+        out.append((r, parts, total))
+    return out
+
+
+def _zero_parts():
+    return {k: Decimal(0) for k, _ in REPORT_COLS}
+
+
+def _add_parts(acc, parts, total):
+    for k, _ in REPORT_COLS:
+        acc["vals"][k] += parts[k]
+    acc["total"] += total
+
+
+def _row_json(label, acc):
+    return {"label": label, "vals": [jnum(acc["vals"][k]) for k, _ in REPORT_COLS], "total": jnum(acc["total"])}
+
+
+def _valid_my(m):
+    m = str(m or "").strip()
+    return m if (len(m) == 7 and m[2] == "/" and m[:2].isdigit() and m[3:].isdigit() and 1 <= int(m[:2]) <= 12) else ""
+
+
+def _month_label(my):
+    mm, yy = int(my[:2]), my[3:]
+    return "%s %s" % (MONTH_NAMES_TA[(mm - 4) % 12], yy)
+
+
+@rpc
+def getLibrarianReport(payCenter, monthYear):
+    """அறிக்கை 1: ஊதிய மைய நூலகர் அறிக்கை — நூலகம் வாரியாக (நாளிதழ் / வாடகை நீங்கலாக) அனுமதித் தொகை."""
+    pc, my = str(payCenter or "").strip(), _valid_my(monthYear)
+    if not pc:
+        return {"success": False, "message": "ஊதிய மையத்தைத் தேர்ந்தெடுக்கவும்."}
+    if not my:
+        return {"success": False, "message": "மாதத்தைத் தேர்ந்தெடுக்கவும்."}
+    if pc == NO_PAYCENTER:
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = '' ORDER BY id")
+    else:
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = %s ORDER BY id", (pc,))
+    net = {}
+    for r, parts, total in _approved_claims([my]):
+        net[r["library_name"]] = net.get(r["library_name"], Decimal(0)) + total - parts["papers"] - parts["rent"]
+
+    def rank(l):
+        t = (l["lib_type"] or "").strip()
+        return LIB_TYPE_ORDER.index(t) if t in LIB_TYPE_ORDER else len(LIB_TYPE_ORDER)
+    libs = sorted(libs, key=lambda l: (rank(l), l["id"]))     # ஒரே வகைக்குள் நூலகப் பட்டியல் (id) வரிசை
+    rows, grand = [], Decimal(0)
+    for i, l in enumerate(libs, 1):
+        amt = net.get(l["name"], Decimal(0))
+        grand += amt
+        rows.append({"no": i, "name": l["name"], "type": (l["lib_type"] or "").strip(), "amount": jnum(amt)})
+    return {"success": True, "payCenter": pc, "month": my, "rows": rows,
+            "total": jnum(grand), "inWords": amount_in_words(grand)}
+
+
+def _paycenter_names():
+    return [r["name"] for r in db.fetch_all("SELECT name FROM pay_centers ORDER BY id")]
+
+
+@rpc
+def getPayCenterExpenseReport(monthYear):
+    """அறிக்கை 2: ஊதிய மையங்கள் வாரியாகச் செலவினம் (தேர்ந்த மாதம்)."""
+    my = _valid_my(monthYear)
+    if not my:
+        return {"success": False, "message": "மாதத்தைத் தேர்ந்தெடுக்கவும்."}
+    names = _paycenter_names()
+    acc = {n: {"vals": _zero_parts(), "total": Decimal(0)} for n in names}
+    unknown = {"vals": _zero_parts(), "total": Decimal(0)}
+    has_unknown = False
+    for r, parts, total in _approved_claims([my]):
+        if r["pc"] in acc:
+            _add_parts(acc[r["pc"]], parts, total)
+        else:
+            _add_parts(unknown, parts, total)
+            has_unknown = True
+    rows = [_row_json(n, acc[n]) for n in names]
+    if has_unknown:
+        rows.append(_row_json(NO_PAYCENTER, unknown))
+    grand = {"vals": _zero_parts(), "total": Decimal(0)}
+    for a in list(acc.values()) + ([unknown] if has_unknown else []):
+        for k, _ in REPORT_COLS:
+            grand["vals"][k] += a["vals"][k]
+        grand["total"] += a["total"]
+    return {"success": True, "month": my, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
+            "rows": rows, "totals": _row_json("மொத்தம்", grand)}
+
+
+def _fy_months(fy):
+    """'2026-27' -> ['04/2026', ..., '03/2027']; தவறெனில் நடப்பு நிதியாண்டு."""
+    fy = str(fy or "").strip()
+    try:
+        y = int(fy[:4])
+        if len(fy) != 7 or fy[4] != "-" or int(fy[5:]) != (y + 1) % 100:
+            raise ValueError
+    except ValueError:
+        now = dt.datetime.now(IST)
+        y = now.year if now.month >= 4 else now.year - 1
+    return "%d-%02d" % (y, (y + 1) % 100), ["%02d/%d" % (m, y if m >= 4 else y + 1) for m in (4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3)]
+
+
+@rpc
+def getYearlySummaryReport(fy):
+    """ஆண்டுச் சுருக்கம்: நிதியாண்டு (ஏப்ரல்–மார்ச்) மாதம் வாரியாக, எல்லா ஊதிய மையங்களின் கூட்டு."""
+    fy_label, months = _fy_months(fy)
+    acc = {m: {"vals": _zero_parts(), "total": Decimal(0)} for m in months}
+    for r, parts, total in _approved_claims(months):
+        _add_parts(acc[r["month_year"]], parts, total)
+    grand = {"vals": _zero_parts(), "total": Decimal(0)}
+    for a in acc.values():
+        for k, _ in REPORT_COLS:
+            grand["vals"][k] += a["vals"][k]
+        grand["total"] += a["total"]
+    return {"success": True, "fy": fy_label, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
+            "rows": [_row_json(_month_label(m), acc[m]) for m in months],
+            "totals": _row_json("ஆண்டு மொத்தம்", grand)}
+
+
+@app.get("/admin/report/<kind>.xlsx")
+def admin_report_xlsx(kind):
+    """அறிக்கை Excel பதிவிறக்கம் (திரையில் உள்ள அதே தரவு)."""
+    denied = admin_required_json()
+    if denied:
+        return denied
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    a = request.args
+    if kind == "librarian":
+        data = getLibrarianReport(a.get("payCenter", ""), a.get("month", ""))
+    elif kind == "paycenter":
+        data = getPayCenterExpenseReport(a.get("month", ""))
+    elif kind == "yearly":
+        data = getYearlySummaryReport(a.get("fy", ""))
+    else:
+        return jsonify({"success": False, "message": "தெரியாத அறிக்கை"}), 404
+    if not data.get("success"):
+        return jsonify(data), 400
+
+    wb = Workbook()
+    ws = wb.active
+    bold = Font(bold=True)
+    head_fill = PatternFill("solid", fgColor="E8EFF9")
+    thin = Side(style="thin", color="000000")
+    box = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    money = "#,##0.00"
+
+    def title(text, ncols, row, size=12):
+        ws.cell(row=row, column=1, value=text).font = Font(bold=True, size=size)
+        ws.cell(row=row, column=1).alignment = Alignment(horizontal="center")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
+
+    if kind == "librarian":
+        ws.title = "நூலகர் அறிக்கை"
+        title("ஊதிய மையம்: " + data["payCenter"], 3, 1, 13)
+        title("மாதம்: " + data["month"], 3, 2, 12)
+        for c, h in enumerate(["வ.எண்.", "நூலகத்தின் பெயர்", "மொத்தத் தொகை (₹)"], 1):
+            x = ws.cell(row=4, column=c, value=h); x.font = bold; x.fill = head_fill; x.alignment = center; x.border = box
+        r = 5
+        for row in data["rows"]:
+            vals = [row["no"], row["name"], row["amount"]]
+            for c, v in enumerate(vals, 1):
+                x = ws.cell(row=r, column=c, value=v); x.border = box
+                if c == 3: x.number_format = money
+                if c == 1: x.alignment = Alignment(horizontal="center")
+            r += 1
+        ws.cell(row=r, column=2, value="மொத்தம்").font = bold
+        t = ws.cell(row=r, column=3, value=data["total"]); t.font = bold; t.number_format = money
+        for c in (1, 2, 3): ws.cell(row=r, column=c).border = box
+        ws.cell(row=r + 2, column=1, value="In Words: " + data["inWords"])
+        for c, w in enumerate([9, 48, 22], 1): ws.column_dimensions[get_column_letter(c)].width = w
+        fname = "Librarian_Report_%s_%s.xlsx" % (data["payCenter"], data["month"].replace("/", "-"))
+    else:
+        cols = data["cols"]
+        n = len(cols) + 3                       # வ.எண். + பெயர் + தலைப்புகள் + மொத்தம்
+        if kind == "paycenter":
+            ws.title = "ஊதிய மையச் செலவினம்"
+            title("திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு", n, 1, 14)
+            title("ஊதிய மையங்கள் வாரியாகச் செலவினம்", n, 2, 12)
+            title("மாதம்: " + data["month"], n, 3, 12)
+            first = "ஊதிய மையம் பெயர்"
+            fname = "PayCentre_Expense_%s.xlsx" % data["month"].replace("/", "-")
+        else:
+            ws.title = "ஆண்டுச் சுருக்கம்"
+            title("திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு", n, 1, 14)
+            title("ஆண்டுச் சுருக்கம் — மாதாந்திரச் செலவினம்", n, 2, 12)
+            title("நிதியாண்டு: " + data["fy"], n, 3, 12)
+            first = "மாதம்"
+            fname = "Yearly_Summary_%s.xlsx" % data["fy"]
+        for c, h in enumerate(["வ.எண்.", first] + [x["title"] for x in cols] + ["மொத்தம்"], 1):
+            x = ws.cell(row=5, column=c, value=h); x.font = bold; x.fill = head_fill; x.alignment = center; x.border = box
+        ws.row_dimensions[5].height = 62
+        r = 6
+        for i, row in enumerate(data["rows"], 1):
+            vals = [i, row["label"]] + row["vals"] + [row["total"]]
+            for c, v in enumerate(vals, 1):
+                x = ws.cell(row=r, column=c, value=v); x.border = box
+                if c > 2: x.number_format = money
+                if c == 1: x.alignment = Alignment(horizontal="center")
+            r += 1
+        tot = data["totals"]
+        vals = ["", tot["label"]] + tot["vals"] + [tot["total"]]
+        for c, v in enumerate(vals, 1):
+            x = ws.cell(row=r, column=c, value=v); x.font = bold; x.border = box; x.fill = head_fill
+            if c > 2: x.number_format = money
+        ws.column_dimensions["A"].width = 8
+        ws.column_dimensions["B"].width = 30
+        for c in range(3, n + 1): ws.column_dimensions[get_column_letter(c)].width = 15
+        ws.freeze_panes = "C6"
+        ws.page_setup.orientation = "landscape"
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    from urllib.parse import quote
+    safe = quote(fname.replace("/", "-"))
+    return Response(buf.getvalue(),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=\"report.xlsx\"; filename*=UTF-8''" + safe})
 
 
 # ------------------------------------------------------------------
