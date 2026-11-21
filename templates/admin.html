@@ -366,7 +366,9 @@ a.vd-lib{cursor:pointer;font-weight:600}
     <div class="toolbar">
       <select id="vdLib" style="max-width:340px" aria-label="நூலகம் தேர்க"><option value="">நூலகத்தைத் தேர்ந்தெடுக்க…</option></select>
       <button class="btn alt sm" id="vdView" type="button">👁 பார்</button>
+      <button class="btn alt sm" id="vdMissing" type="button">❗ Vendor இல்லாத நூலகங்கள்</button>
     </div>
+    <div id="vdMissingBox" style="display:none;margin:8px 0"></div>
     <div class="tw"><table><thead id="vdHead"></thead><tbody id="vdBody"><tr><td colspan="10">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
   </div></div>
 </section>
@@ -1083,6 +1085,15 @@ function vdRender(){
     '<td><button class="btn alt sm" data-edit="' + r.id + '">✏️ திருத்து</button> <button class="btn bad sm" data-del="' + r.id + '">🗑</button></td></tr>').join('')
     : '<tr><td colspan="' + cols + '">Vendor பதிவுகள் இல்லை. மேலே Excel கோப்பை ஏற்றவும் அல்லது ＋ புதிய Vendor அழுத்தவும்.</td></tr>';
 }
+function vdShowMissing(){
+  const have = new Set(vdRows.map(r => r.libraryId));
+  const miss = vdLibs.filter(l => !have.has(l.id));
+  const kindTxt = $('#vdKind').value === 'paper' ? 'நாளிதழ்' : 'வாடகை';
+  const box = $('#vdMissingBox'); box.style.display = 'block';
+  box.innerHTML = '<div class="small" style="margin-bottom:4px"><b>' + kindTxt + ' Vendor இல்லாத நூலகங்கள்: ' + miss.length + '</b> (மொத்த நூலகங்கள் ' + vdLibs.length + ', Vendor உள்ள நூலகங்கள் ' + have.size + ', Vendor பதிவுகள் ' + vdRows.length + ')</div>' +
+    (miss.length ? '<ol style="margin:0 0 0 20px">' + miss.map(l => '<li>' + esc(l.name) + (l.code ? ' (' + esc(l.code) + ')' : '') + '</li>').join('') + '</ol>' : '<div>எல்லா நூலகங்களுக்கும் Vendor உள்ளது.</div>');
+}
+$('#vdMissing').addEventListener('click', vdShowMissing);
 $('#vdKind').addEventListener('change', loadVendors);
 $('#vdSearch').addEventListener('input', vdRender);
 $('#vdBody').addEventListener('click', async e => {
