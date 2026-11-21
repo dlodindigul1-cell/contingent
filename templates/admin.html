@@ -804,13 +804,24 @@ async function rptPdfBtn(btn, msgEl, fn){
   try{ await fn(); }catch(e){ note(msgEl, 'bad', e.message || 'PDF உருவாக்க முடியவில்லை'); }
   btn.disabled = false; btn.textContent = old;
 }
+/* நீளமான ஒற்றைச் சொல் தலைப்புகள் அகலம் எடுக்காதபடி, அசை எல்லையில் வரி உடைப்பு */
+const RPT_HEAD_BREAK = {
+  'தினக்கூலிக் காவலர்': 'தினக்<br>கூலிக்<br>காவலர்',
+  'நுகர்பொருள்': 'நுகர்<br>பொருள்',
+  'மின்சாதனங்கள்': 'மின்<br>சாதனங்கள்',
+  'நகலெடுக்கும் கட்டணம்': 'நகலெ<br>டுக்கும்<br>கட்டணம்',
+  'போக்குவரத்து': 'போக்கு<br>வரத்து',
+  'தொலைபேசி': 'தொலை<br>பேசி'
+};
+function rptHeadHtml(t){ return RPT_HEAD_BREAK[t] || esc(t); }
+const RPT_NET_HEAD = 'மொத்த செலவினம் (நாளிதழ் / வாடகை தவிர்த்து)';
 function rptWideTable(d, firstHead){
   const head = '<tr><th style="width:34px">வ.எண்.</th><th>' + esc(firstHead) + '</th>' +
-    d.cols.map(c => '<th>' + esc(c.title) + '</th>').join('') + '<th>மொத்தம்</th></tr>';
+    d.cols.map(c => '<th>' + rptHeadHtml(c.title) + '</th>').join('') + '<th>' + esc(RPT_NET_HEAD) + '</th><th>மொத்தம்</th></tr>';
   const body = d.rows.map((r, i) => '<tr><td class="c">' + (i + 1) + '</td><td>' + esc(r.label) + '</td>' +
-    r.vals.map(v => '<td class="r">' + rptCell(v) + '</td>').join('') + '<td class="r"><b>' + rptMoney(r.total) + '</b></td></tr>').join('');
+    r.vals.map(v => '<td class="r">' + rptCell(v) + '</td>').join('') + '<td class="r">' + rptMoney(r.net) + '</td><td class="r"><b>' + rptMoney(r.total) + '</b></td></tr>').join('');
   const t = d.totals;
-  const foot = '<tr class="b"><td></td><td>' + esc(t.label) + '</td>' + t.vals.map(v => '<td class="r">' + rptMoney(v) + '</td>').join('') + '<td class="r">' + rptMoney(t.total) + '</td></tr>';
+  const foot = '<tr class="b"><td></td><td>' + esc(t.label) + '</td>' + t.vals.map(v => '<td class="r">' + rptMoney(v) + '</td>').join('') + '<td class="r">' + rptMoney(t.net) + '</td><td class="r">' + rptMoney(t.total) + '</td></tr>';
   return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
 }
 

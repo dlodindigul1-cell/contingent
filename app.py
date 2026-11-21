@@ -1020,7 +1020,8 @@ def _add_parts(acc, parts, total):
 
 
 def _row_json(label, acc):
-    return {"label": label, "vals": [jnum(acc["vals"][k]) for k, _ in REPORT_COLS], "total": jnum(acc["total"])}
+    net = acc["total"] - acc["vals"]["papers"] - acc["vals"]["rent"]      # மொத்தம் − நாளிதழ்கள் − வாடகை (நூலகர் அறிக்கையின் அதே கணக்கு)
+    return {"label": label, "vals": [jnum(acc["vals"][k]) for k, _ in REPORT_COLS], "net": jnum(net), "total": jnum(acc["total"])}
 
 
 def _valid_my(m):
@@ -1183,7 +1184,7 @@ def admin_report_xlsx(kind):
         fname = "Librarian_Report_%s_%s.xlsx" % (data["payCenter"], data["month"].replace("/", "-"))
     else:
         cols = data["cols"]
-        n = len(cols) + 3                       # வ.எண். + பெயர் + தலைப்புகள் + மொத்தம்
+        n = len(cols) + 4                       # வ.எண். + பெயர் + தலைப்புகள் + மொத்த செலவினம் (நாளிதழ்/வாடகை தவிர்த்து) + மொத்தம்
         if kind == "paycenter":
             ws.title = "ஊதிய மையச் செலவினம்"
             title("திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு", n, 1, 14)
@@ -1198,19 +1199,19 @@ def admin_report_xlsx(kind):
             title("நிதியாண்டு: " + data["fy"], n, 3, 12)
             first = "மாதம்"
             fname = "Yearly_Summary_%s.xlsx" % data["fy"]
-        for c, h in enumerate(["வ.எண்.", first] + [x["title"] for x in cols] + ["மொத்தம்"], 1):
+        for c, h in enumerate(["வ.எண்.", first] + [x["title"] for x in cols] + ["மொத்த செலவினம் (நாளிதழ் / வாடகை தவிர்த்து)", "மொத்தம்"], 1):
             x = ws.cell(row=5, column=c, value=h); x.font = bold; x.fill = head_fill; x.alignment = center; x.border = box
-        ws.row_dimensions[5].height = 62
+        ws.row_dimensions[5].height = 75
         r = 6
         for i, row in enumerate(data["rows"], 1):
-            vals = [i, row["label"]] + row["vals"] + [row["total"]]
+            vals = [i, row["label"]] + row["vals"] + [row["net"], row["total"]]
             for c, v in enumerate(vals, 1):
                 x = ws.cell(row=r, column=c, value=v); x.border = box
                 if c > 2: x.number_format = money
                 if c == 1: x.alignment = Alignment(horizontal="center")
             r += 1
         tot = data["totals"]
-        vals = ["", tot["label"]] + tot["vals"] + [tot["total"]]
+        vals = ["", tot["label"]] + tot["vals"] + [tot["net"], tot["total"]]
         for c, v in enumerate(vals, 1):
             x = ws.cell(row=r, column=c, value=v); x.font = bold; x.border = box; x.fill = head_fill
             if c > 2: x.number_format = money
