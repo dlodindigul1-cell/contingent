@@ -328,13 +328,32 @@ HIST_COLS = [
     ("தினக்கூலி காவலர்", "dailyGuardAmount"),
     ("அனுமதித் தொகை (மொத்தம்)", "_approved"),
 ]
+# புதிய (தொகை மட்டும்) வடிவம் — மாதிரி Excel இதையே பயன்படுத்தும். வரிசை = Excel நெடுவரிசை வரிசை.
+# '_' தொடங்கும் விசைகள் சேமிக்கப்படாது (மொத்தங்கள் அமைப்பே கணக்கிடும்).
+HIST_NEW_COLS = [
+    ("மாதம்", "_month"), ("ஊதிய மையம்", "_paycenter"), ("நூலகத்தின் பெயர்", "_lib"), ("நாளிதழ்கள்", "_papers"),
+    ("வாடகை", "rentAmount"), ("மின் கட்டணம்", "electricityBill"),
+    ("தினக்கூலி பகுதிநேரத் துப்புரவாளர்", "partnerAmount"), ("தினக்கூலி நூலகர்", "staffAmount"),
+    ("தினக்கூலிக் காவலர்", "dailyGuardAmount"), ("தினக்கூலி பகுதிநேர நூலகர்", "partTimeAmount"),
+    ("பேருந்து கட்டணம்", "busAmount"), ("எழுது பொருட்கள் வாங்குதல்", "stationeryAmount"),
+    ("நுகர்பொருள் வாங்குதல்", "consumerAmount"), ("மின்சாதனங்கள் வாங்குதல்", "electricalAmount"),
+    ("அஞ்சல் செலவினம்", "postalAmount"), ("நகலெடுக்கும் கட்டணம்", "photocopyAmount"),
+    ("பிற செலவினங்கள் 1 தலைப்பு", "otherExpense1Desc"), ("பிற செலவினங்கள் 1", "otherExpense1Amount"),
+    ("பிற செலவினங்கள் 2 தலைப்பு", "otherExpense2Desc"), ("பிற செலவினங்கள் 2", "otherExpense2Amount"),
+    ("மொத்தம்", "_sub"),
+    ("போக்குவரத்து கட்டணம்", "travelAmount"), ("குடிநீர் கட்டணம்", "waterTax"),
+    ("தொலைபேசி கட்டணம்", "phoneWifiAmount"), ("கழிவறை சுத்தம் செய்தல்", "toiletCleaningAmount"),
+    ("மொத்த செலவினம் (நாளிதழ்/வாடகை தவிர்த்து)", "_total_ex"), ("மொத்த செலவினம்", "_total"),
+]
+# தலைப்பில் எழுத்துப்பிழை இருந்தாலும் (எ.கா. 'மொத்த செலவினம') அடையாளம் காண
+HIST_HEADER_ALIASES = {"மொத்த செலவினம": "_total", "மொத்த செலவினம (நாளிதழ்/வாடகை தவிர்த்து)": "_total_ex"}
 HIST_PAPER_RE = re.compile(r"^\s*நாளிதழ்\s*(\d+)")
 HIST_FIRST_YEAR_START = (2025, 4)      # ஏப்ரல் 2025 (நிதியாண்டு 2025-26 தொடக்கம்)
 HIST_LAST = (2027, 3)                  # மார்ச் 2027 (நிதியாண்டு 2026-27 முடிவு)
 _MONEY_KEYS = ["electricityBill", "rentAmount", "phoneWifiAmount", "waterTax", "photocopyAmount",
                "busAmount", "travelAmount", "postalAmount", "registerAmount", "stationeryAmount",
                "electricalAmount", "consumerAmount", "otherExpense1Amount", "otherExpense2Amount", "dailyGuardAmount",
-               "toiletCleaningAmount"]
+               "toiletCleaningAmount", "partnerAmount", "staffAmount", "partTimeAmount"]
 
 
 def hist_month(s):
@@ -366,9 +385,11 @@ def do_claims_approved(raw):
     col, paper_cols = {}, {}
     for i, h in enumerate(hdr):
         h = (h or "").strip()
-        for title, key in HIST_COLS:
+        for title, key in HIST_COLS + HIST_NEW_COLS:
             if h == title:
                 col[key] = i
+        if h in HIST_HEADER_ALIASES:
+            col[HIST_HEADER_ALIASES[h]] = i
         pm = HIST_PAPER_RE.match(h)
         if pm and 1 <= int(pm.group(1)) <= 18:
             paper_cols[int(pm.group(1))] = i
@@ -376,7 +397,7 @@ def do_claims_approved(raw):
     for need in ("_month", "_lib"):
         if need not in col:
             raise ValueError("தலைப்பு வரி சரியில்லை — மாதிரி Excel-ஐப் பதிவிறக்கி, அதன் தலைப்புகளை மாற்றாமல் பயன்படுத்தவும் "
-                             "(முதல் நெடுவரிசை 'மாதம் (MM/YYYY)', இரண்டாவது 'நூலகத்தின் பெயர்').")
+                             "(தலைப்புகள் 'மாதம்' மற்றும் 'நூலகத்தின் பெயர்' இருக்க வேண்டும்).")
 
     libs = {r["name"]: r for r in db.fetch_all("SELECT name, code, lib_type FROM libraries")}
     rates = {r["kind"]: to_num(r["rate"]) for r in db.fetch_all("SELECT kind, rate FROM wage_rates")}
@@ -399,7 +420,7 @@ def do_claims_approved(raw):
             skipped.append(f"வரி {n}: நூலகம் '{lib}' பட்டியலில் இல்லை / குறியீடு இல்லை")
             continue
         data = {}
-        for _, key in HIST_COLS:
+        for _, key in HIST_COLS + HIST_NEW_COLS:
             if key.startswith("_") or key not in col:
                 continue
             v = cell(r, col[key])

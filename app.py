@@ -18,7 +18,7 @@ from psycopg2.extras import execute_values
 import db
 from common import multi_worker_type
 import importer
-from common import (CLAIM_NUM, CLAIM_TEXT, NEWSPAPER_KEYS, TOTAL_SLOTS, jnum,
+from common import (CLAIM_NUM, CLAIM_TEXT, NEWSPAPER_KEYS, TOTAL_SLOTS, WAGE_MAP, jnum,
                     make_unique_key, snake, to_num, upsert_claim)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -290,9 +290,13 @@ def _month_or_now(month_year):
 def _claim_total(row, paper_sum, rates):
     d = lambda v: Decimal(str(v or 0))
     t = d(paper_sum)
-    t += d(row["partner_days"]) * d(rates.get("partner"))
-    t += d(row["staff_days"]) * d(rates.get("staff"))
-    t += d(row["part_time_staff_days"]) * d(rates.get("partTime"))
+    # தினக்கூலி: பதிவின் போது நிலையாகச் சேமித்த தொகை. (தொகை 0 ஆகவும் நாட்கள் > 0 ஆகவும் இருந்தால் மட்டும்,
+    # அதாவது schema புதுப்பிப்புக்கு முந்தைய பதிவு எனில், தற்போதைய விகிதத்தில் கணக்கிடும்)
+    for amt_col, days_col, rate_key in (("partner_amount", "partner_days", "partner"),
+                                        ("staff_amount", "staff_days", "staff"),
+                                        ("part_time_amount", "part_time_staff_days", "partTime")):
+        amt = d(row.get(amt_col))
+        t += amt if amt else d(row[days_col]) * d(rates.get(rate_key))
     for k in CLAIM_MONEY:
         t += d(row[k])
     return t
@@ -363,6 +367,15 @@ def adminSaveClaim(claimId, data, papers, extra=None):
             "library_code": row["library_code"], "month_year": row["month_year"],
             "login_email": row["login_email"], "library_type": row["library_type"]}
     pap = {int(k): to_num(v) for k, v in (papers or {}).items()}
+
+    # தினக்கூலி தொகை: நாட்கள் மாறியிருந்தால் மீண்டும் கணக்கிடப்படும் (upsert_claim-ல்);
+    # நாட்கள் இல்லாத (Excel-ல் தொகை மட்டும் ஏற்றிய) பதிவின் தொகை அப்படியே இருக்கும்.
+    data = dict(data)
+    for days_key, amt_key, _r in WAGE_MAP:
+        if to_num(data.get(days_key)) <= 0 and to_num(row[snake(days_key)]) <= 0:
+            data[amt_key] = row[snake(amt_key)]          # நாட்கள் இல்லை -> இருந்த தொகையைப் பாதுகாக்க
+        elif to_num(data.get(days_key)) <= 0:
+            data[amt_key] = 0                            # நாட்களை 0 ஆக்கினால் தொகையும் 0
 
     extra = extra or {}
 
@@ -877,11 +890,36 @@ with open(os.path.join(BASE, "templates", "admin.html"), encoding="utf-8") as _f
 # Excel கோப்புகள்: வகை -> (கோப்புப் பெயர், தலைப்பு வரிகள், மாதிரி வரி, நெடுவரிசை அகலங்கள்)
 # ஏற்கனவே பதிவு உள்ளவற்றை நிரப்பித் தரும்; பதிவு இல்லையெனில் மட்டும் மாதிரி வரி வரும்.
 def _hist_template():
-    heads = [t for t, _ in importer.HIST_COLS if t not in ()]
-    # 18 தனித்தனி நாளிதழ் புலங்களுக்கு பதிலாக ஒரே மொத்தத் தொகை புலம்
-    heads.insert(2, "நாளிதழ்கள்")
-    sample = ["04/2025", "எடுத்துக்காட்டு நூலகம்"] + [0] + [""] * (len(heads) - 3)
-    return ("approved_months_template.xlsx", [heads], sample, [16, 34, 16] + [18] * (len(heads) - 3))
+    """ஏற்கனவே அனுமதித்த மாதங்கள் — புதிய (தொகை மட்டும்) மாதிரி Excel. மொத்த நெடுவரிசைகள் சூத்திரமாக இருக்கும்."""
+    heads = [t for t, _ in importer.HIST_NEW_COLS]
+    sample = [""] * len(heads)
+    sample[0], sample[1], sample[2] = "04/2025", "எடுத்துக்காட்டு ஊதிய மையம்", "எடுத்துக்காட்டு நூலகம்"
+    widths = [12, 26, 34, 14] + [16] * (len(heads) - 4)
+    return ("approved_months_template.xlsx", [heads], sample, widths)
+
+
+HIST_FORMULA_ROWS = 1500      # சூத்திரம் முன்பே நிரப்பப்படும் வரிகள்
+
+
+def _add_hist_formulas(ws, last_row=HIST_FORMULA_ROWS):
+    """U = மொத்தம் (பேருந்து..பிற 2), Z = நாளிதழ்/வாடகை தவிர்த்த மொத்தம், AA = மொத்த செலவினம்."""
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    ix = {k: i + 1 for i, (_, k) in enumerate(importer.HIST_NEW_COLS)}
+    L = lambda k: get_column_letter(ix[k])
+    fill = PatternFill("solid", fgColor="EEF2FA")
+    for r in range(2, last_row + 1):
+        lib = f"${L('_lib')}{r}"
+        sub = (f"=IF({lib}=\"\",\"\",SUM({L('busAmount')}{r}:{L('photocopyAmount')}{r},"
+               f"{L('otherExpense1Amount')}{r},{L('otherExpense2Amount')}{r}))")
+        total = (f"=IF({lib}=\"\",\"\",SUM({L('_papers')}{r}:{L('dailyGuardAmount')}{r},"
+                 f"{L('partTimeAmount')}{r},{L('_sub')}{r}:{L('toiletCleaningAmount')}{r}))")
+        ex = f"=IF({lib}=\"\",\"\",{L('_total')}{r}-{L('_papers')}{r}-{L('rentAmount')}{r})"
+        for key, f in (("_sub", sub), ("_total", total), ("_total_ex", ex)):
+            c = ws.cell(r, ix[key], f)
+            c.fill = fill
+            c.font = Font(name="Nirmala UI", bold=True)
+        ws.cell(r, 1).number_format = "@"          # 04/2025 தேதியாக மாறாமல் இருக்க
 
 
 TEMPLATE_XLSX = {
@@ -956,6 +994,8 @@ def build_template(kind):
         ws.column_dimensions[get_column_letter(i + 1)].width = w
     ws.freeze_panes = ws.cell(len(heads) + 1, 1)
     # குறியீடு உரையாக இருக்க (முன் பூஜ்யம் போகாமல்); தேதி உரையாகவே இருக்கும்
+    if kind == "claims_approved":
+        _add_hist_formulas(ws)
     if kind == "libraries":
         for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             ws.cell(r, 2).number_format = "@"

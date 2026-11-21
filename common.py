@@ -29,6 +29,13 @@ CLAIM_NUM = [
     'otherExpense1Amount', 'otherExpense2Amount', 'dailyGuardAmount',
 ]
 
+# தினக்கூலி: நாட்கள் -> தொகை (பதிவு நேரத்தில் கணக்கிட்டு நிலையாகச் சேமிக்கப்படும்; HTML-ல் காட்டப்படாது)
+CLAIM_WAGE_AMT = ['partnerAmount', 'staffAmount', 'partTimeAmount']
+WAGE_MAP = [('partnerDays', 'partnerAmount', 'partner'),
+            ('staffDays', 'staffAmount', 'staff'),
+            ('partTimeStaffDays', 'partTimeAmount', 'part_time')]
+WAGE_DEFAULTS = {'partner': 75, 'staff': 300, 'part_time': 100}
+
 
 def snake(s):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', s).lower()
@@ -59,6 +66,27 @@ def to_text(v):
     return "" if v is None else str(v).strip()
 
 
+def wage_rates(cur):
+    """wage_rates அட்டவணையின் தற்போதைய விகிதங்கள் (இல்லையெனில் இயல்புநிலை)."""
+    rates = {k: Decimal(v) for k, v in WAGE_DEFAULTS.items()}
+    cur.execute("SELECT kind, rate FROM wage_rates")
+    for kind, rate in cur.fetchall():
+        if kind in rates and rate is not None:
+            rates[kind] = Decimal(str(rate))
+    return rates
+
+
+def with_wage_amounts(data, rates):
+    """நாட்கள் > 0 எனில் தொகை = நாட்கள் × விகிதம். நாட்கள் இல்லாமல் தொகை மட்டும் வந்தால்
+    (Excel ஏற்றம்) அந்தத் தொகையே அப்படியே இருக்கும்."""
+    d = dict(data or {})
+    for days_key, amt_key, rate_key in WAGE_MAP:
+        days = to_num(d.get(days_key))
+        if days > 0:
+            d[amt_key] = days * rates[rate_key]
+    return d
+
+
 def make_unique_key(code, month_year):
     """TNDPL00765 + '01/2026' -> TNDPL00765012026"""
     return code + month_year.replace("/", "").replace("-", "")
@@ -69,15 +97,9 @@ def upsert_claim(cur, head, data, newspapers, pdf_url=None):
     head: unique_key, library_name, library_code, month_year, login_email, library_type
     data: HTML-ன் camelCase புலங்கள்; newspapers: {slot: Decimal}
     திரும்புவது: (claim_id, inserted?)"""
-    cols = (["unique_key", "library_name", "library_code", "month_year",
-             "login_email", "library_type"]
-            + [snake(k) for k in CLAIM_TEXT + CLAIM_NUM]
-            + ["claim_pdf_url"])
-    vals = ([head["unique_key"], head["library_name"], head["library_code"],
-             head["month_year"], head.get("login_email", ""), head.get("library_type", "")]
-            + [to_text(data.get(k)) for k in CLAIM_TEXT]
-            + [to_num(data.get(k)) for k in CLAIM_NUM]
-            + [pdf_url])
+    cols = _claim_cols()
+    data = with_wage_amounts(data, wage_rates(cur))
+    vals = _claim_vals(head, data, pdf_url)
     updates = ",".join(f"{c}=EXCLUDED.{c}" for c in cols if c != "unique_key")
     sql = (f"INSERT INTO claims ({','.join(cols)}) VALUES ({','.join(['%s'] * len(cols))}) "
            f"ON CONFLICT (unique_key) DO UPDATE SET {updates}, updated_at = now(), "
@@ -96,7 +118,7 @@ def upsert_claim(cur, head, data, newspapers, pdf_url=None):
 def _claim_cols():
     return (["unique_key", "library_name", "library_code", "month_year",
              "login_email", "library_type"]
-            + [snake(k) for k in CLAIM_TEXT + CLAIM_NUM]
+            + [snake(k) for k in CLAIM_TEXT + CLAIM_NUM + CLAIM_WAGE_AMT]
             + ["claim_pdf_url"])
 
 
@@ -104,7 +126,7 @@ def _claim_vals(head, data, pdf_url):
     return ([head["unique_key"], head["library_name"], head["library_code"],
              head["month_year"], head.get("login_email", ""), head.get("library_type", "")]
             + [to_text(data.get(k)) for k in CLAIM_TEXT]
-            + [to_num(data.get(k)) for k in CLAIM_NUM]
+            + [to_num(data.get(k)) for k in CLAIM_NUM + CLAIM_WAGE_AMT]
             + [pdf_url])
 
 
@@ -117,11 +139,12 @@ def bulk_upsert_claims(cur, entries):
     if not uniq:
         return 0, 0
     cols = _claim_cols()
+    rates = wage_rates(cur)
     updates = ",".join(f"{c}=EXCLUDED.{c}" for c in cols if c != "unique_key")
     sql = (f"INSERT INTO claims ({','.join(cols)}) VALUES %s "
            f"ON CONFLICT (unique_key) DO UPDATE SET {updates}, updated_at = now() "
            f"RETURNING id, unique_key, (xmax = 0) AS inserted")
-    rows = [_claim_vals(h, d, p) for h, d, _, p in uniq.values()]
+    rows = [_claim_vals(h, with_wage_amounts(d, rates), p) for h, d, _, p in uniq.values()]
     res = execute_values(cur, sql, rows, page_size=200, fetch=True)
 
     ids = [r[0] for r in res]

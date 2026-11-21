@@ -169,3 +169,20 @@ ALTER TABLE claims ADD COLUMN IF NOT EXISTS daily_guard_amount NUMERIC(12,2) NOT
 
 -- கழிவறை சுத்தம்: Admin மட்டும் நிரப்பும் தலைப்பு (நூலகர் பதிவில் இது மாறாது)
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS toilet_cleaning_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+-- தினக்கூலி தொகை நேரடியாகச் சேமிப்பு: நாட்கள் × (பதிவு நேரத்து) கூலி விகிதம் = தொகை; பின்னர் விகிதம் மாறினாலும் மாறாது.
+-- (Excel-ல் தொகை மட்டுமே உள்ள பழைய மாதங்களும் இதே நெடுவரிசைகளில் சேமிக்கப்படும்)
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS partner_amount   NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS staff_amount     NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS part_time_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+-- ஏற்கனவே நாட்களுடன் சேமித்த பதிவுகளுக்கு (தொகை இன்னும் 0 எனில்) தற்போதைய விகிதத்தில் ஒருமுறை நிரப்பு
+UPDATE claims SET
+  partner_amount   = CASE WHEN partner_amount = 0 AND partner_days > 0
+                     THEN partner_days * COALESCE((SELECT rate FROM wage_rates WHERE kind = 'partner'), 75) ELSE partner_amount END,
+  staff_amount     = CASE WHEN staff_amount = 0 AND staff_days > 0
+                     THEN staff_days * COALESCE((SELECT rate FROM wage_rates WHERE kind = 'staff'), 300) ELSE staff_amount END,
+  part_time_amount = CASE WHEN part_time_amount = 0 AND part_time_staff_days > 0
+                     THEN part_time_staff_days * COALESCE((SELECT rate FROM wage_rates WHERE kind = 'part_time'), 100) ELSE part_time_amount END
+WHERE (partner_amount = 0 AND partner_days > 0) OR (staff_amount = 0 AND staff_days > 0)
+   OR (part_time_amount = 0 AND part_time_staff_days > 0);
