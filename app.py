@@ -952,9 +952,13 @@ REPORT_COLS = [
     ("guard", "தினக்கூலிக் காவலர்"), ("part_time", "தினக்கூலி பகுதி நேர நூலகர்"),
     ("bus", "பேருந்து கட்டணம்"), ("stationery", "எழுது பொருட்கள்"), ("register", "பதிவேடு"),
     ("consumer", "நுகர்பொருள்"), ("electrical", "மின்சாதனங்கள்"), ("postal", "அஞ்சல்"),
-    ("copy", "நகலெடுக்கும் கட்டணம்"), ("other", "பிற செலவினம்"), ("travel", "போக்குவரத்து"),
+    ("copy", "நகலெடுக்கும் கட்டணம்"), ("other1", "பிற செலவினம் 1"), ("other2", "பிற செலவினம் 2"),
+    ("petty", "சில்லறை செலவினம்"),      # பார்வைக்கு மட்டும்: பேருந்து கட்டணம் முதல் பிற செலவினம் 2 வரை — மொத்தத்தில் சேராது
+    ("travel", "போக்குவரத்து"),
     ("water", "குடிநீர்"), ("phone", "தொலைபேசி"), ("toilet", "கழிவறை சுத்தம்"),
 ]
+# சில்லறை செலவினத்தில் அடங்கும் தலைப்புகள் (பேருந்து கட்டணம் → பிற செலவினம் 2)
+PETTY_KEYS = ("bus", "stationery", "register", "consumer", "electrical", "postal", "copy", "other1", "other2")
 LIB_TYPE_ORDER = ["மாவட்ட மைய நூலகம்", "முழு நேர கிளை நூலகம்", "கிளை நூலகம்",
                   "ஊர்ப்புற நூலகம்", "பகுதி நேர நூலகம்"]
 NO_PAYCENTER = "ஊதிய மையம் குறிப்பிடப்படவில்லை"
@@ -981,11 +985,12 @@ def _claim_parts(row, paper_total, rates):
         "register": d(row.get("register_amount")), "consumer": d(row.get("consumer_amount")),
         "electrical": d(row.get("electrical_amount")), "postal": d(row.get("postal_amount")),
         "copy": d(row.get("photocopy_amount")),
-        "other": d(row.get("other_expense1_amount")) + d(row.get("other_expense2_amount")),
+        "other1": d(row.get("other_expense1_amount")), "other2": d(row.get("other_expense2_amount")),
         "travel": d(row.get("travel_amount")), "water": d(row.get("water_tax")),
         "phone": d(row.get("phone_wifi_amount")), "toilet": d(row.get("toilet_cleaning_amount")),
     }
     total = d(row["approved_amount"]) if row.get("approved_amount") is not None else sum(p.values(), Decimal(0))
+    p["petty"] = sum((p[k] for k in PETTY_KEYS), Decimal(0))     # மொத்தம் கணக்கிட்ட பின்பே சேர்க்கப்படுகிறது (இரட்டிப்பாகாது)
     return p, total
 
 
