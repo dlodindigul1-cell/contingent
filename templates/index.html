@@ -3139,30 +3139,40 @@ function openYearlyExpenseAbstract(btn) {
 }
 
 /* ---- நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள்: திரையில் அட்டவணை (+ PDF) ---- */
-const YE_HEAD_BREAK = {
-  "தினக்கூலிக் காவலர்": "தினக்கூலிக்<br>காவலர்", "நகலெடுக்கும் கட்டணம்": "நகலெடுக்கும்<br>கட்டணம்",
-  "பிற செலவினங்கள் 1": "பிற<br>செலவினங்கள்<br>1", "பிற செலவினங்கள் 2": "பிற<br>செலவினங்கள்<br>2"
+const YE_HEAD_BREAK = {      // ஒற்றைச் சொல் தலைப்புகள் — அசை எல்லையில் மட்டும் வரி உடைப்பு; மற்றவை இடைவெளியில் தானாக wrap ஆகும்
+  "நாளிதழ்கள்": "நாளி<br>தழ்கள்", "நுகர்பொருள் வாங்குதல்": "நுகர்<br>பொருள்<br>வாங்குதல்",
+  "மின்சாதனங்கள் வாங்குதல்": "மின்<br>சாதனங்கள்<br>வாங்குதல்", "நகலெடுக்கும் கட்டணம்": "நகலெடுக்கும்<br>கட்டணம்"
 };
 function yeHead(t) { return YE_HEAD_BREAK[t] || aeEsc(t); }
+function yeLongest(html) {        // தலைப்பின் நீளமான துண்டு (எழுத்து எண்ணிக்கை)
+  return Math.max.apply(null, String(html).replace(/<br>/g, " ").split(/\s+/).map(w => w.length).concat([1]));
+}
 function yeCell(n) { return Number(n) === 0 ? "" : aeMoney(n); }
 function yeCss() {
   return '#yePage{box-sizing:border-box;padding:18px 14px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.35}' +
     '#yePage .h1{text-align:center;font-weight:700;font-size:20px}#yePage .h2{text-align:center;font-weight:700;font-size:17px;margin-top:6px}' +
     '#yePage .h3{text-align:center;font-weight:700;font-size:15px;margin:4px 0 14px}' +
-    '#yePage table{width:100%;border-collapse:collapse}#yePage th,#yePage td{border:1px solid #000;padding:5px 5px;text-align:center;vertical-align:middle}' +
-    '#yePage th{background:#dff1fd;font-size:12px}#yePage .r{text-align:right}#yePage tr.b td{font-weight:700;background:#f4f4f4}';
+    '#yePage table{width:100%;min-width:1100px;border-collapse:collapse;table-layout:fixed}#yePage th,#yePage td{border:1px solid #000;padding:5px 3px;text-align:center;vertical-align:middle;overflow-wrap:break-word;word-wrap:break-word}' +
+    '#yePage th{background:#dff1fd;font-size:12px}#yePage .r{text-align:right;white-space:nowrap}#yePage td{white-space:nowrap}#yePage tr.b td{font-weight:700;background:#f4f4f4}';
 }
 function yeTable(d) {
-  const head = '<tr><th>வரிசை<br>எண்</th><th>மாதம்</th>' + d.cols.map(c => '<th>' + yeHead(c.title) + '</th>').join('') +
-    '<th>மொத்த<br>செலவினம்<br>(நாளிதழ் /<br>வாடகை<br>தவிர்த்து)</th><th>மொத்த<br>செலவினம்</th></tr>';
+  const t = d.totals;
+  const NET_HEAD = "மொத்த செலவினம் (நாளிதழ் / வாடகை தவிர்த்து)";
+  const heads = d.cols.map(c => yeHead(c.title)).concat([aeEsc(NET_HEAD), "மொத்த செலவினம்"]);
+  const sums = t.vals.concat([t.net, t.total]);
+  // நெடுவரிசை அகலம்: 'மொத்தம்' வரியின் தொகை (₹ உடன்) மற்றும் தலைப்பின் நீளமான சொல் — இவற்றில் பெரியதற்கு ஏற்ப
+  const w = heads.map((h, i) => Math.max(yeLongest(h) * 1.05 + 2, ("₹" + aeMoney(sums[i])).length * 1.35 + 2, 6));
+  const fixed = [7, 8.5], total = fixed[0] + fixed[1] + w.reduce((a, b) => a + b, 0);
+  const pct = x => (x * 100 / total).toFixed(2) + "%";
+  const colgroup = '<colgroup><col style="width:' + pct(fixed[0]) + '"><col style="width:' + pct(fixed[1]) + '">' +
+    w.map(x => '<col style="width:' + pct(x) + '">').join("") + '</colgroup>';
+  const head = '<tr><th>வரிசை<br>எண்</th><th>மாதம்</th>' + heads.map(h => '<th>' + h + '</th>').join("") + '</tr>';
   const body = d.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + aeEsc(r.label) + '</td>' +
     r.vals.map(v => '<td class="r">' + yeCell(v) + '</td>').join('') +
     '<td class="r">' + aeMoney(r.net) + '</td><td class="r">' + aeMoney(r.total) + '</td></tr>').join('');
-  const t = d.totals;
   const foot = '<tr class="b"><td colspan="2">' + aeEsc(t.label) + '</td>' +
-    t.vals.map(v => '<td class="r">₹' + aeMoney(v) + '</td>').join('') +
-    '<td class="r">₹' + aeMoney(t.net) + '</td><td class="r">₹' + aeMoney(t.total) + '</td></tr>';
-  return '<table><thead>' + head + '</thead><tbody>' + body + foot + '</tbody></table>';
+    sums.map(v => '<td class="r">₹' + aeMoney(v) + '</td>').join('') + '</tr>';
+  return '<table>' + colgroup + '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody></table>';
 }
 function yePageHtml(d) {
   return '<div id="yePage">' +
