@@ -3119,53 +3119,98 @@ function openYearlyReceiptAbstract(btn) {
   }
 
 function openYearlyExpenseAbstract(btn) {
-  startLoading(btn);
-
   const libraryName = document.getElementById("finalLib").innerText.trim();
-  const loginEmail  = window.selectedEmail;
+  if (!libraryName) { alert("நூலக பெயர் கிடைக்கவில்லை"); return; }
+  startLoading(btn);
+  google.script.run
+    .withSuccessHandler(res => {
+      stopLoading(btn);
+      if (!res || !res.success) {
+        const card = document.getElementById("mailSuccessCard");
+        card.innerHTML = "❌ " + ((res && res.message) || "ஆண்டு செலவினச் சுருக்கம் கிடைக்கவில்லை");
+        card.style.display = "block";
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      showYearlyExpenseModal(res);
+    })
+    .withFailureHandler(err => { stopLoading(btn); alert("❌ Server பிழை: " + err.message); })
+    .getLibraryYearlyExpense(libraryName);
+}
 
-  if (!libraryName || !loginEmail) {
-    stopLoading(btn);
-    alert("நூலக பெயர் அல்லது மின்னஞ்சல் கிடைக்கவில்லை");
-    return;
-  }
-
- google.script.run
-  .withSuccessHandler(res => {
-    stopLoading(btn);
-
-    const card = document.getElementById("mailSuccessCard");
-
-    if (res.success) {
-      card.innerHTML = `
-        ✅ <strong>ஆண்டு செலவின சுருக்கம்</strong> — லிங்க் தயார்
-
-        ${res.url || res.originalUrl ? `
-        <div style="margin-top:8px;">
-          🔗 <a href="${res.url || res.originalUrl}"
-               target="_blank"
-               style="color:#1d4ed8; font-weight:700; text-decoration:underline;">
-            PDF திறக்க
-          </a>
-        </div>` : ``}
-      `;
-      card.style.display = "block";
-
-      // 🔥 bring into view
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-
-      // ⏳ auto-hide நீக்கப்பட்டது — queued message தவறிப் போகாமல் இருக்க
-
-    } else {
-      card.innerHTML = `❌ ${res.message}`;
-      card.style.display = "block";
-    }
-  })
-  .withFailureHandler(err => {
-    stopLoading(btn);
-    alert("❌ Server பிழை: " + err.message);
-  })
-  .sendYearlyExpenseAbstract(loginEmail, libraryName);
+/* ---- நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள்: திரையில் அட்டவணை (+ PDF) ---- */
+const YE_HEAD_BREAK = {
+  "தினக்கூலிக் காவலர்": "தினக்கூலிக்<br>காவலர்", "நகலெடுக்கும் கட்டணம்": "நகலெடுக்கும்<br>கட்டணம்",
+  "பிற செலவினங்கள் 1": "பிற<br>செலவினங்கள்<br>1", "பிற செலவினங்கள் 2": "பிற<br>செலவினங்கள்<br>2"
+};
+function yeHead(t) { return YE_HEAD_BREAK[t] || aeEsc(t); }
+function yeCell(n) { return Number(n) === 0 ? "" : aeMoney(n); }
+function yeCss() {
+  return '#yePage{box-sizing:border-box;padding:18px 14px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.35}' +
+    '#yePage .h1{text-align:center;font-weight:700;font-size:20px}#yePage .h2{text-align:center;font-weight:700;font-size:17px;margin-top:6px}' +
+    '#yePage .h3{text-align:center;font-weight:700;font-size:15px;margin:4px 0 14px}' +
+    '#yePage table{width:100%;border-collapse:collapse}#yePage th,#yePage td{border:1px solid #000;padding:5px 5px;text-align:center;vertical-align:middle}' +
+    '#yePage th{background:#dff1fd;font-size:12px}#yePage .r{text-align:right}#yePage tr.b td{font-weight:700;background:#f4f4f4}';
+}
+function yeTable(d) {
+  const head = '<tr><th>வரிசை<br>எண்</th><th>மாதம்</th>' + d.cols.map(c => '<th>' + yeHead(c.title) + '</th>').join('') +
+    '<th>மொத்த<br>செலவினம்<br>(நாளிதழ் /<br>வாடகை<br>தவிர்த்து)</th><th>மொத்த<br>செலவினம்</th></tr>';
+  const body = d.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + aeEsc(r.label) + '</td>' +
+    r.vals.map(v => '<td class="r">' + yeCell(v) + '</td>').join('') +
+    '<td class="r">' + aeMoney(r.net) + '</td><td class="r">' + aeMoney(r.total) + '</td></tr>').join('');
+  const t = d.totals;
+  const foot = '<tr class="b"><td colspan="2">' + aeEsc(t.label) + '</td>' +
+    t.vals.map(v => '<td class="r">₹' + aeMoney(v) + '</td>').join('') +
+    '<td class="r">₹' + aeMoney(t.net) + '</td><td class="r">₹' + aeMoney(t.total) + '</td></tr>';
+  return '<table><thead>' + head + '</thead><tbody>' + body + foot + '</tbody></table>';
+}
+function yePageHtml(d) {
+  return '<div id="yePage">' +
+    '<div class="h1">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div>' +
+    '<div class="h2">' + aeEsc(d.library) + '</div>' +
+    '<div class="h3">நூலக ஆண்டு செலவின சுருக்கம் ' + aeEsc(d.fy.slice(0, 4) + '-' + (parseInt(d.fy.slice(0, 4), 10) + 1)) + '</div>' +
+    yeTable(d) + '</div>';
+}
+function showYearlyExpenseModal(d) {
+  const old = document.getElementById("yearlyExpenseModal");
+  if (old) old.remove();
+  const modal = document.createElement("div");
+  modal.id = "yearlyExpenseModal";
+  modal.style = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  modal.innerHTML = '<style>' + yeCss() + '</style>' +
+    '<div style="background:#fff;border-radius:10px;width:96%;max-width:1400px;max-height:92vh;display:flex;flex-direction:column;">' +
+    '<div style="overflow:auto;padding:6px;">' + yePageHtml(d) + '</div>' +
+    '<div style="padding:10px 14px;text-align:right;border-top:1px solid #e5e7eb;">' +
+    '<button id="yeCloseBtn" style="margin-right:8px;padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f3f4f6;color:#111;font-weight:600;">மூடு</button>' +
+    '<button id="yePdfBtn" style="background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📥 PDF பதிவிறக்கு</button>' +
+    '</div></div>';
+  document.body.appendChild(modal);
+  document.getElementById("yeCloseBtn").onclick = () => modal.remove();
+  document.getElementById("yePdfBtn").onclick = async function () {
+    const b = this, o = b.innerHTML; b.disabled = true; b.innerHTML = "⏳ தயாராகிறது…";
+    try { await makeYearlyExpensePdf(d); }
+    catch (e) { alert("PDF உருவாக்க முடியவில்லை: " + (e && e.message ? e.message : e)); }
+    b.disabled = false; b.innerHTML = o;
+  };
+}
+async function makeYearlyExpensePdf(d) {
+  if (typeof html2canvas === "undefined" || !window.jspdf) throw new Error("PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்.");
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;left:0;top:0;width:1400px;z-index:-1;pointer-events:none;background:#fff;";
+  host.innerHTML = "<style>" + yeCss() + "</style>" + yePageHtml(d);
+  document.body.appendChild(host);
+  try {
+    try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch (e) {}
+    const page = host.querySelector("#yePage");
+    const canvas = await html2canvas(page, { scale: 2, useCORS: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0,
+                                             width: 1400, height: page.scrollHeight, windowWidth: 1400 });
+    const pdf = new window.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+    const PW = 297, PH = 210, M = 8;
+    let w = PW - 2 * M, h = canvas.height * w / canvas.width;
+    if (h > PH - 2 * M) { h = PH - 2 * M; w = canvas.width * h / canvas.height; }
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.98), "JPEG", (PW - w) / 2, M, w, h);
+    pdf.save("Yearly_Expense_" + String(d.library).replace(/[\\/:*?"<>|\s]+/g, "_") + "_" + d.fy + ".pdf");
+  } finally { host.remove(); }
 }
 function checkBankPayment() {
   // முதலில் card-ஐ மறைக்கவும்

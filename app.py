@@ -994,13 +994,18 @@ def _claim_parts(row, paper_total, rates):
     return p, total
 
 
-def _approved_claims(month_years):
-    """கொடுத்த மாதங்களின் அனுமதிக்கப்பட்ட claims — [(row, parts, total)] (ஊதிய மையத்துடன்)."""
+def _approved_claims(month_years, library_name=None):
+    """கொடுத்த மாதங்களின் அனுமதிக்கப்பட்ட claims — [(row, parts, total)] (ஊதிய மையத்துடன்).
+    library_name கொடுத்தால் அந்த நூலகத்தின் பதிவுகள் மட்டும்."""
     my = list(month_years)
-    rows = db.fetch_all(
-        "SELECT c.*, COALESCE(btrim(l.pay_center), '') AS pc, l.id AS lib_id, COALESCE(l.lib_type, c.library_type, '') AS ltype "
-        "FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
-        "WHERE c.approved AND c.month_year = ANY(%s)", (my,))
+    sql = ("SELECT c.*, COALESCE(btrim(l.pay_center), '') AS pc, l.id AS lib_id, COALESCE(l.lib_type, c.library_type, '') AS ltype "
+           "FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
+           "WHERE c.approved AND c.month_year = ANY(%s)")
+    args = [my]
+    if library_name:
+        sql += " AND c.library_name = %s"
+        args.append(library_name)
+    rows = db.fetch_all(sql, tuple(args))
     ids = [r["id"] for r in rows]
     papers = {}
     if ids:
@@ -1129,6 +1134,54 @@ def getYearlySummaryReport(fy):
     return {"success": True, "fy": fy_label, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
             "rows": [_row_json(_month_label(m), acc[m]) for m in months],
             "totals": _row_json("ஆண்டு மொத்தம்", grand)}
+
+
+# நூலகர் உள்நுழைவு › 4. நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள் (தலைப்புகள் — தொகை உள்ளவை மட்டும் காட்டப்படும்)
+LIB_YEAR_COLS = [
+    ("papers", "நாளிதழ்கள்"), ("rent", "வாடகை"), ("electricity", "மின் கட்டணம்"),
+    ("partner", "தினக்கூலி பகுதிநேரத் துப்புரவாளர்"), ("staff", "தினக்கூலி நூலகர்"),
+    ("guard", "தினக்கூலிக் காவலர்"), ("part_time", "தினக்கூலி பகுதிநேர நூலகர்"),
+    ("bus", "பேருந்து கட்டணம்"), ("stationery", "எழுது பொருட்கள் வாங்குதல்"),
+    ("register", "பதிவேடு வாங்குதல்"), ("consumer", "நுகர்பொருள் வாங்குதல்"),
+    ("electrical", "மின்சாதனங்கள் வாங்குதல்"), ("postal", "அஞ்சல் செலவினம்"),
+    ("copy", "நகலெடுக்கும் கட்டணம்"), ("other1", "பிற செலவினங்கள் 1"), ("other2", "பிற செலவினங்கள் 2"),
+    ("travel", "போக்குவரத்து கட்டணம்"), ("water", "குடிநீர் கட்டணம்"),
+    ("phone", "தொலைபேசி கட்டணம்"), ("toilet", "கழிவறை சுத்தம் செய்தல்"),
+]
+
+
+@rpc
+def getLibraryYearlyExpense(libraryName, fy=None):
+    """ஒரு நூலகத்தின் நடப்பு நிதியாண்டு செலவினச் சுருக்கம் — மாத வாரியாக; அனுமதிக்கப்பட்ட பதிவுகள் மட்டும்;
+    ஆண்டு முழுதும் தொகை இல்லாத தலைப்புகள் காட்டப்படாது."""
+    name = str(libraryName or "").strip()
+    if not name:
+        return {"success": False, "message": "நூலக பெயர் கிடைக்கவில்லை."}
+    fy_label, months = _fy_months(fy)
+    by_month = {}
+    for r, parts, total in _approved_claims(months, name):
+        a = by_month.setdefault(r["month_year"], {"vals": _zero_parts(), "total": Decimal(0)})
+        _add_parts(a, parts, total)
+    if not by_month:
+        return {"success": False, "message": "நடப்பு நிதியாண்டில் (%s) அனுமதிக்கப்பட்ட செலவினப் பதிவுகள் இல்லை." % fy_label}
+
+    keys = [k for k, _ in LIB_YEAR_COLS if any(by_month[m]["vals"][k] != 0 for m in by_month)]
+    cols = [{"key": k, "title": t} for k, t in LIB_YEAR_COLS if k in keys]
+    rows, grand_vals, grand_net, grand_total = [], {k: Decimal(0) for k in keys}, Decimal(0), Decimal(0)
+    for m in months:                                   # ஏப்ரல் → மார்ச் வரிசை
+        a = by_month.get(m)
+        if not a:
+            continue
+        net = a["total"] - a["vals"]["papers"] - a["vals"]["rent"]      # மொத்தம் − நாளிதழ்கள் − வாடகை
+        rows.append({"label": "%s-%s" % (m[:2], m[5:]), "vals": [jnum(a["vals"][k]) for k in keys],
+                     "net": jnum(net), "total": jnum(a["total"])})
+        for k in keys:
+            grand_vals[k] += a["vals"][k]
+        grand_net += net
+        grand_total += a["total"]
+    return {"success": True, "library": name, "fy": fy_label, "cols": cols, "rows": rows,
+            "totals": {"label": "மொத்தம்", "vals": [jnum(grand_vals[k]) for k in keys],
+                       "net": jnum(grand_net), "total": jnum(grand_total)}}
 
 
 # ------------------------------------------------------------------
