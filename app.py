@@ -101,6 +101,7 @@ ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewsp
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",
               "getLateRegistrationPermissions", "grantLateRegistrationPermission", "revokeLateRegistrationPermission",
+              "getLateRegistrationLog",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
               "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
 
@@ -213,17 +214,48 @@ def grantLateRegistrationPermission(libraryName, monthYear):
     y, mo = parse_month_year(m)
     if m != "%02d/%d" % (mo, y):
         return {"success": False, "message": "மாத வடிவம் சரியில்லை."}
-    db.execute("INSERT INTO late_registration_permissions (library_name, month_year, granted_by) VALUES (%s,%s,%s) "
-               "ON CONFLICT (library_name, month_year) DO UPDATE SET granted_by=EXCLUDED.granted_by, granted_at=now()",
-               (name, m, str(session.get("admin_user") or "Admin")))
+    who = str(session.get("admin_user") or "Admin")
+
+    def f(conn):
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO late_registration_permissions (library_name, month_year, granted_by) VALUES (%s,%s,%s) "
+                        "ON CONFLICT (library_name, month_year) DO UPDATE SET granted_by=EXCLUDED.granted_by, granted_at=now()",
+                        (name, m, who))
+            # முன்பு திறந்திருந்த (granted) வரி இருந்தால் மூடி, புதிய வரி சேர்
+            cur.execute("UPDATE late_registration_log SET status='revoked', revoked_at=now() "
+                        "WHERE library_name=%s AND month_year=%s AND status='granted'", (name, m))
+            cur.execute("INSERT INTO late_registration_log (library_name, month_year, granted_by) VALUES (%s,%s,%s)",
+                        (name, m, who))
+    db.run(f)
     return {"success": True, "message": name + " நூலகத்திற்கு " + m + " மாதத்திற்கான அனுமதி வழங்கப்பட்டது."}
 
 
 @rpc
 def revokeLateRegistrationPermission(libraryName, monthYear):
-    db.execute("DELETE FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
-               (str(libraryName or '').strip(), str(monthYear or '').strip()))
+    name = str(libraryName or '').strip(); m = str(monthYear or '').strip()
+
+    def f(conn):
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM late_registration_permissions WHERE library_name=%s AND month_year=%s", (name, m))
+            cur.execute("UPDATE late_registration_log SET status='revoked', revoked_at=now() "
+                        "WHERE library_name=%s AND month_year=%s AND status='granted'", (name, m))
+    db.run(f)
     return {"success": True}
+
+
+@rpc
+def getLateRegistrationLog(monthYear=None, limit=200):
+    """அனுமதி வரலாறு: monthYear காலியெனில் அனைத்து மாதங்களும்."""
+    m = str(monthYear or '').strip()
+    rows = db.fetch_all(
+        "SELECT library_name, month_year, granted_by, granted_at, status, used_at, revoked_at "
+        "FROM late_registration_log WHERE (%s = '' OR month_year = %s) ORDER BY id DESC LIMIT %s",
+        (m, m, int(limit or 200)))
+    fmt = lambda t: t.astimezone(IST).strftime("%d/%m/%Y %H:%M") if t else ""
+    return {"success": True, "rows": [
+        {"library": r["library_name"], "month": r["month_year"], "by": r["granted_by"],
+         "grantedAt": fmt(r["granted_at"]), "status": r["status"],
+         "usedAt": fmt(r["used_at"]), "revokedAt": fmt(r["revoked_at"])} for r in rows]}
 
 
 # ------------------------------------------------------------------
@@ -304,6 +336,8 @@ def submitOrUpdateContingent(data):
             if late_grant:
                 cur.execute("DELETE FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
                             (name, month_year))
+                cur.execute("UPDATE late_registration_log SET status='used', used_at=now() "
+                            "WHERE library_name=%s AND month_year=%s AND status='granted'", (name, month_year))
             return result
 
     claim_id, inserted = db.run(f)

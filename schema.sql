@@ -236,3 +236,13 @@ CREATE TABLE IF NOT EXISTS late_registration_permissions (
   granted_by TEXT NOT NULL DEFAULT 'Admin', granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (library_name, month_year)
 );
+
+
+-- காலவரம்புக்கு அப்பாலான அனுமதிகளின் நிரந்தர வரலாறு (யாருக்கு, எப்போது, யார் வழங்கினார், எப்போது பயன்படுத்தப்பட்டது)
+CREATE TABLE IF NOT EXISTS late_registration_log (
+  id SERIAL PRIMARY KEY, library_name TEXT NOT NULL, month_year TEXT NOT NULL,
+  granted_by TEXT NOT NULL DEFAULT 'Admin', granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'granted',          -- granted / used / revoked
+  used_at TIMESTAMPTZ, revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_late_log_lib ON late_registration_log(library_name, month_year);
