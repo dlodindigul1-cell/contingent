@@ -99,7 +99,7 @@ def _ensure_schema():
 ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
-              "approveClaims", "revokeClaimApproval",
+              "approveClaims", "revokeClaimApproval", "deleteClaim",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
               "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
 
@@ -534,6 +534,17 @@ def approveClaims(claimIds):
 def revokeClaimApproval(claimId):
     db.execute("UPDATE claims SET approved = FALSE, approved_at = NULL, approved_amount = NULL WHERE id = %s", (claimId,))
     return {"success": True}
+
+
+@rpc
+def deleteClaim(claimId):
+    """Admin மட்டும்: ஒரு நூலகத்தின் மாதாந்திரச் சில்லறை செலவினப் பதிவை முழுமையாக நீக்கு.
+    claim_newspapers அட்டவணையில் ON DELETE CASCADE இருப்பதால் தொடர்புடைய நாளிதழ் வரிகளும் நீங்கும்."""
+    row = db.fetch_one("SELECT id, library_name, month_year FROM claims WHERE id = %s", (int(claimId),))
+    if not row:
+        return {"success": False, "message": "நீக்க வேண்டிய பதிவு கிடைக்கவில்லை."}
+    db.execute("DELETE FROM claims WHERE id = %s", (int(claimId),))
+    return {"success": True, "library": row["library_name"], "month": row["month_year"]}
 
 
 # ------------------------------------------------------------------

@@ -3467,8 +3467,10 @@ function sumApplyLock(){
   document.getElementById('sumAddBox').style.display = 'none';
   document.getElementById('sumVoucherStrip').style.display = A && !isAdminMode ? 'none' : '';
   const n = document.getElementById('sumLockNote');
+  const banner = s.querySelector('.sum-banner');
+  if (banner) banner.style.display = L ? 'none' : '';
   if (A && !isAdminMode){ n.textContent = '✅ இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது. மாற்றவோ, வவுச்சர் பதிவிறக்கவோ இயலாது.'; n.style.display = 'block'; }
-  else if (L){ n.textContent = 'ℹ️ பதிவு / திருத்தக் காலம் (' + REG_FIRST_DAY + '–' + REG_LAST_DAY + ') முடிந்தது. இனி மாற்ற இயலாது; வவுச்சரைப் பதிவிறக்கி அனுப்பலாம்.'; n.style.display = 'block'; }
+  else if (L){ n.textContent = (REG_LAST_DAY + 1) + ' ஆம் தேதியன்று பதிவு / திருத்தக் காலம் (' + REG_FIRST_DAY + '–' + REG_LAST_DAY + ') முடிந்தது. இனி மாற்ற இயலாது; வவுச்சரைப் பதிவிறக்கி அனுப்பலாம்.'; n.style.display = 'block'; }
   else n.style.display = 'none';
 }
 function sumToiletRow(){

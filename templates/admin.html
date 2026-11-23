@@ -481,7 +481,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
 <section class="view" id="v-approval">
   <p class="crumb">நிர்வாகம் › சில்லறை செலவின மேலாண்மை</p>
   <h2 class="pt">7. சில்லறை செலவின அனுமதி</h2>
-  <p class="lead">நூலகர்கள் பதிவு செய்த சில்லறை செலவினங்களைச் சரிபார்த்து, தேவையெனில் ✏️ திருத்தி, பின்னர் அனுமதிக்கவும். அனுமதிக்கப்பட்ட பின் நூலகர் மீண்டும் மாற்றினால் அந்த அனுமதி தானாக நீங்கி, மீண்டும் அனுமதி தேவைப்படும்.</p>
+  <p class="lead">நூலகர்கள் பதிவு செய்த சில்லறை செலவினங்களைச் சரிபார்த்து, தேவையெனில் ✏️ திருத்தி, 🗑 நீக்கி, பின்னர் அனுமதிக்கவும். அனுமதிக்கப்பட்ட பின் நூலகர் மீண்டும் மாற்றினால் அந்த அனுமதி தானாக நீங்கி, மீண்டும் அனுமதி தேவைப்படும்.</p>
   <div class="toolbar"><label style="margin:0">மாதம்: <input type="month" id="apMonth" style="width:auto"></label>
     <button class="btn" id="btnApRefresh">⟳ புதுப்பி</button>
     <input type="text" id="apSearch" placeholder="நூலகம் தேடு…" style="max-width:220px">
@@ -770,7 +770,8 @@ function apRender(){
     '<td>' + (r.approved ? '<span class="tag ap-ok">✅ அனுமதிக்கப்பட்டது</span><br><small>' + esc(r.approvedAt) + ' · ' + rs(r.approvedAmount) + '</small>' : '<span class="tag ap-pend">நிலுவை</span>') + '</td>' +
     '<td><button class="btn ap-btn" onclick="clmOpen(' + r.id + ')">✏️ திருத்து</button>' +
     (r.approved ? '<button class="btn ap-btn" style="background:#fff;color:var(--navy)" onclick="apRevoke(' + r.id + ')">↩ ரத்து</button>'
-                : '<button class="btn go ap-btn" onclick="apApprove([' + r.id + '])">✅ அனுமதி</button>') + '</td></tr>'
+                : '<button class="btn go ap-btn" onclick="apApprove([' + r.id + '])">✅ அனுமதி</button>') +
+    '<button class="btn ap-btn" style="background:#b42318;color:#fff" onclick="apDelete(' + r.id + ')">🗑 நீக்கு</button></td></tr>'
   ).join('') || '<tr><td colspan="7">பதிவுகள் இல்லை</td></tr>';
   $('#apAll').checked = false;
 }
@@ -795,6 +796,17 @@ async function apRevoke(id){
   if (!confirm('இந்த அனுமதியை ரத்து செய்யவா?')) return;
   try{ await rpc('revokeClaimApproval', [id]); note($('#apMsg'), 'ok', 'அனுமதி ரத்து செய்யப்பட்டது.'); loadApproval(); }
   catch(e){ note($('#apMsg'), 'bad', e.message); }
+}
+async function apDelete(id){
+  const row = apData && apData.rows.find(r => Number(r.id) === Number(id));
+  const lib = row ? row.name : 'இந்த நூலகம்';
+  if (!confirm('⚠️ ' + lib + ' நூலகத்தின் இந்த மாதச் சில்லறை செலவினப் பதிவை முழுமையாக நீக்கவா?\\n\\nநீக்கிய பின் மீட்டெடுக்க முடியாது.')) return;
+  try{
+    const j = await rpc('deleteClaim', [id]);
+    if (!j || !j.success) throw new Error((j && j.message) || 'நீக்க முடியவில்லை');
+    note($('#apMsg'), 'ok', 'பதிவு நீக்கப்பட்டது.');
+    loadApproval();
+  }catch(e){ note($('#apMsg'), 'bad', e.message); }
 }
 $('#btnApprove').addEventListener('click', () => apApprove([...document.querySelectorAll('.apChk:checked')].map(c => +c.dataset.id)));
 $('#apAll').addEventListener('change', e => document.querySelectorAll('.apChk:not(:disabled)').forEach(c => { c.checked = e.target.checked; }));
