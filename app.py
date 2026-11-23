@@ -100,6 +100,7 @@ ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewsp
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",
+              "getLateRegistrationPermissions", "grantLateRegistrationPermission", "revokeLateRegistrationPermission",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
               "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
 
@@ -182,6 +183,50 @@ def getAllLibraryNamesForAdmin():
 
 
 # ------------------------------------------------------------------
+#  காலவரம்புக்கு அப்பால் நூலகர் பதிவு அனுமதி (Admin)
+# ------------------------------------------------------------------
+@rpc
+def getLateRegistrationPermissions(monthYear=None, libraryType=None):
+    m = _month_or_now(monthYear)
+    typ = str(libraryType or '').strip()
+    rows = db.fetch_all(
+        "SELECT l.name, l.lib_type, p.granted_at, "
+        "EXISTS (SELECT 1 FROM claims c WHERE c.library_name=l.name AND c.month_year=%s) AS registered "
+        "FROM libraries l LEFT JOIN late_registration_permissions p "
+        "ON p.library_name=l.name AND p.month_year=%s "
+        "WHERE (%s = '' OR btrim(l.lib_type)=%s) ORDER BY l.id",
+        (m, m, typ, typ))
+    return {"success": True, "month": m, "rows": [
+        {"name": r["name"], "type": r["lib_type"], "allowed": r["granted_at"] is not None,
+         "registered": bool(r["registered"]),
+         "grantedAt": r["granted_at"].astimezone(IST).strftime("%d/%m/%Y %H:%M") if r["granted_at"] else ""}
+        for r in rows]}
+
+
+@rpc
+def grantLateRegistrationPermission(libraryName, monthYear):
+    name = str(libraryName or '').strip(); m = str(monthYear or '').strip()
+    if not name or not m:
+        return {"success": False, "message": "நூலகம் மற்றும் மாதத்தைத் தேர்ந்தெடுக்கவும்."}
+    if not db.fetch_one("SELECT 1 FROM libraries WHERE name=%s", (name,)):
+        return {"success": False, "message": "நூலகம் கிடைக்கவில்லை."}
+    y, mo = parse_month_year(m)
+    if m != "%02d/%d" % (mo, y):
+        return {"success": False, "message": "மாத வடிவம் சரியில்லை."}
+    db.execute("INSERT INTO late_registration_permissions (library_name, month_year, granted_by) VALUES (%s,%s,%s) "
+               "ON CONFLICT (library_name, month_year) DO UPDATE SET granted_by=EXCLUDED.granted_by, granted_at=now()",
+               (name, m, str(session.get("admin_user") or "Admin")))
+    return {"success": True, "message": name + " நூலகத்திற்கு " + m + " மாதத்திற்கான அனுமதி வழங்கப்பட்டது."}
+
+
+@rpc
+def revokeLateRegistrationPermission(libraryName, monthYear):
+    db.execute("DELETE FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
+               (str(libraryName or '').strip(), str(monthYear or '').strip()))
+    return {"success": True}
+
+
+# ------------------------------------------------------------------
 #  Contingent பதிவு
 # ------------------------------------------------------------------
 REG_FIRST_DAY, REG_LAST_DAY = 16, 20     # நூலகர் பதிவு செய்யக்கூடிய நாட்கள் (மாதம் 16 – 20)
@@ -199,7 +244,9 @@ def getExistingContingentData(libraryName, monthYear):
     row = db.fetch_one("SELECT * FROM claims WHERE library_name = %s AND month_year = %s",
                        (str(libraryName or "").strip(), str(monthYear or "").strip()))
     if not row:
-        return {"success": False}
+        grant = db.fetch_one("SELECT 1 FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
+                             (str(libraryName or '').strip(), str(monthYear or '').strip()))
+        return {"success": False, "lateAuthorized": bool(grant)}
     by_slot = {p["slot"]: p["amount"] for p in
                db.fetch_all("SELECT slot, amount FROM claim_newspapers WHERE claim_id = %s", (row["id"],))}
     data = {}
@@ -211,8 +258,10 @@ def getExistingContingentData(libraryName, monthYear):
         data[k] = jnum(by_slot.get(i + 1, 0))
     data["monthYear"] = row["month_year"]
     data["dailyGuardAmount"] = jnum(row["daily_guard_amount"])
+    grant = db.fetch_one("SELECT 1 FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
+                         (str(libraryName or '').strip(), str(monthYear or '').strip()))
     return {"success": True, "rowIndex": row["id"], "data": data,
-            "approved": bool(row["approved"]),
+            "lateAuthorized": bool(grant), "approved": bool(row["approved"]),
             "toiletCleaning": jnum(row["toilet_cleaning_amount"])}
 
 
@@ -229,10 +278,14 @@ def submitOrUpdateContingent(data):
         return {"success": False, "message": "நூலக குறியீடு கிடைக்கவில்லை: " + name}
     code = lib["code"].strip().upper()
 
+    late_grant = None
     if not session.get("admin"):
         if not _registration_open(month_year):
-            return {"success": False,
-                    "message": "பதிவு / திருத்தம் ஒவ்வொரு மாதமும் %d முதல் %d ஆம் தேதி வரை மட்டுமே செய்ய இயலும்." % (REG_FIRST_DAY, REG_LAST_DAY)}
+            late_grant = db.fetch_one("SELECT 1 FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
+                                      (name, month_year))
+            if not late_grant:
+                return {"success": False,
+                        "message": "பதிவு / திருத்தம் ஒவ்வொரு மாதமும் %d முதல் %d ஆம் தேதி வரை மட்டுமே செய்ய இயலும். காலவரம்புக்கு அப்பால் பதிவு செய்ய Admin அனுமதி தேவை." % (REG_FIRST_DAY, REG_LAST_DAY)}
         done = db.fetch_one("SELECT approved FROM claims WHERE unique_key = %s", (make_unique_key(code, month_year),))
         if done and done["approved"]:
             return {"success": False, "message": "இந்த மாதம் ஏற்கனவே அனுமதிக்கப்பட்டுவிட்டது; மாற்ற இயலாது."}
@@ -247,7 +300,11 @@ def submitOrUpdateContingent(data):
 
     def f(conn):
         with conn.cursor() as cur:
-            return upsert_claim(cur, head, data, papers)
+            result = upsert_claim(cur, head, data, papers)
+            if late_grant:
+                cur.execute("DELETE FROM late_registration_permissions WHERE library_name=%s AND month_year=%s",
+                            (name, month_year))
+            return result
 
     claim_id, inserted = db.run(f)
     return {"success": True, "row": claim_id, "action": "created" if inserted else "updated"}

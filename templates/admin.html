@@ -196,6 +196,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
   <a href="#status" data-v="status"><span class="n">6</span><span>நடப்பு மாதப் பதிவு நிலை<small>பதிவு செய்தவர்கள் / செய்யாதவர்கள்</small></span></a>
   <a href="#approval" data-v="approval"><span class="n">7</span><span>சில்லறை செலவின அனுமதி<small>திருத்தி அனுமதிக்க</small></span></a>
+  <a href="#latepermission" data-v="latepermission"><span class="n">7A</span><span>சில்லறை செலவின அனுமதி (காலவரம்புக்கு அப்பால்)<small>நூலகருக்கு பதிவு அனுமதி</small></span></a>
   <div class="grp">நாளிதழ் மேலாண்மை</div>
   <a href="#newspapers" data-v="newspapers"><span class="n">8</span><span>நாளிதழ் விவரம்</span></a>
   <a href="#newsmap" data-v="newsmap"><span class="n">9</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
@@ -510,6 +511,20 @@ a.vd-lib{cursor:pointer;font-weight:600}
     <button class="btn" style="background:#fff;color:var(--navy)" id="clmCancel">❌ ரத்து</button>
     <button class="btn go" id="clmSave">💾 சேமி</button></div>
 </div></div>
+
+<!-- ================= காலவரம்புக்கு அப்பால் பதிவு அனுமதி ================= -->
+<section class="view" id="v-latepermission">
+  <p class="crumb">நிர்வாகம் › சில்லறை செலவின மேலாண்மை</p>
+  <h2 class="pt">சில்லறை செலவின அனுமதி (காலவரம்புக்கு அப்பால்)</h2>
+  <p class="lead">16–20 ஆம் தேதிக்குப் பிறகு பதிவு செய்ய இயலாத நூலகங்களுக்கு மட்டும் இங்கே அனுமதி வழங்கவும். அனுமதி கிடைத்ததும் அந்த நூலகரே தமது Login மூலம் வழக்கமான படிவத்தில் பதிவு செய்வார். வெற்றிகரமாகப் பதிவு செய்தவுடன் இந்த அனுமதி தானாக நீங்கும்.</p>
+  <div class="panel"><h3>நூலகருக்கு அனுமதி வழங்குதல்</h3><div class="bd">
+    <div class="toolbar"><label style="margin:0">பதிவு மாதம்: <input type="month" id="lateMonth" style="width:auto"></label>
+      <label style="margin:0">நூலக வகை: <select id="lateType" style="width:auto;min-width:220px"><option value="">அனைத்து வகைகளும்</option></select></label>
+      <button class="btn" id="lateRefresh" type="button">⟳ பட்டியலைக் காட்டு</button></div>
+    <div id="lateMsg"></div>
+    <div class="tw"><table><thead><tr><th style="width:50px">வ.எண்</th><th>நூலகம்</th><th>வகை</th><th>நிலை</th><th style="width:180px">செயல்</th></tr></thead><tbody id="lateRows"><tr><td colspan="5">மாதம் மற்றும் வகையைத் தேர்ந்தெடுக்கவும்.</td></tr></tbody></table></div>
+  </div></div>
+</section>
 
 <!-- ================= 8. நாளிதழ் விவரம் ================= -->
 <section class="view" id="v-newspapers">
@@ -1238,6 +1253,16 @@ Object.keys(RV).forEach(id => {
 });
 
 const loaded = {};
+function lateMonthValue(){ const e=$('#lateMonth'); if(!e.value){ const d=new Date(); e.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); } return toMY(e.value); }
+async function loadLatePermissions(){
+  try{ const d=await rpc('getLateRegistrationPermissions',[lateMonthValue(),$('#lateType').value]); if(!d.success) throw new Error(d.message||'தரவைப் பெற முடியவில்லை');
+    $('#lateRows').innerHTML=d.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||'')+'</td><td>'+(r.allowed?'<span class="tag ok">அனுமதி வழங்கப்பட்டது</span>'+(r.registered?' <small>பதிவு செய்யப்பட்டது</small>':''):'<span class="tag later">அனுமதி இல்லை</span>')+'</td><td>'+(r.allowed?'<button class="btn alt sm" type="button" onclick="lateRevoke('+JSON.stringify(r.name).replace(/</g,'\u003c')+')">அனுமதியை நீக்கு</button>':'<button class="btn go sm" type="button" onclick="lateGrant('+JSON.stringify(r.name).replace(/</g,'\u003c')+')">அனுமதி</button>')+'</td></tr>').join('')||'<tr><td colspan="5">இந்த வகையில் நூலகங்கள் இல்லை.</td></tr>'; $('#lateMsg').innerHTML='';
+  }catch(e){note($('#lateMsg'),'bad',e.message);}
+}
+async function lateGrant(name){ if(!confirm(name+' நூலகத்திற்கு '+lateMonthValue()+' மாதத்திற்கான காலவரம்புக்கு அப்பாலான பதிவு அனுமதி வழங்கவா?'))return; try{const r=await rpc('grantLateRegistrationPermission',[name,lateMonthValue()]);if(!r.success)throw new Error(r.message);note($('#lateMsg'),'ok',r.message);await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
+async function lateRevoke(name){if(!confirm(name+' நூலகத்திற்கான அனுமதியை நீக்கவா?'))return;try{await rpc('revokeLateRegistrationPermission',[name,lateMonthValue()]);note($('#lateMsg'),'ok','அனுமதி நீக்கப்பட்டது.');await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
+$('#lateRefresh').addEventListener('click',loadLatePermissions);$('#lateMonth').addEventListener('change',loadLatePermissions);
+rpc('getLibraryTypes',[]).then(ts=>{$('#lateType').innerHTML='<option value="">அனைத்து வகைகளும்</option>'+ts.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');}).catch(()=>{});$('#lateType').addEventListener('change',loadLatePermissions);
 function route(){
   const id = (location.hash || '#home').slice(1);
   const v = document.getElementById('v-' + id) ? id : 'home';
@@ -1252,6 +1277,7 @@ function route(){
   if (v === 'holidays') loadHolidays();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
+  if (v === 'latepermission') loadLatePermissions();
   if (v === 'rptlib') rptLibInit();
   if (v === 'rptpay') rptPayInit();
   if (v === 'rptyear') rptYearInit();

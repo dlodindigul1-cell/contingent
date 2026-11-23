@@ -1815,6 +1815,7 @@ if (submitBtn) {
       showSubStage('4G');
 
      if (res.success) {
+  if (window.__latePermissionUsed && !isAdminMode) { window.__latePermissionUsed = false; window.__sumLocked = true; }
   const msg = res.action === "updated"
     ? `✅ வெற்றிகரமாக புதுப்பிக்கப்பட்டது! வரிசை: ${res.row}`
     : `✅ வெற்றிகரமாக பதிவு செய்யப்பட்டது! வரிசை: ${res.row}`;
@@ -2606,7 +2607,8 @@ function go(n, title){
       google.script.run.withSuccessHandler(res => {
         window.__toiletAmt = res.success ? (Number(res.toiletCleaning) || 0) : 0;
         window.__claimApproved = !!(res.success && res.approved);
-        window.__sumLocked = !isAdminMode && (window.__claimApproved || !regWindowOpen());
+        window.__latePermissionUsed = !!res.lateAuthorized;
+        window.__sumLocked = !isAdminMode && (window.__claimApproved || (!regWindowOpen() && !res.lateAuthorized));
         if(res.success){
           existingRowIndex = res.rowIndex;
           renderNewspaperInputs(activeNewspapers, res.data || {});
@@ -4130,14 +4132,14 @@ function handleContingentClick() {
     // பதிவு காலத்துக்கு வெளியே: பதிவு இருந்து, அனுமதிக்கப்படாவிட்டால் வவுச்சர் மட்டும்
     const my = claimMonthYearNow();
     google.script.run.withSuccessHandler(function(res) {
-      if (res && res.success && !res.approved) {
+      if (res && res.lateAuthorized && !(res.success && res.approved)) {
         window.__monthOverride = my;
         go(4, 'சில்லறை செலவினப் பட்டியல்');
       } else if (res && res.success && res.approved) {
         alert("✅ " + my + " மாதத்திற்கான சில்லறை செலவினம் அனுமதிக்கப்பட்டுவிட்டது.\n\nவவுச்சர் பதிவிறக்கவோ, மாற்றவோ இயலாது.");
       } else {
         alert("⚠️ சில்லறை செலவினப் பட்டியல்\n\nஒவ்வொரு மாதமும் " + REG_FIRST_DAY + " முதல் " + REG_LAST_DAY +
-              " வரை மட்டுமே பதிவு செய்ய இயலும்.\nஇந்த மாதத்திற்கான பதிவுக் காலம் இல்லை / பதிவு எதுவும் இல்லை.");
+              " வரை மட்டுமே பதிவு செய்ய இயலும்.\nகாலவரம்புக்கு அப்பால் பதிவு செய்ய Admin அனுமதி பெறவும்.");
       }
     }).withFailureHandler(function(err) {
       alert("சர்வர் பிழை: " + (err && err.message ? err.message : err));

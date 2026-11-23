@@ -228,3 +228,11 @@ CREATE TABLE IF NOT EXISTS vendors (
 );
 CREATE INDEX IF NOT EXISTS idx_vendors_lib  ON vendors(library_id);
 CREATE INDEX IF NOT EXISTS idx_vendors_code ON vendors(kind, vendor_code);
+
+
+-- காலவரம்புக்கு அப்பால் குறிப்பிட்ட நூலகருக்கு வழங்கப்படும் ஒருமுறை பதிவு அனுமதி
+CREATE TABLE IF NOT EXISTS late_registration_permissions (
+  id SERIAL PRIMARY KEY, library_name TEXT NOT NULL, month_year TEXT NOT NULL,
+  granted_by TEXT NOT NULL DEFAULT 'Admin', granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (library_name, month_year)
+);
