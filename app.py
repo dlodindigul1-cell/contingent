@@ -101,7 +101,7 @@ ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewsp
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",
               "getLateRegistrationPermissions", "grantLateRegistrationPermission", "revokeLateRegistrationPermission",
-              "getLateRegistrationLog",
+              "getLateRegistrationLog", "grantVoucherPermission", "revokeVoucherPermission",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
               "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
 
@@ -192,14 +192,16 @@ def getLateRegistrationPermissions(monthYear=None, libraryType=None):
     typ = str(libraryType or '').strip()
     rows = db.fetch_all(
         "SELECT l.name, l.lib_type, p.granted_at, "
-        "EXISTS (SELECT 1 FROM claims c WHERE c.library_name=l.name AND c.month_year=%s) AS registered "
+        "EXISTS (SELECT 1 FROM claims c WHERE c.library_name=l.name AND c.month_year=%s) AS registered, "
+        "EXISTS (SELECT 1 FROM voucher_download_permissions v WHERE v.library_name=l.name AND v.month_year=%s "
+        "        AND v.status='granted') AS voucher "
         "FROM libraries l LEFT JOIN late_registration_permissions p "
         "ON p.library_name=l.name AND p.month_year=%s "
         "WHERE (%s = '' OR btrim(l.lib_type)=%s) ORDER BY l.id",
-        (m, m, typ, typ))
+        (m, m, m, typ, typ))
     return {"success": True, "month": m, "rows": [
         {"name": r["name"], "type": r["lib_type"], "allowed": r["granted_at"] is not None,
-         "registered": bool(r["registered"]),
+         "registered": bool(r["registered"]), "voucherAllowed": bool(r["voucher"]),
          "grantedAt": r["granted_at"].astimezone(IST).strftime("%d/%m/%Y %H:%M") if r["granted_at"] else ""}
         for r in rows]}
 
@@ -245,17 +247,75 @@ def revokeLateRegistrationPermission(libraryName, monthYear):
 
 @rpc
 def getLateRegistrationLog(monthYear=None, limit=200):
-    """அனுமதி வரலாறு: monthYear காலியெனில் அனைத்து மாதங்களும்."""
+    """அனுமதி வரலாறு (பதிவு அனுமதி + வவுச்சர் பதிவிறக்க அனுமதி): monthYear காலியெனில் அனைத்து மாதங்களும்."""
     m = str(monthYear or '').strip()
     rows = db.fetch_all(
-        "SELECT library_name, month_year, granted_by, granted_at, status, used_at, revoked_at "
-        "FROM late_registration_log WHERE (%s = '' OR month_year = %s) ORDER BY id DESC LIMIT %s",
-        (m, m, int(limit or 200)))
+        "SELECT * FROM ("
+        " SELECT library_name, month_year, granted_by, granted_at, status, used_at, revoked_at, 'register' AS kind "
+        "   FROM late_registration_log WHERE (%s = '' OR month_year = %s)"
+        " UNION ALL "
+        " SELECT library_name, month_year, granted_by, granted_at, status, NULL::timestamptz, revoked_at, 'voucher' "
+        "   FROM voucher_download_permissions WHERE (%s = '' OR month_year = %s)"
+        ") t ORDER BY granted_at DESC LIMIT %s",
+        (m, m, m, m, int(limit or 200)))
     fmt = lambda t: t.astimezone(IST).strftime("%d/%m/%Y %H:%M") if t else ""
     return {"success": True, "rows": [
-        {"library": r["library_name"], "month": r["month_year"], "by": r["granted_by"],
+        {"library": r["library_name"], "month": r["month_year"], "by": r["granted_by"], "kind": r["kind"],
          "grantedAt": fmt(r["granted_at"]), "status": r["status"],
          "usedAt": fmt(r["used_at"]), "revokedAt": fmt(r["revoked_at"])} for r in rows]}
+
+
+# ------------------------------------------------------------------
+#  வவுச்சர் PDF பதிவிறக்க அனுமதி (மாதம் 16–23 தேதிகள்; அதற்குப் பின் Admin அனுமதி)
+# ------------------------------------------------------------------
+VOUCHER_LAST_DAY = 23
+
+
+@rpc
+def getVoucherAccess(libraryName, monthYear):
+    """வவுச்சர் PDF பதிவிறக்கலாமா? — சர்வர் தேதி (IST) அடிப்படையில் முடிவு."""
+    name = str(libraryName or '').strip(); m = str(monthYear or '').strip()
+    if session.get("admin"):
+        return {"allowed": True, "reason": "admin"}
+    now = dt.datetime.now(IST)
+    if m == "%02d/%d" % (now.month, now.year) and REG_FIRST_DAY <= now.day <= VOUCHER_LAST_DAY:
+        return {"allowed": True, "reason": "window"}
+    if db.fetch_one("SELECT 1 FROM voucher_download_permissions WHERE library_name=%s AND month_year=%s AND status='granted'",
+                    (name, m)):
+        return {"allowed": True, "reason": "permission"}
+    # Admin அனுமதியுடன் காலவரம்புக்கு அப்பால் பதிவு செய்த நூலகர் தன் வவுச்சரைப் பெறலாம்
+    if db.fetch_one("SELECT 1 FROM late_registration_log WHERE library_name=%s AND month_year=%s AND status='used'",
+                    (name, m)):
+        return {"allowed": True, "reason": "late-used"}
+    return {"allowed": False, "reason": "closed",
+            "message": "வவுச்சர் PDF பதிவிறக்கம் ஒவ்வொரு மாதமும் %d முதல் %d ஆம் தேதி வரை மட்டுமே இயலும். "
+                       "அதற்குப் பிறகு பதிவிறக்க Admin அனுமதி தேவை." % (REG_FIRST_DAY, VOUCHER_LAST_DAY)}
+
+
+@rpc
+def grantVoucherPermission(libraryName, monthYear):
+    name = str(libraryName or '').strip(); m = str(monthYear or '').strip()
+    if not name or not m:
+        return {"success": False, "message": "நூலகம் மற்றும் மாதத்தைத் தேர்ந்தெடுக்கவும்."}
+    if not db.fetch_one("SELECT 1 FROM libraries WHERE name=%s", (name,)):
+        return {"success": False, "message": "நூலகம் கிடைக்கவில்லை."}
+    y, mo = parse_month_year(m)
+    if m != "%02d/%d" % (mo, y):
+        return {"success": False, "message": "மாத வடிவம் சரியில்லை."}
+    if db.fetch_one("SELECT 1 FROM voucher_download_permissions WHERE library_name=%s AND month_year=%s AND status='granted'",
+                    (name, m)):
+        return {"success": True, "message": name + " நூலகத்திற்கு ஏற்கனவே வவுச்சர் அனுமதி உள்ளது."}
+    db.execute("INSERT INTO voucher_download_permissions (library_name, month_year, granted_by) VALUES (%s,%s,%s)",
+               (name, m, str(session.get("admin_user") or "Admin")))
+    return {"success": True, "message": name + " நூலகத்திற்கு " + m + " மாத வவுச்சர் பதிவிறக்க அனுமதி வழங்கப்பட்டது."}
+
+
+@rpc
+def revokeVoucherPermission(libraryName, monthYear):
+    db.execute("UPDATE voucher_download_permissions SET status='revoked', revoked_at=now() "
+               "WHERE library_name=%s AND month_year=%s AND status='granted'",
+               (str(libraryName or '').strip(), str(monthYear or '').strip()))
+    return {"success": True}
 
 
 # ------------------------------------------------------------------

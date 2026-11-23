@@ -516,16 +516,16 @@ a.vd-lib{cursor:pointer;font-weight:600}
 <section class="view" id="v-latepermission">
   <p class="crumb">நிர்வாகம் › சில்லறை செலவின மேலாண்மை</p>
   <h2 class="pt">சில்லறை செலவின அனுமதி (காலவரம்புக்கு அப்பால்)</h2>
-  <p class="lead">16–20 ஆம் தேதிக்குப் பிறகு பதிவு செய்ய இயலாத நூலகங்களுக்கு மட்டும் இங்கே அனுமதி வழங்கவும். அனுமதி கிடைத்ததும் அந்த நூலகரே தமது Login மூலம் வழக்கமான படிவத்தில் பதிவு செய்வார். வெற்றிகரமாகப் பதிவு செய்தவுடன் இந்த அனுமதி தானாக நீங்கும்.</p>
+  <p class="lead">16–20 ஆம் தேதிக்குப் பிறகு பதிவு செய்ய இயலாத நூலகங்களுக்கு மட்டும் இங்கே அனுமதி வழங்கவும். அனுமதி கிடைத்ததும் அந்த நூலகரே தமது Login மூலம் வழக்கமான படிவத்தில் பதிவு செய்வார். வெற்றிகரமாகப் பதிவு செய்தவுடன் இந்த அனுமதி தானாக நீங்கும். <b>வவுச்சர் PDF அனுமதி</b>: வவுச்சர் பதிவிறக்கம் மாதம் 16–23 தேதிகளில் மட்டுமே; அதற்குப் பிறகு தேவைப்படும் நூலகருக்கு இங்கே அனுமதி வழங்கவும் (நீக்கும் வரை செல்லும்).</p>
   <div class="panel"><h3>நூலகருக்கு அனுமதி வழங்குதல்</h3><div class="bd">
     <div class="toolbar"><label style="margin:0">பதிவு மாதம்: <input type="month" id="lateMonth" style="width:auto"></label>
       <label style="margin:0">நூலக வகை: <select id="lateType" style="width:auto;min-width:220px"><option value="">அனைத்து வகைகளும்</option></select></label>
       <button class="btn" id="lateRefresh" type="button">⟳ பட்டியலைக் காட்டு</button></div>
     <div id="lateMsg"></div>
-    <div class="tw"><table><thead><tr><th style="width:50px">வ.எண்</th><th>நூலகம்</th><th>வகை</th><th>நிலை</th><th style="width:180px">செயல்</th></tr></thead><tbody id="lateRows"><tr><td colspan="5">மாதம் மற்றும் வகையைத் தேர்ந்தெடுக்கவும்.</td></tr></tbody></table></div>
+    <div class="tw"><table><thead><tr><th style="width:50px">வ.எண்</th><th>நூலகம்</th><th>வகை</th><th>நிலை</th><th style="width:180px">பதிவு அனுமதி</th><th style="width:200px">வவுச்சர் PDF அனுமதி</th></tr></thead><tbody id="lateRows"><tr><td colspan="6">மாதம் மற்றும் வகையைத் தேர்ந்தெடுக்கவும்.</td></tr></tbody></table></div>
   </div></div>
   <div class="panel"><h3>அனுமதி வரலாறு (தேர்ந்தெடுத்த மாதம்)</h3><div class="bd">
-    <div class="tw"><table><thead><tr><th style="width:50px">வ.எண்</th><th>நூலகம்</th><th>மாதம்</th><th>அனுமதி வழங்கியவர்</th><th>வழங்கிய நேரம்</th><th>நிலை</th><th>பயன்படுத்திய / நீக்கிய நேரம்</th></tr></thead><tbody id="lateLogRows"><tr><td colspan="7">ஏற்றப்படுகிறது...</td></tr></tbody></table></div>
+    <div class="tw"><table><thead><tr><th style="width:50px">வ.எண்</th><th>நூலகம்</th><th>மாதம்</th><th>அனுமதி வகை</th><th>அனுமதி வழங்கியவர்</th><th>வழங்கிய நேரம்</th><th>நிலை</th><th>பயன்படுத்திய / நீக்கிய நேரம்</th></tr></thead><tbody id="lateLogRows"><tr><td colspan="8">ஏற்றப்படுகிறது...</td></tr></tbody></table></div>
   </div></div>
 </section>
 
@@ -1259,18 +1259,20 @@ const loaded = {};
 function lateMonthValue(){ const e=$('#lateMonth'); if(!e.value){ const d=new Date(); e.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); } return toMY(e.value); }
 async function loadLatePermissions(){
   try{ const d=await rpc('getLateRegistrationPermissions',[lateMonthValue(),$('#lateType').value]); if(!d.success) throw new Error(d.message||'தரவைப் பெற முடியவில்லை');
-    $('#lateRows').innerHTML=d.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||'')+'</td><td>'+(r.allowed?'<span class="tag ok">அனுமதி வழங்கப்பட்டது</span>'+(r.registered?' <small>பதிவு செய்யப்பட்டது</small>':''):'<span class="tag later">அனுமதி இல்லை</span>')+'</td><td>'+(r.allowed?'<button class="btn alt sm" type="button" data-late="revoke" data-name="'+esc(r.name)+'">அனுமதியை நீக்கு</button>':'<button class="btn go sm" type="button" data-late="grant" data-name="'+esc(r.name)+'">அனுமதி</button>')+'</td></tr>').join('')||'<tr><td colspan="5">இந்த வகையில் நூலகங்கள் இல்லை.</td></tr>'; $('#lateMsg').innerHTML=''; loadLateLog();
+    $('#lateRows').innerHTML=d.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||'')+'</td><td>'+(r.allowed?'<span class="tag ok">அனுமதி வழங்கப்பட்டது</span>'+(r.registered?' <small>பதிவு செய்யப்பட்டது</small>':''):'<span class="tag later">அனுமதி இல்லை</span>')+'</td><td>'+(r.allowed?'<button class="btn alt sm" type="button" data-late="revoke" data-name="'+esc(r.name)+'">அனுமதியை நீக்கு</button>':'<button class="btn go sm" type="button" data-late="grant" data-name="'+esc(r.name)+'">அனுமதி</button>')+'</td><td>'+(r.voucherAllowed?'<span class="tag ok">அனுமதி உண்டு</span> <button class="btn alt sm" type="button" data-late="vrevoke" data-name="'+esc(r.name)+'">நீக்கு</button>':'<button class="btn go sm" type="button" data-late="vgrant" data-name="'+esc(r.name)+'">வவுச்சர் அனுமதி</button>')+'</td></tr>').join('')||'<tr><td colspan="6">இந்த வகையில் நூலகங்கள் இல்லை.</td></tr>'; $('#lateMsg').innerHTML=''; loadLateLog();
   }catch(e){note($('#lateMsg'),'bad',e.message);}
 }
 async function lateGrant(name){ if(!confirm(name+' நூலகத்திற்கு '+lateMonthValue()+' மாதத்திற்கான காலவரம்புக்கு அப்பாலான பதிவு அனுமதி வழங்கவா?'))return; try{const r=await rpc('grantLateRegistrationPermission',[name,lateMonthValue()]);if(!r.success)throw new Error(r.message);note($('#lateMsg'),'ok',r.message);await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
 async function lateRevoke(name){if(!confirm(name+' நூலகத்திற்கான அனுமதியை நீக்கவா?'))return;try{await rpc('revokeLateRegistrationPermission',[name,lateMonthValue()]);note($('#lateMsg'),'ok','அனுமதி நீக்கப்பட்டது.');await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
+async function voucherGrant(name){ if(!confirm(name+' நூலகம் '+lateMonthValue()+' மாத வவுச்சர் PDF-ஐ (மாதம் 16–23 தேதிகளுக்கு அப்பாலும்) பதிவிறக்க அனுமதி வழங்கவா?'))return; try{const r=await rpc('grantVoucherPermission',[name,lateMonthValue()]);if(!r.success)throw new Error(r.message);note($('#lateMsg'),'ok',r.message);await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
+async function voucherRevoke(name){ if(!confirm(name+' நூலகத்தின் வவுச்சர் பதிவிறக்க அனுமதியை நீக்கவா?'))return; try{await rpc('revokeVoucherPermission',[name,lateMonthValue()]);note($('#lateMsg'),'ok','வவுச்சர் அனுமதி நீக்கப்பட்டது.');await loadLatePermissions();}catch(e){note($('#lateMsg'),'bad',e.message);}}
 $('#lateRefresh').addEventListener('click',loadLatePermissions);
-$('#lateRows').addEventListener('click',e=>{const b=e.target.closest('button[data-late]');if(!b)return;const n=b.dataset.name;if(b.dataset.late==='grant')lateGrant(n);else lateRevoke(n);});
-const LATE_ST={granted:'<span class="tag later">அனுமதி நிலுவையில்</span>',used:'<span class="tag ok">பயன்படுத்தப்பட்டது</span>',revoked:'<span class="tag">நீக்கப்பட்டது</span>'};
+$('#lateRows').addEventListener('click',e=>{const b=e.target.closest('button[data-late]');if(!b)return;const n=b.dataset.name;const k=b.dataset.late;if(k==='grant')lateGrant(n);else if(k==='revoke')lateRevoke(n);else if(k==='vgrant')voucherGrant(n);else if(k==='vrevoke')voucherRevoke(n);});
+const LATE_ST={granted:'<span class="tag later">அனுமதி நடப்பில்</span>',used:'<span class="tag ok">பயன்படுத்தப்பட்டது</span>',revoked:'<span class="tag">நீக்கப்பட்டது</span>'};
 async function loadLateLog(){
   try{ const d=await rpc('getLateRegistrationLog',[lateMonthValue()]); if(!d.success) throw new Error(d.message||'வரலாற்றைப் பெற முடியவில்லை');
-    $('#lateLogRows').innerHTML=d.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.library)+'</td><td>'+esc(r.month)+'</td><td>'+esc(r.by)+'</td><td>'+esc(r.grantedAt)+'</td><td>'+(LATE_ST[r.status]||esc(r.status))+'</td><td>'+esc(r.usedAt||r.revokedAt||'')+'</td></tr>').join('')||'<tr><td colspan="7">இந்த மாதத்திற்கு அனுமதி வரலாறு இல்லை.</td></tr>';
-  }catch(e){ $('#lateLogRows').innerHTML='<tr><td colspan="7">'+esc(e.message)+'</td></tr>'; }
+    $('#lateLogRows').innerHTML=d.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.library)+'</td><td>'+esc(r.month)+'</td><td>'+(r.kind==='voucher'?'வவுச்சர் பதிவிறக்கம்':'பதிவு செய்தல்')+'</td><td>'+esc(r.by)+'</td><td>'+esc(r.grantedAt)+'</td><td>'+(LATE_ST[r.status]||esc(r.status))+'</td><td>'+esc(r.usedAt||r.revokedAt||'')+'</td></tr>').join('')||'<tr><td colspan="8">இந்த மாதத்திற்கு அனுமதி வரலாறு இல்லை.</td></tr>';
+  }catch(e){ $('#lateLogRows').innerHTML='<tr><td colspan="8">'+esc(e.message)+'</td></tr>'; }
 }$('#lateMonth').addEventListener('change',loadLatePermissions);
 rpc('getLibraryTypes',[]).then(ts=>{$('#lateType').innerHTML='<option value="">அனைத்து வகைகளும்</option>'+ts.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');}).catch(()=>{});$('#lateType').addEventListener('change',loadLatePermissions);
 function route(){

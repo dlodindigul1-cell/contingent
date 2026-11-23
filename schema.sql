@@ -246,3 +246,13 @@ CREATE TABLE IF NOT EXISTS late_registration_log (
   used_at TIMESTAMPTZ, revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_late_log_lib ON late_registration_log(library_name, month_year);
+
+
+-- காலவரம்புக்கு (மாதம் 16–23) அப்பால் வவுச்சர் PDF பதிவிறக்க Admin அனுமதி (நீக்கும் வரை செல்லும்; வரலாறும் இதுவே)
+CREATE TABLE IF NOT EXISTS voucher_download_permissions (
+  id SERIAL PRIMARY KEY, library_name TEXT NOT NULL, month_year TEXT NOT NULL,
+  granted_by TEXT NOT NULL DEFAULT 'Admin', granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'granted',          -- granted / revoked
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_voucher_perm_lib ON voucher_download_permissions(library_name, month_year);

@@ -710,7 +710,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     <button onclick="openYearlyReceiptAbstract(this)" style="background:#0ea5e9;">   3. 📊 நடப்பு ஆண்டு சுருக்கம் – நூலக வரவுகள்</button>
     <button onclick="openYearlyExpenseAbstract(this)" style="background:#ef4444;">   4. 📊 நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள்</button>
     <button onclick="openPrevYearReceiptExpense(this)" style="background:#7c3aed;"> 5. 📑 கடந்த ஆண்டு வரவு-செலவு(தணிக்கைப் படிவம்</button>
-    <button onclick="openClaimPdf(this)" style="background:#1e88e5;">   6.📥 📄 சில்லறை செலவினப் பட்டியல் நகல் எடுத்தல் </button>
+    <button onclick="openVoucherDirect(this)" style="background:#1e88e5;">   6.📥 📄 சில்லறை செலவினப் பட்டியல் நகல் எடுத்தல் </button>
    
 
      <button onclick="backToType()" style="background:#f44336;margin-top:30px;">    வெளியேறு</button>
@@ -1024,7 +1024,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 <!-- கீழே உள்ள button-கள் stage4F-இன் கீழே இருந்து தவறுதலாக இங்கு copy ஆகியிருக்கலாம். 
      உண்மையில் stage4G-இல் submit button தேவையில்லை (ஏற்கனவே stage4F-இல் இருக்கும்).
      ஆனால் நீங்கள் அனுப்பிய code-இல் இருப்பதால் சரியாக fix செய்து தருகிறேன். -->
-<button type="button" onclick="prevStage('4A')" class="back-btn">⬅️ ஆரம்ப பக்கத்திறகு</button>
+<button type="button" id="backStartBtn" onclick="prevStage('4A')" class="back-btn">⬅️ ஆரம்ப பக்கத்திறகு</button>
 
 <!-- ==================== stage4S: ஏற்கனவே பதிவு செய்த சுருக்கம் ==================== -->
 <div id="stage4S" class="sub-stage" style="display:none;">
@@ -1673,6 +1673,8 @@ function showSubStage(stageId) {
   
   // கேட்கப்பட்ட துணை-படியைக் காண்பிக்க
   document.getElementById('stage' + stageId).style.display = 'block';
+  // ஏற்கனவே பதிவு செய்த சுருக்கத் திரையில் (4S) "ஆரம்ப பக்கத்திறகு" பட்டன் தேவையில்லை
+  const bs = document.getElementById('backStartBtn'); if (bs) bs.style.display = (stageId === '4S') ? 'none' : '';
 }
 
 function nextStage(current, next) {
@@ -2620,7 +2622,14 @@ function go(n, title){
           });
         }
         document.getElementById('contingentErrorTop').style.display = 'none';
-        if (res.success) { openSummary(); } else { showSubStage('4A'); }
+        const autoV = !!window.__autoVoucher; window.__autoVoucher = false;
+        if (res.success) {
+          openSummary();
+          if (autoV) setTimeout(function(){ const vb = document.querySelector('#sumVoucherStrip .btn-voucher'); if (vb) makeVoucherPdf(vb); }, 700);
+        } else if (autoV) {
+          alert('⚠️ இந்த மாதத்திற்கு (' + currentMonthYear + ') சில்லறை செலவினப் பதிவு இல்லை; வவுச்சர் உருவாக்க இயலாது.');
+          show(3);
+        } else { showSubStage('4A'); }
       }).getExistingContingentData(selectedLib, currentMonthYear);
 
     }).getActiveNewspapersForLibrary(selectedLib, currentMonthYear);
@@ -3471,7 +3480,12 @@ function sumApplyLock(){
   const banner = s.querySelector('.sum-banner');
   if (banner) banner.style.display = L ? 'none' : '';
   if (A && !isAdminMode){ n.textContent = '✅ இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது. மாற்றவோ, வவுச்சர் பதிவிறக்கவோ இயலாது.'; n.style.display = 'block'; }
-  else if (L){ n.textContent = (REG_LAST_DAY + 1) + ' ஆம் தேதியன்று பதிவு / திருத்தக் காலம் (' + REG_FIRST_DAY + '–' + REG_LAST_DAY + ') முடிந்தது. இனி மாற்ற இயலாது; வவுச்சரைப் பதிவிறக்கி அனுப்பலாம்.'; n.style.display = 'block'; }
+  else if (L){
+    const late = new Date().getDate() > VOUCHER_LAST_DAY;
+    n.textContent = (REG_LAST_DAY + 1) + ' ஆம் தேதியன்று பதிவு / திருத்தக் காலம் (' + REG_FIRST_DAY + '–' + REG_LAST_DAY + ') முடிந்தது. இனி மாற்ற இயலாது; ' +
+      (late ? 'வவுச்சர் பதிவிறக்கக் காலமும் (' + VOUCHER_LAST_DAY + ' ஆம் தேதி வரை) முடிந்தது. பதிவிறக்க Admin அனுமதி தேவை.'
+            : 'வவுச்சரை ' + VOUCHER_LAST_DAY + ' ஆம் தேதி வரை பதிவிறக்கி அனுப்பலாம்.');
+    n.style.display = 'block'; }
   else n.style.display = 'none';
 }
 function sumToiletRow(){
@@ -3664,8 +3678,27 @@ const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:30px 48px;back
   '#vcPage .vc-pass{text-align:center;font-weight:700;font-size:17px;font-family:Arial,sans-serif;margin:14px 0 30px}' +
   '#vcPage .vc-dlo{text-align:right;font-weight:700;font-size:18px;font-family:Arial,sans-serif;margin-bottom:14px}' +
   '#vcPage .vc-foot{display:flex;gap:22px;font-weight:700;font-family:Arial,sans-serif}#vcPage .vc-foot div{flex:1}#vcPage .vc-foot i{display:block;border-bottom:1.5px solid #000;height:20px}';
+// மெனு பட்டன் 6: நடப்பு மாத வவுச்சர் PDF-ஐ நேரடியாக உருவாக்கிப் பதிவிறக்கும் (மாதம் 16–23; அதற்குப் பின் Admin அனுமதி)
+function openVoucherDirect(btn){
+  if (!selectedLib){ alert('நூலகம் தேர்ந்தெடுக்கப்படவில்லை.'); return; }
+  const my = claimMonthYearNow();
+  startLoading(btn);
+  google.script.run.withSuccessHandler(function(acc){
+    stopLoading(btn);
+    if (!acc || !acc.allowed){ alert('⚠️ ' + ((acc && acc.message) || 'வவுச்சர் பதிவிறக்க அனுமதி இல்லை.')); return; }
+    window.__monthOverride = my; window.__autoVoucher = true;
+    go(4, 'சில்லறை செலவினப் பட்டியல்');
+  }).withFailureHandler(function(err){
+    stopLoading(btn);
+    alert('சர்வர் பிழை: ' + (err && err.message ? err.message : err));
+  }).getVoucherAccess(selectedLib, my);
+}
 async function makeVoucherPdf(btn){
   if (typeof html2canvas === 'undefined' || !window.jspdf){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
+  // வவுச்சர் பதிவிறக்கக் காலம் (மாதம் 16–23) / Admin அனுமதி — சர்வர் தேதியில் சரிபார்
+  const acc = await new Promise(res => google.script.run.withSuccessHandler(res).withFailureHandler(() => res(null))
+    .getVoucherAccess(selectedLib, document.getElementById('monthYear').value));
+  if (!acc || !acc.allowed){ alert('⚠️ ' + ((acc && acc.message) || 'வவுச்சர் பதிவிறக்க அனுமதியைச் சரிபார்க்க இயலவில்லை. மீண்டும் முயலவும்.')); return; }
   // அனுமதிக்கப்பட்ட மாதத்துக்கு வவுச்சர் இல்லை — சர்வரில் புதிய நிலையைச் சரிபார்
   const fresh = await new Promise(res => google.script.run.withSuccessHandler(res).withFailureHandler(() => res(null))
     .getExistingContingentData(selectedLib, document.getElementById('monthYear').value));
@@ -4109,7 +4142,7 @@ function fetchWorkingDays() {
 }
 // ==================== சில்லறை செலவினம் தேதி கட்டுப்பாடு ====================
 // பதிவு / திருத்தம்: மாதம் 16 முதல் 20 வரை. அதற்குப் பின் (அனுமதிக்கும் வரை) வவுச்சர் மட்டும் பதிவிறக்கலாம்.
-const REG_FIRST_DAY = 16, REG_LAST_DAY = 20;
+const REG_FIRST_DAY = 16, REG_LAST_DAY = 20, VOUCHER_LAST_DAY = 23;   // வவுச்சர் பதிவிறக்கம்: 16–23
 function regWindowOpen(){ const d = new Date().getDate(); return d >= REG_FIRST_DAY && d <= REG_LAST_DAY; }
 function claimMonthYearNow(){      // 16-ஆம் தேதிக்கு முன் எனில் முந்தைய மாதத்தின் பதிவு
   const t = new Date(); let m = t.getMonth() + 1, y = t.getFullYear();
