@@ -2590,11 +2590,8 @@ function go(n, title){
     // ✅ 2. Top input-ல் set
     document.getElementById('monthYear').value = currentMonthYear;
 
-    // ✅ 3. Warning text
-    document.getElementById('existingWarning').textContent =
-      "⚠️ இந்த மாதத்திற்கு (" + currentMonthYear +
-      ") ஏற்கனவே பதிவு இருந்தால் Edit செய்து மீண்டும் பதிவு செய்யலாம்.";
-    document.getElementById('existingWarning').style.display = 'block';
+    // ✅ 3. "ஏற்கனவே பதிவு இருந்தால்..." எச்சரிக்கை தேவையில்லை — மறைக்கப்படுகிறது
+    document.getElementById('existingWarning').style.display = 'none';
 
     document.getElementById('newsPaperSection').innerHTML =
       '<p style="text-align:center;color:#888;">நாளிதழ் பட்டியல் ஏற்றப்படுகிறது...</p>';
@@ -2617,7 +2614,9 @@ function go(n, title){
           existingRowIndex = null;
           renderNewspaperInputs(activeNewspapers, {});
           document.querySelectorAll('#contingentForm input').forEach(i => {
-            if (i.id !== 'monthYear') i.value = 0;
+            // தொகை / நாட்கள் (number) பெட்டிகளுக்கு மட்டும் 0; விவரம் / பெயர் (text) மற்றும் தேதி பெட்டிகள் காலியாக
+            if (i.id === 'monthYear') return;
+            if (i.type === 'number') i.value = 0; else i.value = '';
           });
         }
         document.getElementById('contingentErrorTop').style.display = 'none';
