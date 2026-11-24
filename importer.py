@@ -545,7 +545,8 @@ def do_receipts_approved(raw):
     """ஏற்கனவே பதிவான மாத வரவினங்களை ஏற்றும் (ஏப்ரல் 2024 முதல்). இவை 'ஒப்புதல் பெற்றவை' என்றே சேமிக்கப்படும்.
     - ஏற்கனவே ஒப்புதல் பெற்ற நூலகம்-மாதம் இருந்தால் மாற்றாமல் தவிர்க்கும்.
     - ஒரே ஒரு UPI எண் இருந்தால், அது 'பயன்படுத்தப்பட்டது' எனப் பதிவாகும் (பின்னர் அதே பாஸ்புத்தகத்தை ஏற்றினாலும் மீண்டும் பயன்படுத்த முடியாது).
-    - அனைத்து இனங்களும் 0 ஆகவும் UPI காலியாகவும் இருந்தால் 'பயன்பாடு மட்டும்' பதிவாகச் சேமிக்கப்படும்."""
+    - அனைத்து இனங்களும் 0 ஆகவும் UPI காலியாகவும் இருந்தால் 'பயன்பாடு மட்டும்' பதிவாகச் சேமிக்கப்படும்.
+    - எந்த வரியிலாவது வாசகர் வருகை / நூலிரவல் / நூல்கள் பயன்பாடு 0 அல்லது காலி எனில் கோப்பு முழுவதும் ஏற்றப்படாது; அந்த வரிகள் பட்டியலிடப்படும்."""
     rows = read_rows(raw, skip=0)
     if not rows:
         raise ValueError("கோப்பு காலியாக உள்ளது")
@@ -559,7 +560,7 @@ def do_receipts_approved(raw):
             raise ValueError("தலைப்பு வரி சரியில்லை — மாதிரி Excel-ஐப் பதிவிறக்கி, அதன் தலைப்புகளை மாற்றாமல் பயன்படுத்தவும் "
                              "(தலைப்புகள் 'மாதம்' மற்றும் 'நூலகத்தின் பெயர்' இருக்க வேண்டும்).")
     libs = {r["name"] for r in db.fetch_all("SELECT name FROM libraries")}
-    skipped, entries, seen = [], [], set()
+    skipped, entries, seen, stat_problems = [], [], set(), []
     for n, r in enumerate(rows[1:], start=2):
         lib = cell(r, col["_lib"])
         if not lib:
@@ -602,9 +603,19 @@ def do_receipts_approved(raw):
             continue
         pdate = min(dates) if dates else None
         total = sum(money.values(), Decimal(0))
+        miss = [lbl for lbl, k in (("வாசகர் வருகை", "visitors"), ("நூலிரவல்", "issues"), ("நூல்கள் பயன்பாடு", "book_usage"))
+                if not ints[k]]
+        if miss:
+            stat_problems.append(f"வரி {n} · {lib} · {my}: " + ", ".join(miss) + " — 0 / காலி")
         mode = "income" if (total > 0 or upis) else "usage"
         entries.append({"lib": lib, "month": my, "money": money, "ints": ints, "date": pdate,
                         "upis": upis, "dates": dates, "total": total, "mode": mode, "line": n})
+    if stat_problems:
+        # ஒரு வரியிலாவது புள்ளி விவரம் 0 / காலி எனில் கோப்பு முழுவதும் ஏற்றப்படாது
+        shown = stat_problems[:150]
+        raise ValueError(f"❌ எதுவும் ஏற்றப்படவில்லை. {len(stat_problems)} வரிகளில் புள்ளி விவரம் (வாசகர் வருகை / நூலிரவல் / நூல்கள் பயன்பாடு) "
+                         "0 அல்லது காலியாக உள்ளது. Excel-ல் சரிசெய்து மீண்டும் முழுவதுமாக ஏற்றவும்:\n - " + "\n - ".join(shown)
+                         + (f"\n … மேலும் {len(stat_problems) - len(shown)}" if len(stat_problems) > len(shown) else ""))
     if not entries:
         return result(0, skipped) | {"inserted": 0, "updated": 0}
 

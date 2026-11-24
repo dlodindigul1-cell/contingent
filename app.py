@@ -1951,6 +1951,72 @@ def admin_import_coverage(kind):
                                       "amount": float(r["amt"])} for r in rows])
 
 
+def _mkey(my):
+    return (int(my[3:]), int(my[:2]))
+
+
+def _fy_start_year(my):
+    m, y = int(my[:2]), int(my[3:])
+    return y if m >= 4 else y - 1
+
+
+@app.get("/admin/api/missing")
+def admin_missing():
+    """விடுபாடு அறிக்கை: சில்லறை செலவினம் / வரவு / புள்ளி விவரம் பதிவு இல்லாத நூலகங்கள் × மாதங்கள்.
+    kind = claims | receipts | stats ; fy = '2024-25' | 'all'. கணக்கிடப்படும் மாதங்கள்: நிதியாண்டில் முந்தைய மாதம் வரை (நடப்பு மாதம் முடியவில்லை)."""
+    denied = admin_required_json()
+    if denied:
+        return denied
+    kind, fy = request.args.get("kind", "claims"), request.args.get("fy", "all")
+    if kind not in ("claims", "receipts", "stats"):
+        return _bad("தெரியாத வகை")
+    now = dt.datetime.now(IST)
+    prev = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
+    cur_fy = now.year if now.month >= 4 else now.year - 1
+    try:
+        have = db.fetch_all("SELECT month_year FROM claims UNION SELECT month_year FROM library_receipts")
+        have = [r["month_year"] for r in have if len(r["month_year"] or "") == 7]
+        first_fy = min([_fy_start_year(m) for m in have] + [cur_fy])
+        libs = db.fetch_all("SELECT name, lib_type, pay_center FROM libraries ORDER BY id")
+        fys = ["%d-%02d" % (y, (y + 1) % 100) for y in range(first_fy, cur_fy + 2)]    # இனி வரும் ஆண்டு உட்பட
+        if fy == "all":
+            start = min([_mkey(m) for m in have] + [(cur_fy, 4)]) if have else (cur_fy, 4)
+            months, (y, m) = [], start
+            while (y, m) <= prev:
+                months.append("%02d/%d" % (m, y)); m += 1
+                if m > 12:
+                    m, y = 1, y + 1
+        else:
+            _, allm = _fy_months(fy)
+            months = [x for x in allm if _mkey(x) <= prev]
+        if kind == "claims":
+            rows = db.fetch_all("SELECT library_name, month_year FROM claims WHERE month_year = ANY(%s)", (months,))
+            bad = {(r["library_name"], r["month_year"]) for r in rows}
+            missing = lambda lib, mo: (lib, mo) not in bad
+        else:
+            rows = db.fetch_all("SELECT library_name, month_year, visitors, issues, book_usage FROM library_receipts "
+                                "WHERE month_year = ANY(%s)", (months,))
+            if kind == "receipts":
+                present = {(r["library_name"], r["month_year"]) for r in rows}
+                missing = lambda lib, mo: (lib, mo) not in present
+            else:      # வரவுப் பதிவு உள்ளது; ஆனால் புள்ளி விவரம் 0
+                zero = {(r["library_name"], r["month_year"]) for r in rows
+                        if not (r["visitors"] and r["issues"] and r["book_usage"])}
+                missing = lambda lib, mo: (lib, mo) in zero
+    except Exception:
+        app.logger.exception("missing report")
+        return _bad("தரவைப் படிக்க முடியவில்லை")
+    out, per_month = [], {m: 0 for m in months}
+    for L in libs:
+        ms = [m for m in months if missing(L["name"], m)]
+        for m in ms:
+            per_month[m] += 1
+        if ms:
+            out.append({"name": L["name"], "type": L["lib_type"], "payCenter": L["pay_center"], "months": ms})
+    return _ok(fys=fys, fy=fy, months=months, libraries=len(libs), perMonth=[{"month": m, "missing": per_month[m]} for m in months],
+               rows=out, cells=len(libs) * len(months))
+
+
 def admin_required_json():
     if not session.get("admin"):
         return jsonify({"success": False, "message": "Admin உள்நுழைவு தேவை"}), 401

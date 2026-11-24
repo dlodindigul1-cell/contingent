@@ -192,6 +192,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
   <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
   <a href="#claimsimport" data-v="claimsimport"><span class="n">2A</span><span>சில்லறை செலவின அனுமதித் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே அனுமதித்தவை</small></span></a>
   <a href="#receiptsimport" data-v="receiptsimport"><span class="n">2B</span><span>வரவினத் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே பதிவானவை</small></span></a>
+  <a href="#missing" data-v="missing"><span class="n">2C</span><span>விடுபாடு அறிக்கை<small>பதிவு இல்லாத நூலகங்கள் / மாதங்கள்</small></span></a>
   <div class="grp">நூலக வரவின மேலாண்மை</div>
   <a href="/receipts"><span class="n">₹</span><span>நூலக வரவின மேலாண்மை<small>வங்கி பாஸ்புத்தகம் · UPI · ஒப்புதல்</small></span></a>
   <div class="grp">சில்லறை செலவின மேலாண்மை</div>
@@ -240,6 +241,7 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
         <tr><td>2</td><td><a href="#leave">விடுப்பு விவரம் ஏற்று</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>2A</td><td><a href="#claimsimport">சில்லறை செலவின அனுமதித் தரவு ஏற்றம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>2B</td><td><a href="#receiptsimport">வரவினத் தரவு ஏற்றம்</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
+        <tr><td>2C</td><td><a href="#missing">விடுபாடு அறிக்கை (சில்லறை செலவினம் · வரவு · புள்ளி விவரம்)</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>3</td><td><a href="#permission">தினக்கூலி பணியாளர் அனுமதி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>4</td><td><a href="#wages">தினக்கூலி நூலகப் பணியாளர் கூலி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
         <tr><td>5</td><td><a href="#cleaner">தினக்கூலி கூட்டுநர் கூலி</a></td><td><span class="tag ok">பயன்பாட்டில்</span></td></tr>
@@ -441,12 +443,32 @@ a.vd-lib{cursor:pointer;font-weight:600}
       <li><b>மாதம்</b> MM/YYYY வடிவில் (எ.கா. 04/2024). <b>மொத்தம்</b> மாதிரி Excel-ல் தானாகக் கூடும்; ஏற்றும்போது அமைப்பே இனங்களைக் கூட்டிக் கணக்கிடும்.</li>
       <li><b>UPI NUMBER / தொகை செலுத்திய நாள்</b>: ஒன்றுக்கு மேல் இருந்தால் கமாவால் பிரிக்கவும் (எ.கா. <code>05/04/2024, 10/04/2024</code>). UPI எண்ணிக்கை எத்தனையோ அத்தனை தேதிகள் வரை அனுமதி; அதைவிட அதிகமான தேதிகள் இருந்தால் அந்த வரி தவிர்க்கப்படும். ஒரே UPI எனில் அது ‘பயன்படுத்தப்பட்டது’ எனப் பதிவாகும் (பின்னர் வங்கி பாஸ்புத்தகம் ஏற்றினாலும் மீண்டும் பயன்படுத்த முடியாது).</li>
       <li><b>நூல் இருப்பு</b> இந்த Excel-ல் தேவையில்லை — நூலகர் தங்கள் பதிவில் முதன்முறை சேர்ப்பார்.</li>
+      <li><b>புள்ளி விவரங்கள்</b> (வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு) எந்த வரியிலாவது 0 அல்லது காலியாக இருந்தால் <b>கோப்பு முழுவதும் ஏற்றப்படாது</b>; அந்த நூலகம் · மாதம் பட்டியலிடப்படும். Excel-ல் சரிசெய்து மீண்டும் முழுவதுமாக ஏற்றவும்.</li>
       <li>ஏற்றப்படுபவை <b>ஒப்புதல் பெற்றவை</b> எனச் சேமிக்கப்படும். ஏற்கனவே ஒப்புதல் பெற்ற நூலகம்-மாதம் இருந்தால் மாற்றப்படாது (தவிர்க்கப்பட்டவை கீழே காட்டப்படும்).</li>
     </ul>
     <p class="small"><a href="/admin/template/receipts_approved.xlsx">மாதிரி Excel பதிவிறக்கு</a></p>
     <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_receipts_approved" accept=".xlsx,.xls,.csv" aria-label="வரவினங்கள் Excel"></div><button class="btn go" id="b_receipts_approved">Excel ஏற்று</button></div>
     <div id="m_receipts_approved"></div>
   </div></div>
+</section>
+
+<!-- ================= 2C. விடுபாடு அறிக்கை ================= -->
+<section class="view" id="v-missing">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › விடுபாடு அறிக்கை</p>
+  <h2 class="pt">2C. விடுபாடு அறிக்கை</h2>
+  <p class="lead">தரவு ஏற்றப்பட்ட ஆண்டுகள் மற்றும் இனி வரும் ஆண்டுக்கு, எந்த நூலகங்கள் எந்த மாதங்களில் பதிவு செய்யவில்லை என்பதைக் காட்டுகிறது. நடப்பு மாதம் முடியாததால், முந்தைய மாதம் வரை மட்டுமே கணக்கிடப்படும்.</p>
+  <div class="toolbar">
+    <select id="msKind" style="width:auto" aria-label="வகை">
+      <option value="claims">சில்லறை செலவினம் பதிவு இல்லாதவை</option>
+      <option value="receipts">வரவு பதிவு இல்லாதவை</option>
+      <option value="stats">புள்ளி விவரம் இல்லாதவை (0 / காலி)</option>
+    </select>
+    <select id="msFy" style="width:auto" aria-label="நிதியாண்டு"><option value="all">எல்லா ஆண்டுகளும்</option></select>
+    <button class="btn" id="msRun" type="button">⟳ காட்டு</button>
+    <input type="text" id="msSearch" placeholder="நூலகம் தேடு…" style="max-width:220px">
+  </div>
+  <p class="small" id="msNote"></p>
+  <div id="msBox"><span class="lead">ஏற்றப்படுகிறது…</span></div>
 </section>
 
 <!-- ================= 3. தினக்கூலி அனுமதி ================= -->
@@ -1326,6 +1348,7 @@ function route(){
   if (v === 'approval') loadApproval();
   if (v === 'claimsimport') loadCoverage('claims');
   if (v === 'receiptsimport') loadCoverage('receipts');
+  if (v === 'missing') loadMissing();
   if (v === 'latepermission') loadLatePermissions();
   if (v === 'rptlib') rptLibInit();
   if (v === 'rptpay') rptPayInit();
@@ -1404,6 +1427,39 @@ async function loadCoverage(kind){
   }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
 }
 ['claims','receipts'].forEach(k => $('#cvRefresh_' + k).addEventListener('click', () => loadCoverage(k)));
+
+/* ---------- விடுபாடு அறிக்கை ---------- */
+const MS_NOTE = {claims: 'சில்லறை செலவினப் பதிவே இல்லாத நூலகம் · மாதம்.', receipts: 'வரவுப் பதிவே (UPI / புள்ளி விவரம் உட்பட) இல்லாத நூலகம் · மாதம்.',
+  stats: 'வரவுப் பதிவு உள்ளது; ஆனால் வாசகர் வருகை / நூலிரவல் / நூல்கள் பயன்பாட்டில் ஏதேனும் 0 அல்லது காலி. (பதிவே இல்லாதவை "வரவு பதிவு இல்லாதவை" பகுதியில் வரும்.)'};
+let msData = null;
+async function loadMissing(){
+  const box = $('#msBox'), sel = $('#msFy'), keep = sel.value || 'all';
+  box.innerHTML = '<span class="lead">ஏற்றப்படுகிறது…</span>'; $('#msNote').textContent = MS_NOTE[$('#msKind').value];
+  try{
+    const j = await getJSON('/admin/api/missing?kind=' + $('#msKind').value + '&fy=' + encodeURIComponent(keep));
+    if (!j.success){ box.innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; return; }
+    sel.innerHTML = '<option value="all">எல்லா ஆண்டுகளும்</option>' + j.fys.map(f => '<option>' + f + '</option>').join(''); sel.value = j.fy;
+    msData = j; renderMissing();
+  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+}
+function renderMissing(){
+  const j = msData, box = $('#msBox'), q = $('#msSearch').value.trim().toLowerCase();
+  if (!j) return;
+  if (!j.months.length){ box.innerHTML = '<div class="msg info">இந்த ஆண்டில் இன்னும் கணக்கிட வேண்டிய மாதம் வரவில்லை.</div>'; return; }
+  const total = j.rows.reduce((a, r) => a + r.months.length, 0);
+  let h = j.rows.length ? '<div class="msg warn"><b>' + j.rows.length + '</b> நூலகங்களில் மொத்தம் <b>' + total + '</b> மாதப் பதிவுகள் விடுபட்டுள்ளன (' + esc(j.months[0]) + ' முதல் ' + esc(j.months[j.months.length - 1]) + ' வரை, ' + j.months.length + ' மாதங்கள் × ' + j.libraries + ' நூலகங்கள்).</div>'
+    : '<div class="msg ok">✅ ' + esc(j.months[0]) + ' முதல் ' + esc(j.months[j.months.length - 1]) + ' வரை எந்த நூலகமும் விடுபடவில்லை.</div>';
+  h += '<div class="panel"><h3>மாதம் வாரியாக விடுபட்ட நூலகங்கள்</h3><div class="bd tw" style="max-height:none"><table><thead><tr><th>மாதம்</th><th style="text-align:right">விடுபட்டவை</th></tr></thead><tbody>' +
+    j.perMonth.map(m => '<tr><td>' + esc(m.month) + '</td><td style="text-align:right">' + (m.missing ? '<span class="tag later">' + m.missing + '</span>' : '<span class="tag ok">0</span>') + '</td></tr>').join('') + '</tbody></table></div></div>';
+  const rows = j.rows.filter(r => !q || (r.name + ' ' + r.type + ' ' + r.payCenter).toLowerCase().includes(q));
+  h += '<div class="panel"><h3>நூலகம் வாரியாக விடுபட்ட மாதங்கள் (' + rows.length + ')</h3><div class="bd tw" style="max-height:560px"><table><thead><tr><th style="width:44px">#</th><th>நூலகம்</th><th>வகை</th><th>ஊதிய மையம்</th><th style="width:90px;text-align:right">மாதங்கள்</th><th>விடுபட்ட மாதங்கள்</th></tr></thead><tbody>' +
+    (rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.payCenter) + '</td><td style="text-align:right">' + r.months.length + '</td><td>' + r.months.map(esc).join(', ') + '</td></tr>').join('') || '<tr><td colspan="6">இல்லை</td></tr>') + '</tbody></table></div></div>';
+  box.innerHTML = h;
+}
+$('#msRun').addEventListener('click', loadMissing);
+$('#msKind').addEventListener('change', loadMissing);
+$('#msFy').addEventListener('change', loadMissing);
+$('#msSearch').addEventListener('input', renderMissing);
 
 $('#btnSchema').addEventListener('click', async () => {
   const b = $('#btnSchema'), out = $('#msgSchema');
