@@ -25,6 +25,19 @@ def _money(v):
         return n.quantize(Decimal('0.01'))
     except Exception: raise ValueError('தொகை சரியாக இல்லை.')
 
+
+def _split_upi(particulars):
+    """'UPI/CR/630249538322/BABU V/SBIN/babukalai66@oks/U' -> ('630249538322','BABU V-babukalai66@oks').
+    பெயர் + UPI ID (வங்கிக் குறியீடு நீக்கப்படும்); UPI ID இல்லையெனில் பெயர் மட்டும்."""
+    m=re.match(r'\s*UPI/CR/(\d+)(?:/(.*))?',str(particulars or ''),re.I)
+    if not m: return '',''
+    parts=[re.sub(r'\s+',' ',x).strip() for x in (m.group(2) or '').split('/')]
+    name=parts[0] if parts else ''
+    vpa=parts[2] if len(parts)>2 else ''
+    return m.group(1),'-'.join(x for x in (name,vpa) if x)
+
+def _month_key(m): return m[3:]+m[:2]
+
 @receipts.get('/receipts')
 def page():
     if _admin(): return render_template('receipts_admin.html')
@@ -56,21 +69,24 @@ def upload_statement():
         up=line.upper()
         if any(x in up for x in EXCLUDED): continue
         if 'UPI/CR/' not in up: continue
-        m=re.search(r'(\d{2}-[A-Za-z]{3}-\d{4}).*?(UPI/CR/\d+/[^\s]+).*?(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s*CR',line,re.I)
+        m=re.search(r'(\d{2}-[A-Za-z]{3}-\d{4}).*?(UPI/CR/\d+(?:/.*?)?)\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s*CR',line,re.I)
         if not m: continue
-        date_s,upi,a,b=m.groups()
+        date_s,particulars,a,b=m.groups()
+        # "UPI/CR/627901018885/ANANTHAK/SBIN/..." -> எண்: 627901018885, பெயர்: ANANTHAK
+        upi,payer=_split_upi(particulars)
+        if not upi: continue
         # Deposit is the amount which increases the balance; statement's last two numbers are deposit and balance.
         try: amount=Decimal(a.replace(',',''))
         except InvalidOperation: continue
-        rows.append((date_s,upi,amount))
+        rows.append((date_s,upi,payer,amount))
     if not rows:
         return jsonify(success=False,message='UPI/CR வரிகள் தானாகப் பிரிக்கப்படவில்லை. PDF உரை அமைப்பைச் சரிபார்க்கவும்.'),422
     def save(conn):
         with conn.cursor() as c:
             c.execute("INSERT INTO receipt_statement_batches(month_year,filename,uploaded_by) VALUES(%s,%s,%s) RETURNING id",(month,f.filename,session.get('admin_user','Admin')))
             bid=c.fetchone()[0]
-            for date_s,upi,amount in rows:
-                c.execute("INSERT INTO receipt_bank_transactions(batch_id,month_year,transaction_date,upi_number,amount,status) VALUES(%s,%s,to_date(%s,'DD-Mon-YYYY'),%s,%s,'available') ON CONFLICT(upi_number) DO NOTHING",(bid,month,date_s,upi,amount))
+            for date_s,upi,payer,amount in rows:
+                c.execute("INSERT INTO receipt_bank_transactions(batch_id,month_year,transaction_date,upi_number,payer_name,amount,status) VALUES(%s,%s,to_date(%s,'DD-Mon-YYYY'),%s,%s,%s,'available') ON CONFLICT(upi_number) DO UPDATE SET payer_name=EXCLUDED.payer_name WHERE receipt_bank_transactions.payer_name IS DISTINCT FROM EXCLUDED.payer_name",(bid,month,date_s,upi,payer,amount))
     db.run(save)
     return jsonify(success=True,month=month,inserted=len(rows),message=f'{month} மாதத்திற்கான UPI பரிவர்த்தனைகள் ஏற்றப்பட்டன. பொருந்தாத வரிகளை Admin சரிபார்க்க வேண்டும்.')
 
@@ -115,8 +131,28 @@ def reset_month():
 @receipts.get('/receipts/admin/transactions')
 def admin_transactions():
     if not _admin(): return jsonify(success=False),403
-    rows=db.fetch_all("SELECT id,month_year,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,amount,status,library_name FROM receipt_bank_transactions ORDER BY transaction_date, id")
+    rows=db.fetch_all("SELECT id,month_year,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,payer_name,amount,status,library_name FROM receipt_bank_transactions ORDER BY transaction_date, id")
     return jsonify(rows=[dict(r) for r in rows])
+
+
+@receipts.get('/receipts/admin/dashboard')
+def dashboard():
+    """இடது: தேர்ந்த மாதத்தில் இதுவரை வரவு பதிவு செய்யாத நூலகங்கள்; வலது: எந்த நூலகமும் பதிவு செய்யாத UPI எண்கள்."""
+    if not _admin(): return jsonify(success=False),403
+    months=[r['month_year'] for r in db.fetch_all("SELECT DISTINCT month_year FROM (SELECT month_year FROM receipt_bank_transactions UNION SELECT month_year FROM library_receipts) x")]
+    months.sort(key=_month_key,reverse=True)
+    month=(request.args.get('month') or '').strip() or (months[0] if months else '')
+    libs=db.fetch_all("SELECT name,lib_type FROM libraries ORDER BY id")
+    done={r['library_name'] for r in db.fetch_all("SELECT library_name FROM library_receipts WHERE month_year=%s",(month,))}
+    not_reg=[dict(l) for l in libs if l['name'] not in done]
+    upis=db.fetch_all("SELECT id,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,payer_name,amount FROM receipt_bank_transactions WHERE month_year=%s AND status='available' ORDER BY transaction_date,id",(month,))
+    out=[]
+    for r in upis:
+        r=dict(r); n,nm=_split_upi(r['upi_number'])
+        if n: r['upi_number']=n; r['payer_name']=r.get('payer_name') or nm  # பழைய பதிவுகளுக்கும் எண் மட்டும்
+        out.append(r)
+    return jsonify(success=True,month=month,months=months,total_libraries=len(libs),registered_count=len(libs)-len(not_reg),
+                   not_registered_libraries=not_reg,unregistered_upis=out)
 
 @receipts.get('/receipts/libraries')
 def receipt_libraries():
@@ -128,7 +164,7 @@ def receipt_libraries():
 def available_transactions():
     if not _librarian(): return jsonify(success=False),403
     month=request.args.get('month','')
-    rows=db.fetch_all("SELECT id,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,amount FROM receipt_bank_transactions WHERE month_year=%s AND status='available' AND uploaded_at >= now()-interval '5 days' ORDER BY transaction_date,id",(month,))
+    rows=db.fetch_all("SELECT id,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,payer_name,amount FROM receipt_bank_transactions WHERE month_year=%s AND status='available' AND uploaded_at >= now()-interval '5 days' ORDER BY transaction_date,id",(month,))
     return jsonify(rows=[dict(r) for r in rows])
 
 @receipts.post('/receipts/submit')

@@ -280,6 +280,21 @@ CREATE TABLE IF NOT EXISTS receipt_bank_transactions (
  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_receipt_tx_month_status ON receipt_bank_transactions(month_year,status);
+-- UPI எண் மட்டும் (இலக்கங்கள்) சேமிக்கப்படும்; பணம் செலுத்தியவர் பெயர் தனி நெடுவரிசையில்
+ALTER TABLE receipt_bank_transactions ADD COLUMN IF NOT EXISTS payer_name TEXT NOT NULL DEFAULT '';
+DO $$
+BEGIN
+  -- பழைய பதிவுகள் ("UPI/CR/627901018885/ANANTHAK/SBIN/...") -> எண் மட்டும் + பெயர்
+  UPDATE receipt_bank_transactions t
+     SET payer_name = btrim(split_part(t.upi_number,'/',4)),
+         upi_number = split_part(t.upi_number,'/',3)
+   WHERE t.upi_number ~ '^UPI/CR/[0-9]+'
+     AND NOT EXISTS (SELECT 1 FROM receipt_bank_transactions o
+                      WHERE o.upi_number = split_part(t.upi_number,'/',3));
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- இடம்பெயர்வு தோல்வியுற்றாலும் schema தொடரும்
+END $$;
+
 CREATE TABLE IF NOT EXISTS receipt_admin_audit (
  id BIGSERIAL PRIMARY KEY, transaction_id BIGINT, action TEXT NOT NULL, reason TEXT NOT NULL,
  admin_name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
