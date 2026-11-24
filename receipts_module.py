@@ -346,5 +346,186 @@ def saveOrUpdateReceipt(data):
         return _fail('சேமிக்க முடியவில்லை. மீண்டும் முயலவும்.')
     return {'success':True,'row':rid,'month':month,'total':total,'action':action}
 
+
+# ------------------------------------------------------------------
+#  வரவின அறிக்கைகள் (Admin) — daily | upi | monthly
+#  ஒரே வடிவ JSON: columns [{title,type}], rows [[...]], totals [...]; திரை / PDF / Excel மூன்றும் இதையே பயன்படுத்தும்.
+#  type: no | text | date | multi (பல வரி) | money | total | int
+# ------------------------------------------------------------------
+REPORT_HEADS = [
+    ('காப்புத்தொகை', 'security_amount'), ('சந்தாத் தொகை', 'annual_amount'),
+    ('காலதாமதக் கட்டணம்', 'late_fee'), ('நூல் விலைப் பிடித்தம்', 'book_fine'),
+    ('பழைய பத்திரிக்கை விற்பனை', 'newspaper_amount'), ('பழைய நூல்கள் விற்பனை', 'old_book_sale'),
+    ('புரவலர்', 'patron'), ('பெரும்புரவலர்', 'chief_patron'), ('கொடையாளர்', 'donor'),
+    ('இதர வரவுகள்', 'other_income'),
+]
+REPORT_TITLES = {
+    'daily': 'மாத வரவுகள் — வங்கி அறிக்கைப்படி',
+    'upi': 'மாத வரவுகள் — வங்கி அறிக்கைப்படி (As per UPI)',
+    'monthly': 'மாதாந்திர வரவின அறிக்கை (மொத்தம் — புள்ளி விவரத்துடன்)',
+}
+REPORT_FILES = {'daily': 'Receipts_Daily', 'upi': 'Receipts_UPI', 'monthly': 'Receipts_Monthly'}
+
+
+def _fdate(d):
+    """date / 'YYYY-MM-DD' -> 'DD/MM/YYYY'"""
+    if not d: return ''
+    s = str(d)[:10]
+    return '/'.join(reversed(s.split('-'))) if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s) else s
+
+
+def _num(v):
+    n = Decimal(str(v or 0))
+    return int(n) if n == n.to_integral_value() else float(n)
+
+
+def _report_rows(month, include_pending):
+    """தேர்ந்த மாதத்தின் வரவுப் பதிவுகள் (நூலகப் பட்டியல் வரிசையில்) + அவற்றின் UPI பரிவர்த்தனைகள்."""
+    where = "r.month_year=%s" + ("" if include_pending else " AND r.status='approved'")
+    rows = db.fetch_all(
+        "SELECT r.id, r.library_name, r.mode, r.status, r.total_amount, r.payment_date, r.payment_dates, r.upi_numbers, "
+        "r.visitors, r.issues, r.book_usage, "
+        + ", ".join('r.' + c for _, c in REPORT_HEADS) + ", "
+        "COALESCE(json_agg(json_build_object('upi',t.upi_number,'date',to_char(t.transaction_date,'YYYY-MM-DD')) "
+        "ORDER BY t.transaction_date,t.id) FILTER (WHERE t.id IS NOT NULL),'[]') txs "
+        "FROM library_receipts r JOIN libraries l ON l.name=r.library_name "
+        "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id "
+        "WHERE " + where + " GROUP BY r.id, l.id ORDER BY l.id", (month,))
+    return [dict(r) for r in rows]
+
+
+def _utr_pairs(r):
+    """[(utr, 'YYYY-MM-DD'|'')] — வங்கிப் பதிவிலிருந்து; Excel மூலம் ஏற்றியவற்றுக்கு upi_numbers / payment_dates-இலிருந்து."""
+    pairs = [(t['upi'], t['date']) for t in (r.get('txs') or [])]
+    seen = {u for u, _ in pairs}
+    extra = [u for u in re.split(r'[,;\s]+', str(r.get('upi_numbers') or '')) if u and u not in seen]
+    dates = [d for d in re.split(r',\s*', str(r.get('payment_dates') or '')) if d]
+    for i, u in enumerate(extra):
+        d = dates[i] if i < len(dates) else (str(r['payment_date'])[:10] if r.get('payment_date') else '')
+        pairs.append((u, d))
+    return pairs
+
+
+def build_receipt_report(kind, month, include_pending=False):
+    if kind not in REPORT_TITLES: raise ValueError('தெரியாத அறிக்கை')
+    month = _valid_month(month)
+    all_rows = _report_rows(month, include_pending)
+    income = [r for r in all_rows if r['mode'] == 'income']
+    pending_skipped = 0
+    if not include_pending:
+        pending_skipped = db.fetch_one("SELECT count(*) c FROM library_receipts WHERE month_year=%s AND status='pending'", (month,))['c']
+    heads = [h for h, _ in REPORT_HEADS]
+    money_cols = [{'title': h, 'type': 'money'} for h in heads] + [{'title': 'மொத்தம்', 'type': 'total'}]
+
+    def amounts(r): return [Decimal(str(r[c] or 0)) for _, c in REPORT_HEADS] + [Decimal(str(r['total_amount'] or 0))]
+
+    def sums(rs): 
+        tot = [Decimal(0)] * (len(heads) + 1)
+        for r in rs: tot = [a + b for a, b in zip(tot, amounts(r))]
+        return tot
+
+    notes = []
+    if pending_skipped: notes.append(f'ஒப்புதல் நிலுவையில் உள்ள {pending_skipped} பதிவுகள் சேர்க்கப்படவில்லை (ஒப்புதல் அளித்தபின் சேரும்).')
+
+    if kind == 'daily':
+        groups = {}
+        for r in income:
+            groups.setdefault(str(r['payment_date'])[:10] if r['payment_date'] else '', []).append(r)
+        keys = sorted(k for k in groups if k) + ([''] if '' in groups else [])
+        cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நாள்', 'type': 'date'}] + money_cols
+        out = []
+        for i, k in enumerate(keys, 1):
+            out.append([i, _fdate(k) or 'தேதி குறிப்பிடப்படவில்லை'] + [_num(x) for x in sums(groups[k])])
+        totals = ['', 'மொத்தம்'] + [_num(x) for x in sums(income)]
+        notes.append('ஒரே நாளில் பல நூலகங்கள் பதிவு செய்திருந்தால் அவை கூட்டி ஒரே வரியாகக் காட்டப்படும்.')
+    elif kind == 'upi':
+        recs = sorted(income, key=lambda r: (str(r['payment_date'] or '9999'), ))
+        cols = ([{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நாள்', 'type': 'multi'},
+                 {'title': 'Google Pay / PhonePe Transaction UTR எண்', 'type': 'multi'},
+                 {'title': 'தொகை செலுத்திய நாள்', 'type': 'date'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}] + money_cols)
+        out = []
+        for i, r in enumerate(recs, 1):
+            pairs = _utr_pairs(r)
+            out.append([i, '\n'.join(_fdate(d) for _, d in pairs), '\n'.join(u for u, _ in pairs),
+                        _fdate(r['payment_date']), r['library_name']] + [_num(x) for x in amounts(r)])
+        totals = ['', '', '', '', 'மொத்தம்'] + [_num(x) for x in sums(income)]
+    else:  # monthly — புள்ளி விவரப் பதிவுகளும் (usage) சேரும்
+        cols = ([{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'},
+                 {'title': 'Google Pay / PhonePe Transaction UTR எண்', 'type': 'multi'},
+                 {'title': 'தொகை செலுத்திய நாள்', 'type': 'date'}] + money_cols +
+                [{'title': 'நடப்பு மாத வாசகர் வருகை', 'type': 'int'}, {'title': 'நடப்பு மாத நூலிரவல்', 'type': 'int'},
+                 {'title': 'நடப்பு மாத நூல்கள் பயன்பாடு', 'type': 'int'}])
+        out = []
+        for i, r in enumerate(all_rows, 1):
+            out.append([i, r['library_name'], '\n'.join(u for u, _ in _utr_pairs(r)), _fdate(r['payment_date'])]
+                       + [_num(x) for x in amounts(r)] + [r['visitors'] or 0, r['issues'] or 0, r['book_usage'] or 0])
+        totals = ['', 'மொத்தம்', '', ''] + [_num(x) for x in sums(all_rows)] + [
+            sum(r['visitors'] or 0 for r in all_rows), sum(r['issues'] or 0 for r in all_rows), sum(r['book_usage'] or 0 for r in all_rows)]
+        reg = len(all_rows); total_libs = db.fetch_one('SELECT count(*) c FROM libraries')['c']
+        notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {reg}.')
+    return {'success': True, 'kind': kind, 'month': month, 'title': REPORT_TITLES[kind], 'columns': cols,
+            'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
+
+
+def _report_args():
+    return (request.args.get('month') or '').strip(), request.args.get('pending') in ('1', 'true', 'on')
+
+
+@receipts.get('/receipts/admin/report/<kind>.json')
+def receipt_report_json(kind):
+    if not _admin(): return jsonify(success=False, message='Admin அனுமதி தேவை'), 403
+    month, pend = _report_args()
+    try: return jsonify(build_receipt_report(kind, month, pend))
+    except ValueError as e: return jsonify(success=False, message=str(e)), 400
+    except Exception:
+        current_app.logger.exception('Receipt report')
+        return jsonify(success=False, message='அறிக்கையை உருவாக்க முடியவில்லை.'), 500
+
+
+@receipts.get('/receipts/admin/report/<kind>.xlsx')
+def receipt_report_xlsx(kind):
+    if not _admin(): return jsonify(success=False, message='Admin அனுமதி தேவை'), 403
+    month, pend = _report_args()
+    try: d = build_receipt_report(kind, month, pend)
+    except ValueError as e: return jsonify(success=False, message=str(e)), 400
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from urllib.parse import quote
+    from flask import Response
+    wb = Workbook(); ws = wb.active; ws.title = 'வரவின அறிக்கை'[:31]
+    thin = Side(style='thin', color='000000'); box = Border(left=thin, right=thin, top=thin, bottom=thin)
+    fill = PatternFill('solid', fgColor='E8EFF9'); bold = Font(bold=True)
+    cols = d['columns']; n = len(cols)
+    for r_i, (txt, size) in enumerate([('திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு', 14), (d['title'], 12), ('மாதம்: ' + d['month'], 12)], 1):
+        c = ws.cell(row=r_i, column=1, value=txt); c.font = Font(bold=True, size=size); c.alignment = Alignment(horizontal='center')
+        ws.merge_cells(start_row=r_i, start_column=1, end_row=r_i, end_column=n)
+    hr = 5
+    for c_i, col in enumerate(cols, 1):
+        x = ws.cell(row=hr, column=c_i, value=col['title']); x.font = bold; x.fill = fill; x.border = box
+        x.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    ws.row_dimensions[hr].height = 48
+    def put(row, vals, is_total=False):
+        for c_i, (col, v) in enumerate(zip(cols, vals), 1):
+            x = ws.cell(row=row, column=c_i, value=v); x.border = box
+            if col['type'] in ('money', 'total'): x.number_format = '#,##0.00'
+            if col['type'] == 'multi': x.alignment = Alignment(wrap_text=True, vertical='top')
+            if col['type'] in ('no', 'date'): x.alignment = Alignment(horizontal='center', vertical='top')
+            if is_total: x.font = bold; x.fill = fill
+    r = hr + 1
+    for vals in d['rows']: put(r, vals); r += 1
+    put(r, d['totals'], True)
+    for c_i, col in enumerate(cols, 1):
+        w = {'no': 7, 'date': 14, 'multi': 24, 'text': 34, 'money': 14, 'total': 16, 'int': 14}[col['type']]
+        ws.column_dimensions[get_column_letter(c_i)].width = w
+    ws.freeze_panes = ws.cell(row=hr + 1, column=1)
+    ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = f'{hr}:{hr}'
+    buf = io.BytesIO(); wb.save(buf)
+    fname = '%s_%s.xlsx' % (REPORT_FILES[kind], d['month'].replace('/', '-'))
+    return Response(buf.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': 'attachment; filename="report.xlsx"; filename*=UTF-8\'\'' + quote(fname)})
+
 def register_rpc(RPC):
     for f in (validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt): RPC[f.__name__]=f

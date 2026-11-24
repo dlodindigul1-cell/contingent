@@ -168,6 +168,17 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 @media(max-width:640px){.clm-grid{grid-template-columns:1fr}}
 .clm-grid label{font-size:14px;font-weight:600;color:#243b53;display:block;margin-bottom:3px}
 .clm-grid h4{grid-column:1/-1;margin:8px 0 0;color:var(--navy);border-bottom:2px solid #c8961e;padding-bottom:3px}
+
+/* ---- சுருங்கி விரியும் மெனு ---- */
+nav.side button.grp{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);font:inherit;font-size:14.5px;font-weight:700;color:var(--navy);background:var(--paper);padding:10px 16px;cursor:pointer}
+nav.side button.grp:hover{background:var(--sky)}
+nav.side button.grp::after{content:"▸";font-size:13px;transition:transform .15s}
+nav.side button.grp[aria-expanded="true"]::after{transform:rotate(90deg)}
+nav.side button.grp.l2{padding-left:30px;font-size:14px;font-weight:600;background:#fff}
+nav.side .sub{display:none}
+nav.side .sub.open{display:block}
+nav.side .sub.l2 a{padding-left:34px}
+@media (max-width:900px){nav.side .sub,nav.side .sub.open{display:contents}nav.side button.grp{display:none}}
 </style>
 </head>
 <body>
@@ -187,36 +198,56 @@ footer{max-width:1240px;margin:0 auto;padding:16px 20px 30px;color:var(--muted);
 <nav class="side" id="nav" aria-label="நிர்வாக மெனு">
   <h2>நிர்வாக மெனு</h2>
   <a href="#home" data-v="home"><span class="n">⌂</span><span>முகப்பு</span></a>
-  <div class="grp">தரவு ஏற்றம் (Excel)</div>
+  <button type="button" class="grp" aria-expanded="false">தரவு ஏற்றம் (Excel)</button>
+  <div class="sub">
   <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலக விவரம் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
   <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
   <a href="#claimsimport" data-v="claimsimport"><span class="n">2A</span><span>சில்லறை செலவின அனுமதித் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே அனுமதித்தவை</small></span></a>
   <a href="#receiptsimport" data-v="receiptsimport"><span class="n">2B</span><span>வரவினத் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே பதிவானவை</small></span></a>
   <a href="#missing" data-v="missing"><span class="n">2C</span><span>விடுபாடு அறிக்கை<small>பதிவு இல்லாத நூலகங்கள் / மாதங்கள்</small></span></a>
-  <div class="grp">நூலக வரவின மேலாண்மை</div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">நூலக வரவின மேலாண்மை</button>
+  <div class="sub">
   <a href="/receipts"><span class="n">₹</span><span>நூலக வரவின மேலாண்மை<small>வங்கி பாஸ்புத்தகம் · UPI · ஒப்புதல்</small></span></a>
-  <div class="grp">சில்லறை செலவின மேலாண்மை</div>
+  <button type="button" class="grp l2" aria-expanded="false">அறிக்கைகள்</button>
+  <div class="sub l2">
+  <a href="#rcptdaily" data-v="rcptdaily"><span class="n">R1</span><span>மாத வரவுகள் — வங்கி அறிக்கைப்படி<small>நாள் வாரியாகக் கூட்டுத்தொகை</small></span></a>
+  <a href="#rcptupi" data-v="rcptupi"><span class="n">R2</span><span>மாத வரவுகள் — வங்கி அறிக்கைப்படி (as per UPI)<small>UTR எண்ணுடன் · நூலகம் வாரியாக</small></span></a>
+  <a href="#rcptmonthly" data-v="rcptmonthly"><span class="n">R3</span><span>மாதாந்திர வரவின அறிக்கை<small>மொத்தம் · புள்ளி விவரத்துடன்</small></span></a>
+  </div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">சில்லறை செலவின மேலாண்மை</button>
+  <div class="sub">
   <a href="#permission" data-v="permission"><span class="n">3</span><span>தினக்கூலி பணியாளர் அனுமதி</span></a>
   <a href="#wages" data-v="wages"><span class="n">4</span><span>தினக்கூலி நூலகப் பணியாளர் கூலி<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
   <a href="#cleaner" data-v="cleaner"><span class="n">5</span><span>தினக்கூலி கூட்டுநர் கூலி<small>நாள் ஒன்றுக்கான தொகை</small></span></a>
   <a href="#status" data-v="status"><span class="n">6</span><span>நடப்பு மாதப் பதிவு நிலை<small>பதிவு செய்தவர்கள் / செய்யாதவர்கள்</small></span></a>
   <a href="#approval" data-v="approval"><span class="n">7</span><span>சில்லறை செலவின அனுமதி<small>திருத்தி அனுமதிக்க</small></span></a>
   <a href="#latepermission" data-v="latepermission"><span class="n">7A</span><span>சில்லறை செலவின அனுமதி (காலவரம்புக்கு அப்பால்)<small>நூலகருக்கு பதிவு அனுமதி</small></span></a>
-  <div class="grp">நாளிதழ் மேலாண்மை</div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">நாளிதழ் மேலாண்மை</button>
+  <div class="sub">
   <a href="#newspapers" data-v="newspapers"><span class="n">8</span><span>நாளிதழ் விவரம்</span></a>
   <a href="#newsmap" data-v="newsmap"><span class="n">9</span><span>நூலகத்திற்கு அனுமதிக்கப்பட்ட நாளிதழ்கள்<small>பல நாளிதழ் × பல நூலகம்</small></span></a>
-  <div class="grp">பணி நாட்கள்</div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">பணி நாட்கள்</button>
+  <div class="sub">
   <a href="#holidays" data-v="holidays"><span class="n">10</span><span>அரசு விடுமுறை நாட்கள்<small>மாதப் பணி நாட்கள் கணக்கு</small></span></a>
-  <div class="grp">நூலக மேலாண்மை</div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">நூலக மேலாண்மை</button>
+  <div class="sub">
   <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
   <a href="#vendors" data-v="vendors"><span class="n">12</span><span>Vendor விவரம்<small>நாளிதழ் · வாடகை · வங்கி விவரம்</small></span></a>
-  <div class="grp">அறிக்கைகள்</div>
+  </div>
+  <button type="button" class="grp" aria-expanded="false">அறிக்கைகள்</button>
+  <div class="sub">
   <a href="#rptlib" data-v="rptlib"><span class="n">13</span><span>ஊதிய மைய நூலகர் அறிக்கை<small>ஊதிய மையம் + மாதம்</small></span></a>
   <a href="#rptpay" data-v="rptpay"><span class="n">14</span><span>மொத்த ஊதிய மையச் செலவின அறிக்கை<small>ஊதிய மையங்கள் வாரியாக</small></span></a>
   <a href="#rptyear" data-v="rptyear"><span class="n">15</span><span>ஆண்டுச் சுருக்கம்<small>நிதியாண்டு · மாதம் வாரியாக</small></span></a>
   <a href="#rptpaper" data-v="rptpaper"><span class="n">16</span><span>நூலகங்கள்வாரியாக நாளிதழ் செலவினம்<small>நூலகம் · vendor · தொகை</small></span></a>
   <a href="#rptvpay" data-v="rptvpay"><span class="n">17</span><span>நாளிதழ் Vendor-க்குத் தொகை செலுத்துதல்<small>vendor வாரியாக</small></span></a>
   <a href="#rptrent" data-v="rptrent"><span class="n">18</span><span>வாடகை செலுத்துதல்<small>நூலகம் · vendor · தொகை</small></span></a>
+  </div>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -670,6 +701,55 @@ a.vd-lib{cursor:pointer;font-weight:600}
 </section>
 
 <!-- ================= அறிக்கைகள் ================= -->
+<section class="view" id="v-rcptdaily">
+  <p class="crumb">நிர்வாகம் › நூலக வரவின மேலாண்மை › அறிக்கைகள் › மாத வரவுகள் — வங்கி அறிக்கைப்படி</p>
+  <h2 class="pt">R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</h2>
+  <p class="lead">வரவு மாதத்தைத் தேர்ந்தெடுக்கவும். ஒவ்வொரு நாளும் எத்தனை நூலகங்கள் பதிவு செய்திருந்தாலும் அவற்றின் இனவாரித் தொகைகள் கூட்டி ஒரே வரியாகக் காட்டப்படும். இயல்பாக ஒப்புதல் பெற்ற பதிவுகள் மட்டும் சேரும்.</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <input type="month" id="rr_daily_month" style="width:auto" aria-label="வரவு மாதம்">
+      <button class="btn go sm" id="rr_daily_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm rr-daily-dl" type="button" id="rr_daily_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm rr-daily-dl" type="button" id="rr_daily_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+      <label style="display:inline-flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" id="rr_daily_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label>
+    </div>
+    <div id="rr_daily_msg"></div>
+    <div id="rr_daily_out"></div>
+  </div></div>
+</section>
+<section class="view" id="v-rcptupi">
+  <p class="crumb">நிர்வாகம் › நூலக வரவின மேலாண்மை › அறிக்கைகள் › மாத வரவுகள் — வங்கி அறிக்கைப்படி (as per UPI)</p>
+  <h2 class="pt">R2. மாத வரவுகள் — வங்கி அறிக்கைப்படி (as per UPI)</h2>
+  <p class="lead">ஒவ்வொரு நூலகத்தின் UPI (Google Pay / PhonePe) UTR எண், தொகை செலுத்திய நாள் மற்றும் இனவாரித் தொகைகள் காட்டப்படும்.</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <input type="month" id="rr_upi_month" style="width:auto" aria-label="வரவு மாதம்">
+      <button class="btn go sm" id="rr_upi_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm rr-upi-dl" type="button" id="rr_upi_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm rr-upi-dl" type="button" id="rr_upi_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+      <label style="display:inline-flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" id="rr_upi_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label>
+    </div>
+    <div id="rr_upi_msg"></div>
+    <div id="rr_upi_out"></div>
+  </div></div>
+</section>
+<section class="view" id="v-rcptmonthly">
+  <p class="crumb">நிர்வாகம் › நூலக வரவின மேலாண்மை › அறிக்கைகள் › மாதாந்திர வரவின அறிக்கை (மொத்தம் — புள்ளி விவரத்துடன்)</p>
+  <h2 class="pt">R3. மாதாந்திர வரவின அறிக்கை (மொத்தம் — புள்ளி விவரத்துடன்)</h2>
+  <p class="lead">நூலகம் வாரியாக வரவுத் தொகைகளுடன், அந்த மாத வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு ஆகிய புள்ளி விவரங்களும் காட்டப்படும் (புள்ளி விவரம் மட்டும் பதிவு செய்தவை உட்பட).</p>
+  <div class="panel"><div class="bd">
+    <div class="toolbar">
+      <input type="month" id="rr_monthly_month" style="width:auto" aria-label="வரவு மாதம்">
+      <button class="btn go sm" id="rr_monthly_go" type="button">அறிக்கையைக் காட்டு</button>
+      <button class="btn alt sm rr-monthly-dl" type="button" id="rr_monthly_pdf" style="display:none">📄 PDF பதிவிறக்கம்</button>
+      <button class="btn alt sm rr-monthly-dl" type="button" id="rr_monthly_xls" style="display:none">📊 Excel பதிவிறக்கம்</button>
+      <label style="display:inline-flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" id="rr_monthly_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label>
+    </div>
+    <div id="rr_monthly_msg"></div>
+    <div id="rr_monthly_out"></div>
+  </div></div>
+</section>
+
 <section class="view" id="v-rptlib">
   <p class="crumb">நிர்வாகம் › அறிக்கைகள் › ஊதிய மைய நூலகர் அறிக்கை</p>
   <h2 class="pt">13. ஊதிய மைய நூலகர் அறிக்கை</h2>
@@ -1312,6 +1392,67 @@ Object.keys(RV).forEach(id => {
   $('#' + p + '_xls').addEventListener('click', () => { const d = rptCache[p]; if (d) location.href = '/admin/report/' + cfg.xls + '.xlsx?month=' + encodeURIComponent(d.month); });
 });
 
+
+/* ===================== நூலக வரவின அறிக்கைகள் R1–R3 ===================== */
+const RR = {daily: {view: 'rcptdaily', wide: false, onePage: true}, upi: {view: 'rcptupi'}, monthly: {view: 'rcptmonthly'}};
+const RR_BY_VIEW = {}; Object.keys(RR).forEach(k => { RR_BY_VIEW[RR[k].view] = k; });
+function rrInit(id){ if (!$('#rr_' + id + '_month').value) $('#rr_' + id + '_month').value = curMonthInput(); }
+function rrCell(col, v, isTot, pdf){
+  const R = pdf ? 'r' : 'num', C = pdf ? 'c' : '';
+  if (col.type === 'money') return '<td class="' + R + '">' + (isTot ? rptMoney(v) : rptCell(v)) + '</td>';
+  if (col.type === 'total') return '<td class="' + R + '"><b>' + rptMoney(v) + '</b></td>';
+  if (col.type === 'int') return '<td class="' + R + '">' + (isTot ? Number(v).toLocaleString('en-IN') : (Number(v) === 0 ? '–' : v)) + '</td>';
+  if (col.type === 'no' || col.type === 'date') return '<td' + (C ? ' class="' + C + '"' : ' style="text-align:center"') + '>' + esc(v) + '</td>';
+  return '<td>' + String(v == null ? '' : v).split('\n').map(esc).join('<br>') + '</td>';
+}
+function rrTable(d, pdf){
+  const head = '<tr>' + d.columns.map(c => '<th>' + esc(c.title) + '</th>').join('') + '</tr>';
+  const body = d.rows.map(r => '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>').join('') ||
+    '<tr><td colspan="' + d.columns.length + '">இந்த மாதத்திற்குப் பதிவுகள் இல்லை.</td></tr>';
+  const foot = '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, d.totals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(d.totals[i]) + '</td>').join('') + '</tr>';
+  return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
+}
+async function rrRun(id){
+  const p = 'rr_' + id, my = toMY($('#' + p + '_month').value);
+  $('#' + p + '_out').innerHTML = ''; $('#' + p + '_msg').innerHTML = '';
+  document.querySelectorAll('.rr-' + id + '-dl').forEach(b => b.style.display = 'none'); rptCache[p] = null;
+  if (!my){ note($('#' + p + '_msg'), 'warn', 'வரவு மாதத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  try{
+    const pend = $('#' + p + '_pend').checked ? '1' : '0';
+    const d = await getJSON('/receipts/admin/report/' + id + '.json?month=' + encodeURIComponent(my) + '&pending=' + pend);
+    if (!d.success){ note($('#' + p + '_msg'), 'bad', d.message); return; }
+    d.pendingFlag = pend; rptCache[p] = d;
+    $('#' + p + '_out').innerHTML = '<p><b>' + esc(d.title) + '</b> — ' + esc(rptMonthLabel(d.month)) + '</p>' +
+      d.notes.map(t => '<div class="msg info">' + esc(t) + '</div>').join('') +
+      '<div class="tw" style="max-height:none"><table>' + rrTable(d, false) + '</table></div>';
+    document.querySelectorAll('.rr-' + id + '-dl').forEach(b => b.style.display = '');
+  }catch(e){ note($('#' + p + '_msg'), 'bad', e.message); }
+}
+function rrPdf(id){
+  const d = rptCache['rr_' + id]; if (!d) return Promise.resolve();
+  const wide = d.columns.length > 14;
+  const html = '<div class="h1" style="font-size:20px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div>' +
+    '<div class="h2" style="font-size:17px">' + esc(d.title) + '</div>' +
+    '<div class="h3" style="font-size:15px">' + esc(rptMonthLabel(d.month)) + '</div>' +
+    '<table style="font-size:' + (wide ? 12 : 13.5) + 'px">' + rrTable(d, true) + '</table>' +
+    '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
+  return rptPdf(html, '', true, wide ? 1700 : 1400, 'Receipts_' + id + '_' + d.month.replace('/', '-') + '.pdf', {format: 'legal', onePage: !!RR[id].onePage});
+}
+Object.keys(RR).forEach(id => {
+  const p = 'rr_' + id;
+  $('#' + p + '_go').addEventListener('click', () => rrRun(id));
+  $('#' + p + '_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#' + p + '_msg'), () => rrPdf(id)));
+  $('#' + p + '_xls').addEventListener('click', () => { const d = rptCache[p]; if (d) location.href = '/receipts/admin/report/' + id + '.xlsx?month=' + encodeURIComponent(d.month) + '&pending=' + d.pendingFlag; });
+});
+
+/* ---------- சுருங்கி விரியும் மெனு ---------- */
+function navOpen(grp, open){ grp.setAttribute('aria-expanded', open ? 'true' : 'false'); const sub = grp.nextElementSibling; if (sub && sub.classList.contains('sub')) sub.classList.toggle('open', open); }
+document.querySelector('#nav').addEventListener('click', e => { const g = e.target.closest('button.grp'); if (g) navOpen(g, g.getAttribute('aria-expanded') !== 'true'); });
+function navRevealActive(){
+  const a = document.querySelector('#nav a.on'); if (!a) return;
+  for (let sub = a.closest('.sub'); sub; sub = sub.parentElement.closest('.sub')){ const g = sub.previousElementSibling; if (g && g.classList.contains('grp')) navOpen(g, true); }
+}
+
 const loaded = {};
 function lateMonthValue(){ const e=$('#lateMonth'); if(!e.value){ const d=new Date(); e.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); } return toMY(e.value); }
 async function loadLatePermissions(){
@@ -1355,6 +1496,8 @@ function route(){
   if (v === 'rptyear') rptYearInit();
   if (v === 'vendors') loadVendors();
   if (RV_BY_VIEW[v]) rvInit(RV_BY_VIEW[v]);
+  if (RR_BY_VIEW[v]) rrInit(RR_BY_VIEW[v]);
+  navRevealActive();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
