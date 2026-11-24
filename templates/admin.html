@@ -460,7 +460,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
   <div class="toolbar">
     <select id="msKind" style="width:auto" aria-label="வகை">
       <option value="claims">சில்லறை செலவினம் பதிவு இல்லாதவை</option>
-      <option value="receipts">வரவு பதிவு இல்லாதவை</option>
+      <option value="receipts">வரவு பதிவு இல்லாதவை (மொத்தம் 0 உட்பட)</option>
       <option value="stats">புள்ளி விவரம் இல்லாதவை (0 / காலி)</option>
     </select>
     <select id="msFy" style="width:auto" aria-label="நிதியாண்டு"><option value="all">எல்லா ஆண்டுகளும்</option></select>
@@ -1429,8 +1429,8 @@ async function loadCoverage(kind){
 ['claims','receipts'].forEach(k => $('#cvRefresh_' + k).addEventListener('click', () => loadCoverage(k)));
 
 /* ---------- விடுபாடு அறிக்கை ---------- */
-const MS_NOTE = {claims: 'சில்லறை செலவினப் பதிவே இல்லாத நூலகம் · மாதம்.', receipts: 'வரவுப் பதிவே (UPI / புள்ளி விவரம் உட்பட) இல்லாத நூலகம் · மாதம்.',
-  stats: 'வரவுப் பதிவு உள்ளது; ஆனால் வாசகர் வருகை / நூலிரவல் / நூல்கள் பயன்பாட்டில் ஏதேனும் 0 அல்லது காலி. (பதிவே இல்லாதவை "வரவு பதிவு இல்லாதவை" பகுதியில் வரும்.)'};
+const MS_NOTE = {claims: 'சில்லறை செலவினப் பதிவே இல்லாத நூலகம் · மாதம்.', receipts: 'வரவுப் பதிவே இல்லாத அல்லது வரவு மொத்தம் 0 உள்ள நூலகம் · மாதம் (புள்ளி விவரம் மட்டும் பதிவு செய்து பணம் செலுத்தாதவை உட்பட).',
+  stats: 'வரவுப் பதிவு உள்ளது; ஆனால் வாசகர் வருகை / நூலிரவல் / நூல்கள் பயன்பாட்டில் ஏதேனும் 0 அல்லது காலி. (வரவு மொத்தம் 0 / பதிவே இல்லாதவை "வரவு பதிவு இல்லாதவை" பகுதியில் வரும்.)'};
 let msData = null;
 async function loadMissing(){
   const box = $('#msBox'), sel = $('#msFy'), keep = sel.value || 'all';

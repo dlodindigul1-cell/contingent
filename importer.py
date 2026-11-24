@@ -516,7 +516,7 @@ def _upi_list(s):
     out = []
     for part in re.split(r"[,;\s/]+", s or ""):
         d = re.sub(r"\D", "", part)
-        if d and d not in out:
+        if d and d.strip("0") and d not in out:     # 000000000000 போன்ற இடம் நிரப்பும் எண்கள் UPI அல்ல
             out.append(d)
     return out
 

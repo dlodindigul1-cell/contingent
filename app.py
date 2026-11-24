@@ -1963,7 +1963,7 @@ def _fy_start_year(my):
 @app.get("/admin/api/missing")
 def admin_missing():
     """விடுபாடு அறிக்கை: சில்லறை செலவினம் / வரவு / புள்ளி விவரம் பதிவு இல்லாத நூலகங்கள் × மாதங்கள்.
-    kind = claims | receipts | stats ; fy = '2024-25' | 'all'. கணக்கிடப்படும் மாதங்கள்: நிதியாண்டில் முந்தைய மாதம் வரை (நடப்பு மாதம் முடியவில்லை)."""
+    kind = claims | receipts (பதிவு இல்லை அல்லது மொத்தம் 0) | stats ; fy = '2024-25' | 'all'. கணக்கிடப்படும் மாதங்கள்: நிதியாண்டில் முந்தைய மாதம் வரை (நடப்பு மாதம் முடியவில்லை)."""
     denied = admin_required_json()
     if denied:
         return denied
@@ -1994,10 +1994,11 @@ def admin_missing():
             bad = {(r["library_name"], r["month_year"]) for r in rows}
             missing = lambda lib, mo: (lib, mo) not in bad
         else:
-            rows = db.fetch_all("SELECT library_name, month_year, visitors, issues, book_usage FROM library_receipts "
+            rows = db.fetch_all("SELECT library_name, month_year, total_amount, visitors, issues, book_usage FROM library_receipts "
                                 "WHERE month_year = ANY(%s)", (months,))
             if kind == "receipts":
-                present = {(r["library_name"], r["month_year"]) for r in rows}
+                # வரவுத் தொகை (மொத்தம்) 0-க்கு மேல் உள்ள பதிவு மட்டுமே 'வரவு பதிவு உள்ளது'; பதிவே இல்லாதவை அல்லது மொத்தம் 0 உள்ளவை விடுபாடு
+                present = {(r["library_name"], r["month_year"]) for r in rows if r["total_amount"] and r["total_amount"] > 0}
                 missing = lambda lib, mo: (lib, mo) not in present
             else:      # வரவுப் பதிவு உள்ளது; ஆனால் புள்ளி விவரம் 0
                 zero = {(r["library_name"], r["month_year"]) for r in rows
