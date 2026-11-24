@@ -625,6 +625,8 @@ def do_receipts_approved(raw):
         with conn.cursor() as c:
             for e in entries:
                 lib, my, m, iv = e["lib"], e["month"], e["money"], e["ints"]
+                if not e["total"]:   # மொத்தம் 0 எனில் UPI எண் / தேதி எதுவாக இருந்தாலும் (எ.கா. 03102021) சேமிக்காமல் அழி
+                    e["upis"], e["dates"], e["date"] = [], [], None
                 c.execute("SELECT id, status FROM library_receipts WHERE library_name=%s AND month_year=%s FOR UPDATE", (lib, my))
                 old = c.fetchone()
                 if old and old[1] == "approved":

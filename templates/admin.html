@@ -1405,9 +1405,13 @@ function rrCell(col, v, isTot, pdf){
   if (col.type === 'no' || col.type === 'date') return '<td' + (C ? ' class="' + C + '"' : ' style="text-align:center"') + '>' + esc(v) + '</td>';
   return '<td>' + String(v == null ? '' : v).split('\n').map(esc).join('<br>') + '</td>';
 }
+const RR_BREAK = {'காப்புத்தொகை': 'காப்புத்<br>தொகை', 'சந்தாத் தொகை': 'சந்தாத்<br>தொகை', 'காலதாமதக் கட்டணம்': 'கால<br>தாமதக்<br>கட்டணம்',
+  'நூல் விலைப் பிடித்தம்': 'நூல்<br>விலைப்<br>பிடித்தம்', 'பழைய பத்திரிக்கை விற்பனை': 'பழைய<br>பத்திரிக்கை<br>விற்பனை', 'பழைய நூல்கள் விற்பனை': 'பழைய<br>நூல்கள்<br>விற்பனை',
+  'பெரும்புரவலர்': 'பெரும்<br>புரவலர்', 'கொடையாளர்': 'கொடை<br>யாளர்', 'இதர வரவுகள்': 'இதர<br>வரவுகள்'};
 function rrTable(d, pdf){
-  const head = '<tr>' + d.columns.map(c => '<th>' + esc(c.title) + '</th>').join('') + '</tr>';
-  const body = d.rows.map(r => '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>').join('') ||
+  const head = '<tr>' + d.columns.map(c => '<th style="white-space:normal">' + (RR_BREAK[c.title] || esc(c.title)) + '</th>').join('') + '</tr>';
+  const body = d.rows.map(r => Array.isArray(r) ? '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>' :
+    '<tr class="b"><td colspan="' + d.columns.length + '" style="font-weight:700;text-align:left;background:#e8eff9">' + esc(r.section) + '</td></tr>').join('') ||
     '<tr><td colspan="' + d.columns.length + '">இந்த மாதத்திற்குப் பதிவுகள் இல்லை.</td></tr>';
   const foot = '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, d.totals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(d.totals[i]) + '</td>').join('') + '</tr>';
   return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
@@ -1430,7 +1434,7 @@ async function rrRun(id){
 }
 function rrPdf(id){
   const d = rptCache['rr_' + id]; if (!d) return Promise.resolve();
-  const wide = d.columns.length > 14;
+  const wide = d.columns.length > 15;
   const html = '<div class="h1" style="font-size:20px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div>' +
     '<div class="h2" style="font-size:17px">' + esc(d.title) + '</div>' +
     '<div class="h3" style="font-size:15px">' + esc(rptMonthLabel(d.month)) + '</div>' +

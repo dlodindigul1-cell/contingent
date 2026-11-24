@@ -406,23 +406,44 @@ def _utr_pairs(r):
     return pairs
 
 
+LIB_GROUPS = [('மாவட்ட மைய நூலகம்', 'மாவட்ட மைய நூலகம்'), ('முழு நேர', 'முழு நேர நூலகங்கள்'),
+              ('கிளை', 'கிளை நூலகங்கள்'), ('ஊர்ப்புற', 'ஊர்ப்புற நூலகங்கள்'), ('பகுதி நேர', 'பகுதி நேர நூலகங்கள்')]
+
+
+def _group_of(lib_type):
+    t = str(lib_type or '')
+    for key, title in LIB_GROUPS:       # வரிசை முக்கியம்: 'முழு நேர கிளை' முதலில் முழு நேரத்தில் சேரும்
+        if key in t: return title
+    return 'பிற நூலகங்கள்'
+
+
 def build_receipt_report(kind, month, include_pending=False):
     if kind not in REPORT_TITLES: raise ValueError('தெரியாத அறிக்கை')
     month = _valid_month(month)
     all_rows = _report_rows(month, include_pending)
-    income = [r for r in all_rows if r['mode'] == 'income']
+    # மொத்தம் 0 எனில் UPI எண் எதுவாக இருந்தாலும் காட்டக்கூடாது (பழைய placeholder பதிவுகளுக்கும்)
+    for r in all_rows:
+        if not Decimal(str(r['total_amount'] or 0)):
+            r['txs'] = []; r['upi_numbers'] = ''; r['payment_dates'] = ''; r['payment_date'] = None
+    income = [r for r in all_rows if r['mode'] == 'income' and Decimal(str(r['total_amount'] or 0)) > 0]
     pending_skipped = 0
     if not include_pending:
         pending_skipped = db.fetch_one("SELECT count(*) c FROM library_receipts WHERE month_year=%s AND status='pending'", (month,))['c']
-    heads = [h for h, _ in REPORT_HEADS]
-    money_cols = [{'title': h, 'type': 'money'} for h in heads] + [{'title': 'மொத்தம்', 'type': 'total'}]
 
     def amounts(r): return [Decimal(str(r[c] or 0)) for _, c in REPORT_HEADS] + [Decimal(str(r['total_amount'] or 0))]
 
-    def sums(rs): 
-        tot = [Decimal(0)] * (len(heads) + 1)
+    def sums(rs):
+        tot = [Decimal(0)] * (len(REPORT_HEADS) + 1)
         for r in rs: tot = [a + b for a, b in zip(tot, amounts(r))]
         return tot
+
+    # தொகை இல்லாத (கூட்டு 0) இன நெடுவரிசைகளை நீக்கு; 'மொத்தம்' எப்போதும் இருக்கும்
+    base = sums(income if kind != 'monthly' else all_rows)
+    keep = [i for i in range(len(REPORT_HEADS)) if base[i] != 0] + [len(REPORT_HEADS)]
+    money_cols = [{'title': REPORT_HEADS[i][0] if i < len(REPORT_HEADS) else 'மொத்தம்',
+                   'type': 'money' if i < len(REPORT_HEADS) else 'total'} for i in keep]
+
+    def pick(vals): return [_num(vals[i]) for i in keep]
 
     notes = []
     if pending_skipped: notes.append(f'ஒப்புதல் நிலுவையில் உள்ள {pending_skipped} பதிவுகள் சேர்க்கப்படவில்லை (ஒப்புதல் அளித்தபின் சேரும்).')
@@ -430,39 +451,43 @@ def build_receipt_report(kind, month, include_pending=False):
     if kind == 'daily':
         groups = {}
         for r in income:
-            groups.setdefault(str(r['payment_date'])[:10] if r['payment_date'] else '', []).append(r)
-        keys = sorted(k for k in groups if k) + ([''] if '' in groups else [])
+            if r['payment_date']: groups.setdefault(str(r['payment_date'])[:10], []).append(r)
         cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நாள்', 'type': 'date'}] + money_cols
-        out = []
-        for i, k in enumerate(keys, 1):
-            out.append([i, _fdate(k) or 'தேதி குறிப்பிடப்படவில்லை'] + [_num(x) for x in sums(groups[k])])
-        totals = ['', 'மொத்தம்'] + [_num(x) for x in sums(income)]
+        out = [[i, _fdate(k)] + pick(sums(groups[k])) for i, k in enumerate(sorted(groups), 1)]
+        totals = ['', 'மொத்தம்'] + pick(sums([r for g in groups.values() for r in g]))
         notes.append('ஒரே நாளில் பல நூலகங்கள் பதிவு செய்திருந்தால் அவை கூட்டி ஒரே வரியாகக் காட்டப்படும்.')
     elif kind == 'upi':
-        recs = sorted(income, key=lambda r: (str(r['payment_date'] or '9999'), ))
+        recs = sorted((r for r in income if _utr_pairs(r)), key=lambda r: str(r['payment_date'] or '9999'))
         cols = ([{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நாள்', 'type': 'multi'},
                  {'title': 'Google Pay / PhonePe Transaction UTR எண்', 'type': 'multi'},
-                 {'title': 'தொகை செலுத்திய நாள்', 'type': 'date'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}] + money_cols)
+                 {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}] + money_cols)
         out = []
         for i, r in enumerate(recs, 1):
             pairs = _utr_pairs(r)
-            out.append([i, '\n'.join(_fdate(d) for _, d in pairs), '\n'.join(u for u, _ in pairs),
-                        _fdate(r['payment_date']), r['library_name']] + [_num(x) for x in amounts(r)])
-        totals = ['', '', '', '', 'மொத்தம்'] + [_num(x) for x in sums(income)]
-    else:  # monthly — புள்ளி விவரப் பதிவுகளும் (usage) சேரும்
+            out.append([i, '\n'.join(_fdate(d) for _, d in pairs), '\n'.join(u for u, _ in pairs), r['library_name']] + pick(amounts(r)))
+        totals = ['', '', '', 'மொத்தம்'] + pick(sums(recs))
+    else:  # monthly — வகை வாரியாகத் தலைப்புடன்; புள்ளி விவரப் பதிவுகளும் சேரும்
         cols = ([{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'},
                  {'title': 'Google Pay / PhonePe Transaction UTR எண்', 'type': 'multi'},
                  {'title': 'தொகை செலுத்திய நாள்', 'type': 'date'}] + money_cols +
                 [{'title': 'நடப்பு மாத வாசகர் வருகை', 'type': 'int'}, {'title': 'நடப்பு மாத நூலிரவல்', 'type': 'int'},
                  {'title': 'நடப்பு மாத நூல்கள் பயன்பாடு', 'type': 'int'}])
-        out = []
-        for i, r in enumerate(all_rows, 1):
-            out.append([i, r['library_name'], '\n'.join(u for u, _ in _utr_pairs(r)), _fdate(r['payment_date'])]
-                       + [_num(x) for x in amounts(r)] + [r['visitors'] or 0, r['issues'] or 0, r['book_usage'] or 0])
-        totals = ['', 'மொத்தம்', '', ''] + [_num(x) for x in sums(all_rows)] + [
+        types = {r['name']: r['lib_type'] for r in db.fetch_all('SELECT name, lib_type FROM libraries')}
+        order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
+        buckets = {t: [] for t in order}
+        for r in all_rows: buckets[_group_of(types.get(r['library_name']))].append(r)   # வரிசை: நூலகப் பட்டியல் வரிசை
+        out = []; n = 0
+        for t in order:
+            if not buckets[t]: continue
+            out.append({'section': t})
+            for r in buckets[t]:
+                n += 1
+                out.append([n, r['library_name'], '\n'.join(u for u, _ in _utr_pairs(r)), _fdate(r['payment_date'])]
+                           + pick(amounts(r)) + [r['visitors'] or 0, r['issues'] or 0, r['book_usage'] or 0])
+        totals = ['', 'மொத்தம்', '', ''] + pick(sums(all_rows)) + [
             sum(r['visitors'] or 0 for r in all_rows), sum(r['issues'] or 0 for r in all_rows), sum(r['book_usage'] or 0 for r in all_rows)]
-        reg = len(all_rows); total_libs = db.fetch_one('SELECT count(*) c FROM libraries')['c']
-        notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {reg}.')
+        total_libs = db.fetch_one('SELECT count(*) c FROM libraries')['c']
+        notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {len(all_rows)}.')
     return {'success': True, 'kind': kind, 'month': month, 'title': REPORT_TITLES[kind], 'columns': cols,
             'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
 
@@ -513,10 +538,16 @@ def receipt_report_xlsx(kind):
             if col['type'] in ('no', 'date'): x.alignment = Alignment(horizontal='center', vertical='top')
             if is_total: x.font = bold; x.fill = fill
     r = hr + 1
-    for vals in d['rows']: put(r, vals); r += 1
+    for vals in d['rows']:
+        if isinstance(vals, dict):
+            x = ws.cell(row=r, column=1, value=vals['section']); x.font = bold; x.fill = fill
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=n)
+            for c_i in range(1, n + 1): ws.cell(row=r, column=c_i).border = box
+        else: put(r, vals)
+        r += 1
     put(r, d['totals'], True)
     for c_i, col in enumerate(cols, 1):
-        w = {'no': 7, 'date': 14, 'multi': 24, 'text': 34, 'money': 14, 'total': 16, 'int': 14}[col['type']]
+        w = {'no': 6, 'date': 13, 'multi': 20, 'text': 30, 'money': 11, 'total': 13, 'int': 11}[col['type']]
         ws.column_dimensions[get_column_letter(c_i)].width = w
     ws.freeze_panes = ws.cell(row=hr + 1, column=1)
     ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
