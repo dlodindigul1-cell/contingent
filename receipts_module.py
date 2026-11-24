@@ -1,20 +1,22 @@
 """Independent library-receipts module. Existing contingent routes are untouched."""
-import calendar, datetime as dt, io, re
+import calendar, datetime as dt, io, re, hmac, os
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, current_app, jsonify, request, session, render_template
 import db
 
 receipts = Blueprint('receipts', __name__)
-PASSWORD = 'EKQ002866'
+PDF_PASSWORD = os.environ.get('RECEIPTS_PDF_PASSWORD', 'EKQ002866')
+RESET_PASSWORD = os.environ.get('RECEIPTS_RESET_PASSWORD', 'Dlodgl@789')
 EXCLUDED = ('REPAYMENT CREDIT', 'SWEEP TRANSFER', 'SWEEP', 'CLOSURE PROCEEDS')
 
 
 def _admin(): return bool(session.get('admin'))
 def _librarian(): return bool(session.get('librarian'))
-def _month_prev(d):
-    y, m = d.year, d.month-1
-    if m == 0: y, m = y-1, 12
-    return f'{m:02d}/{y}'
+def _valid_month(value):
+    value = str(value or '').strip()
+    if not re.fullmatch(r'(0[1-9]|1[0-2])/\d{4}', value):
+        raise ValueError('மாதத்தை MM/YYYY வடிவில் குறிப்பிடவும். உதா: 06/2026')
+    return value
 
 def _money(v):
     try:
@@ -38,13 +40,16 @@ def upload_statement():
     try:
         from pypdf import PdfReader
         reader=PdfReader(io.BytesIO(f.read()))
-        if reader.is_encrypted and not reader.decrypt(PASSWORD):
+        if reader.is_encrypted and not reader.decrypt(PDF_PASSWORD):
             return jsonify(success=False,message='PDF கடவுச்சொல் மூலம் திறக்க முடியவில்லை.'),400
         text='\n'.join(p.extract_text() or '' for p in reader.pages)
     except Exception as e:
         current_app.logger.exception('Bank PDF parse')
         return jsonify(success=False,message='PDF வாசிக்க முடியவில்லை: '+str(e)),400
-    month=_month_prev(dt.date.today())
+    try:
+        month = _valid_month(request.form.get('month'))
+    except ValueError as e:
+        return jsonify(success=False,message=str(e)),400
     rows=[]
     # Statement rows: date + particulars + optional cheque no + withdrawal + deposit + balance.
     for line in text.splitlines():
@@ -68,6 +73,44 @@ def upload_statement():
                 c.execute("INSERT INTO receipt_bank_transactions(batch_id,month_year,transaction_date,upi_number,amount,status) VALUES(%s,%s,to_date(%s,'DD-Mon-YYYY'),%s,%s,'available') ON CONFLICT(upi_number) DO NOTHING",(bid,month,date_s,upi,amount))
     db.run(save)
     return jsonify(success=True,month=month,inserted=len(rows),message=f'{month} மாதத்திற்கான UPI பரிவர்த்தனைகள் ஏற்றப்பட்டன. பொருந்தாத வரிகளை Admin சரிபார்க்க வேண்டும்.')
+
+@receipts.post('/receipts/admin/reset-month')
+def reset_month():
+    """Destructively clear every receipts-module record for one selected month.
+    Admin-only and protected by a separate confirmation password.
+    Keeps the audit trail of the reset itself.
+    """
+    if not _admin():
+        return jsonify(success=False, message='Admin அனுமதி தேவை'), 403
+    j = request.get_json(silent=True) or {}
+    try:
+        month = _valid_month(j.get('month'))
+    except ValueError as e:
+        return jsonify(success=False, message=str(e)), 400
+    supplied = str(j.get('password') or '')
+    if not hmac.compare_digest(supplied, RESET_PASSWORD):
+        return jsonify(success=False, message='கடவுச்சொல் தவறானது.'), 403
+    def clear_month(conn):
+        with conn.cursor() as c:
+            # Delete only the selected month from the new receipts module.
+            c.execute('DELETE FROM receipt_bank_transactions WHERE month_year=%s', (month,))
+            deleted_transactions = c.rowcount
+            c.execute('DELETE FROM library_receipts WHERE month_year=%s', (month,))
+            deleted_receipts = c.rowcount
+            c.execute('DELETE FROM receipt_statement_batches WHERE month_year=%s', (month,))
+            deleted_batches = c.rowcount
+            c.execute("INSERT INTO receipt_admin_audit(transaction_id,action,reason,admin_name) VALUES(NULL,'reset_month',%s,%s)",
+                      (f'{month} மாதத்தின் அனைத்து வரவு/UPI/பாஸ்புத்தக பதிவுகளும் அழிக்கப்பட்டன. Tx={deleted_transactions}, Receipts={deleted_receipts}, Batches={deleted_batches}', session.get('admin_user','Admin')))
+            return deleted_transactions, deleted_receipts, deleted_batches
+    try:
+        tx_count, receipt_count, batch_count = db.run(clear_month)
+    except Exception as e:
+        current_app.logger.exception('Receipt month reset failed')
+        return jsonify(success=False, message='அழிக்கும் நடவடிக்கை தோல்வியடைந்தது.'), 500
+    return jsonify(success=True, month=month, deleted_transactions=tx_count,
+                   deleted_receipts=receipt_count, deleted_batches=batch_count,
+                   message=f'{month} மாதத்திற்கான வரவு, UPI மற்றும் பாஸ்புத்தகப் பதிவுகள் அழிக்கப்பட்டன. Audit பதிவு பாதுகாக்கப்பட்டுள்ளது.')
+
 
 @receipts.get('/receipts/admin/transactions')
 def admin_transactions():

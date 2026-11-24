@@ -71,3 +71,10 @@ Admin கடவுச்சொல் Render-ன் `ADMIN_PASSWORD` environment 
 - மூன்றிலும் **அனுமதிக்கப்பட்ட பதிவுகள் மட்டுமே** சேரும். PDF: உலாவியிலேயே (html2canvas + jsPDF); Excel: `/admin/report/<librarian|paycenter|yearly>.xlsx`.
 - ஊதிய மையம் இல்லாத நூலகத்தின் தொகை அறிக்கை 13-ல் "ஊதிய மையம் குறிப்பிடப்படவில்லை" வரியாக வரும்.
 - (நாளிதழ் / வாடகைதாரர் Vendor அறிக்கைகள் பின்னர்.)
+
+## நூலக வரவின Module — மாதத் தேர்வு மற்றும் சோதனை Reset
+- Admin பாஸ்புத்தகம் பதிவேற்றும்போது வரவு மாதத்தை `MM/YYYY` வடிவில் கட்டாயம் தேர்வு செய்ய வேண்டும். பதிவேற்றிய மாதத்திற்கு முந்தைய மாதம் என தானாகக் கணக்கிடப்படாது.
+- குறிப்பிட்ட மாதத்தின் அனைத்து வரவு Module தரவுகளையும் அழிக்க Admin பக்கத்தில் உள்ள Reset பகுதியில் அதே `MM/YYYY` மாதத்தையும் Reset கடவுச்சொல்லையும் உள்ளிட வேண்டும்.
+- Reset அந்த மாதத்தின் `receipt_bank_transactions`, `library_receipts`, `receipt_statement_batches` பதிவுகளை மட்டும் நீக்கும். பழைய சில்லறை செலவின அட்டவணைகளைத் தொடாது. Reset நடவடிக்கையின் audit பதிவு மட்டும் பாதுகாக்கப்படும்.
+- இயல்புநிலை சோதனை Reset கடவுச்சொல் `Dlodgl@789`. Production-க்கு முன் Render Environment-ல் `RECEIPTS_RESET_PASSWORD` என்ற Secret Environment Variable அமைத்து வேறு வலுவான கடவுச்சொல்லை பயன்படுத்தவும்.
+- வங்கிப் PDF password-ஐ `RECEIPTS_PDF_PASSWORD` Environment Variable மூலம் மாற்றலாம்; இயல்புநிலை `EKQ002866`.
