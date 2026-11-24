@@ -199,11 +199,30 @@ def submit_receipt():
     except Exception as e: return jsonify(success=False,message=str(e)),400
     return jsonify(success=True,message='பதிவு சேமிக்கப்பட்டது. Admin ஒப்புதல் நிலுவையில் உள்ளது.')
 
+_PENDING_SQL = ("SELECT r.*, COALESCE(json_agg(json_build_object('upi',t.upi_number,'amount',t.amount,'date',t.transaction_date)) "
+                "FILTER(WHERE t.id IS NOT NULL),'[]') transactions FROM library_receipts r "
+                "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id WHERE {where} GROUP BY r.id ORDER BY {order}")
+
 @receipts.get('/receipts/admin/pending')
 def pending():
+    """நிலுவையில் உள்ள (ஒப்புதல் அளிக்கப்படாத) பதிவுகள் மட்டும்."""
     if not _admin(): return jsonify(success=False),403
-    rows=db.fetch_all("SELECT r.*, COALESCE(json_agg(json_build_object('upi',t.upi_number,'amount',t.amount,'date',t.transaction_date)) FILTER(WHERE t.id IS NOT NULL),'[]') transactions FROM library_receipts r LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id GROUP BY r.id ORDER BY r.created_at DESC")
+    rows=db.fetch_all(_PENDING_SQL.format(where="r.status='pending'",order="r.created_at DESC"))
     return jsonify(rows=[dict(r) for r in rows])
+
+@receipts.get('/receipts/admin/approved')
+def approved_list():
+    """ஒப்புதல் பெற்ற பதிவுகள் (மாதம் / நூலகப் பெயர் வடிகட்டி; அதிகபட்சம் 600)."""
+    if not _admin(): return jsonify(success=False),403
+    month=(request.args.get('month') or '').strip(); q=(request.args.get('q') or '').strip()
+    months=[m['month_year'] for m in db.fetch_all("SELECT DISTINCT month_year FROM library_receipts WHERE status='approved'")]
+    months=sorted([m for m in months if m and len(m)==7],key=lambda m:(m[3:],m[:2]),reverse=True)
+    cond,args=["r.status='approved'"],[]
+    if month: cond.append("r.month_year=%s"); args.append(month)
+    if q: cond.append("r.library_name ILIKE %s"); args.append('%'+q+'%')
+    sql=_PENDING_SQL.format(where=" AND ".join(cond),order="r.library_name")+" LIMIT 600"
+    rows=db.fetch_all(sql,tuple(args))
+    return jsonify(months=months,rows=[dict(r) for r in rows],limited=len(rows)>=600)
 
 @receipts.post('/receipts/admin/approve/<int:rid>')
 def approve(rid):
