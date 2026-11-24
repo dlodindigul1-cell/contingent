@@ -1925,6 +1925,32 @@ def admin_template(kind):
                     headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
+@app.get("/admin/api/import-coverage/<kind>")
+def admin_import_coverage(kind):
+    """தரவு ஏற்றப் பக்கங்களுக்கு: எந்த மாதம் முதல் எந்த மாதம் வரை தரவு உள்ளது (மாதம் வாரியாக எண்ணிக்கை)."""
+    denied = admin_required_json()
+    if denied:
+        return denied
+    if kind == "claims":
+        sql = ("SELECT month_year, COUNT(*) AS n, COUNT(*) FILTER (WHERE approved) AS ok, "
+               "COALESCE(SUM(approved_amount) FILTER (WHERE approved), 0) AS amt FROM claims GROUP BY 1")
+    elif kind == "receipts":
+        sql = ("SELECT month_year, COUNT(*) AS n, COUNT(*) FILTER (WHERE status = 'approved') AS ok, "
+               "COALESCE(SUM(total_amount) FILTER (WHERE status = 'approved'), 0) AS amt FROM library_receipts GROUP BY 1")
+    else:
+        return _bad("தெரியாத வகை")
+    try:
+        rows = db.fetch_all(sql)
+        libs = db.fetch_one("SELECT COUNT(*) AS n FROM libraries")["n"]
+    except Exception:
+        app.logger.exception("coverage %s", kind)
+        return _bad("தரவைப் படிக்க முடியவில்லை (அட்டவணைகள் உருவாக்கப்படவில்லையா?)")
+    rows = [r for r in rows if len(r["month_year"] or "") == 7]
+    rows.sort(key=lambda r: (r["month_year"][3:], r["month_year"][:2]))
+    return _ok(libraries=libs, rows=[{"month": r["month_year"], "count": r["n"], "approved": r["ok"],
+                                      "amount": float(r["amt"])} for r in rows])
+
+
 def admin_required_json():
     if not session.get("admin"):
         return jsonify({"success": False, "message": "Admin உள்நுழைவு தேவை"}), 401

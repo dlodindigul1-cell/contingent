@@ -420,6 +420,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
 <section class="view" id="v-claimsimport">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › சில்லறை செலவின அனுமதி</p>
   <h2 class="pt">2A. சில்லறை செலவின அனுமதித் தரவு ஏற்றம்</h2>
+  <div class="panel"><h3>📅 இதுவரை ஏற்றப்பட்டுள்ள தரவு <button class="btn alt sm" type="button" id="cvRefresh_claims" style="margin-left:10px">⟳ புதுப்பி</button></h3><div class="bd" id="cv_claims"><span class="lead">ஏற்றப்படுகிறது…</span></div></div>
   <p class="lead">ஏப்ரல் 2024 முதல் (நிதியாண்டு 2024-25, 2025-26 மற்றும் 2026-27) நீங்கள் முன்பு அனுமதித்த மாதங்களை ஏற்றலாம். ஒரு மாதம் அல்லது ஒரு ஆண்டு முழுவதும் (எல்லா நூலகங்களும்) ஒரே கோப்பில் ஏற்றலாம்.</p>
   <div class="panel"><h3>📥 ஏற்கனவே அனுமதித்த மாதங்களை Excel மூலம் ஏற்று</h3><div class="bd">
     <p class="small"><b>பெயர், பணிநாட்கள், தேதி தேவையில்லை — தொகை மட்டுமே</b>. நெடுவரிசைகள்: <b>மாதம் (MM/YYYY), ஊதிய மையம், நூலகத்தின் பெயர், நாளிதழ்கள், வாடகை, மின் கட்டணம், தினக்கூலி (துப்புரவாளர் / நூலகர் / காவலர் / பகுதிநேர நூலகர்), பேருந்து, எழுது பொருட்கள், நுகர்பொருள், மின்சாதனங்கள், அஞ்சல், நகல், பிற 1, பிற 2, போக்குவரத்து, குடிநீர், தொலைபேசி, கழிவறை சுத்தம்</b>. <b>மொத்தம்</b>, <b>மொத்த செலவினம் (நாளிதழ்/வாடகை தவிர்த்து)</b>, <b>மொத்த செலவினம்</b> ஆகியவை மாதிரி Excel-ல் தானாகக் கூடும்; ஏற்றும்போது அமைப்பே மீண்டும் கணக்கிடும். ஏற்றப்படுபவை <b>அனுமதிக்கப்பட்டவை</b> எனச் சேமிக்கப்படும்; தொகைகள் அப்படியே நிலையாக இருக்கும் (கூலி விகிதம் பின்னர் மாறினாலும் மாறாது). ஏற்கனவே அனுமதிக்கப்பட்ட மாதம் இருந்தால் அது மாற்றப்படாது. <a href="/admin/template/claims_approved.xlsx">மாதிரி Excel</a></p>
@@ -432,6 +433,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
 <section class="view" id="v-receiptsimport">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › வரவினம்</p>
   <h2 class="pt">2B. வரவினத் தரவு ஏற்றம்</h2>
+  <div class="panel"><h3>📅 இதுவரை ஏற்றப்பட்டுள்ள தரவு <button class="btn alt sm" type="button" id="cvRefresh_receipts" style="margin-left:10px">⟳ புதுப்பி</button></h3><div class="bd" id="cv_receipts"><span class="lead">ஏற்றப்படுகிறது…</span></div></div>
   <p class="lead">ஏப்ரல் 2024 முதல் (நிதியாண்டு 2024-25, 2025-26 மற்றும் 2026-27) நூலகங்கள் ஏற்கனவே பதிவு செய்த மாத வரவினங்களை Excel மூலம் ஏற்றலாம். ஒரு மாதம் அல்லது ஒரு ஆண்டு முழுவதும் (எல்லா நூலகங்களும்) ஒரே கோப்பில் ஏற்றலாம்.</p>
   <div class="panel"><h3>📥 ஏற்கனவே பதிவான வரவினங்களை Excel மூலம் ஏற்று</h3><div class="bd">
     <p class="small">நெடுவரிசைகள் (முதல் வரி தலைப்பு; தலைப்புகளை மாற்ற வேண்டாம்): <code>மாதம்</code> <code>நூலகத்தின் பெயர்</code> <code>UPI NUMBER</code> <code>தொகை செலுத்திய நாள்</code> <code>காப்புத்தொகை</code> <code>சந்தாத் தொகை</code> <code>காலதாமதக் கட்டணம்</code> <code>நூல் விலைப் பிடித்தம்</code> <code>பழைய பத்திரிக்கை விற்பனை</code> <code>பழைய நூல்கள் விற்பனை</code> <code>புரவலர்</code> <code>பெரும்புரவலர்</code> <code>கொடையாளர்</code> <code>இதர வரவுகள்</code> <code>மொத்தம்</code> <code>நடப்பு மாத வாசகர் வருகை</code> <code>நடப்பு மாத நூலிரவல்</code> <code>நடப்பு மாத நூல்கள் பயன்பாடு</code>.</p>
@@ -1322,6 +1324,8 @@ function route(){
   if (v === 'holidays') loadHolidays();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
+  if (v === 'claimsimport') loadCoverage('claims');
+  if (v === 'receiptsimport') loadCoverage('receipts');
   if (v === 'latepermission') loadLatePermissions();
   if (v === 'rptlib') rptLibInit();
   if (v === 'rptpay') rptPayInit();
@@ -1366,12 +1370,40 @@ function bindUpload(kind){
         if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); if ($('#v-manage').classList.contains('on')) loadManage(); }
         if (kind === 'holidays') loadHolidays();
         if (kind.indexOf('vendors_') === 0) loadVendors();
+        if (kind === 'claims_approved') loadCoverage('claims');
+        if (kind === 'receipts_approved') loadCoverage('receipts');
       }
     }catch(e){ note(out, 'bad', e.message); }
     btn.disabled = false;
   });
 }
 ['libraries','leave','dailywage','holidays','claims_approved','receipts_approved','vendors_paper','vendors_rent'].forEach(bindUpload);
+
+/* ---------- தரவு ஏற்றம்: இதுவரை உள்ள மாதங்கள் ---------- */
+function fyOf(my){ const m = +my.slice(0,2), y = +my.slice(3); const s = m >= 4 ? y : y - 1; return s + '-' + String((s + 1) % 100).padStart(2,'0'); }
+async function loadCoverage(kind){
+  const box = $('#cv_' + kind);
+  box.innerHTML = '<span class="lead">ஏற்றப்படுகிறது…</span>';
+  try{
+    const j = await getJSON('/admin/api/import-coverage/' + kind);
+    if (!j.success){ box.innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; return; }
+    if (!j.rows.length){ box.innerHTML = '<div class="msg info">இதுவரை எந்த மாதத் தரவும் ஏற்றப்படவில்லை.</div>'; return; }
+    const first = j.rows[0].month, last = j.rows[j.rows.length - 1].month;
+    // இடையில் விடுபட்ட மாதங்கள்
+    const have = new Set(j.rows.map(r => r.month)), gaps = [];
+    let m = +first.slice(0,2), y = +first.slice(3);
+    while (y < +last.slice(3) || (y === +last.slice(3) && m <= +last.slice(0,2))){
+      const k = String(m).padStart(2,'0') + '/' + y; if (!have.has(k)) gaps.push(k);
+      if (++m > 12){ m = 1; y++; }
+    }
+    let h = '<div class="msg ok"><b>' + esc(first) + '</b> முதல் <b>' + esc(last) + '</b> வரை தரவு உள்ளது (' + j.rows.length + ' மாதங்கள்).</div>';
+    if (gaps.length) h += '<div class="msg warn">இடையில் தரவு இல்லாத மாதங்கள்: ' + gaps.map(esc).join(', ') + '</div>';
+    h += '<div class="tw" style="max-height:340px"><table><thead><tr><th>நிதியாண்டு</th><th>மாதம்</th><th style="text-align:right">பதிவான நூலகங்கள்</th><th style="text-align:right">அனுமதி / ஒப்புதல் பெற்றவை</th><th style="text-align:right">தொகை (₹)</th></tr></thead><tbody>' +
+      j.rows.map(r => '<tr><td>' + fyOf(r.month) + '</td><td>' + esc(r.month) + '</td><td style="text-align:right">' + r.count + ' / ' + j.libraries + '</td><td style="text-align:right">' + r.approved + '</td><td style="text-align:right">' + r.amount.toLocaleString('en-IN') + '</td></tr>').join('') + '</tbody></table></div>';
+    box.innerHTML = h;
+  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+}
+['claims','receipts'].forEach(k => $('#cvRefresh_' + k).addEventListener('click', () => loadCoverage(k)));
 
 $('#btnSchema').addEventListener('click', async () => {
   const b = $('#btnSchema'), out = $('#msgSchema');
