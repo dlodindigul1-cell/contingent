@@ -256,3 +256,31 @@ CREATE TABLE IF NOT EXISTS voucher_download_permissions (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_voucher_perm_lib ON voucher_download_permissions(library_name, month_year);
+
+-- ============================================================
+-- தனித்த நூலக வரவின மேலாண்மை (பழைய contingent அட்டவணைகளை மாற்றாது)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS receipt_statement_batches (
+ id BIGSERIAL PRIMARY KEY, month_year TEXT NOT NULL, filename TEXT NOT NULL,
+ uploaded_by TEXT NOT NULL DEFAULT '', uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS library_receipts (
+ id BIGSERIAL PRIMARY KEY, library_name TEXT NOT NULL REFERENCES libraries(name),
+ month_year TEXT NOT NULL, security_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+ annual_amount NUMERIC(14,2) NOT NULL DEFAULT 0, newspaper_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+ total_amount NUMERIC(14,2) NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved')),
+ created_by TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ approved_by TEXT, approved_at TIMESTAMPTZ, UNIQUE(library_name,month_year)
+);
+CREATE TABLE IF NOT EXISTS receipt_bank_transactions (
+ id BIGSERIAL PRIMARY KEY, batch_id BIGINT REFERENCES receipt_statement_batches(id) ON DELETE CASCADE,
+ month_year TEXT NOT NULL, transaction_date DATE NOT NULL, upi_number TEXT NOT NULL UNIQUE,
+ amount NUMERIC(14,2) NOT NULL, status TEXT NOT NULL DEFAULT 'available' CHECK(status IN ('available','reserved','used')),
+ library_name TEXT, receipt_id BIGINT REFERENCES library_receipts(id) ON DELETE SET NULL,
+ uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_receipt_tx_month_status ON receipt_bank_transactions(month_year,status);
+CREATE TABLE IF NOT EXISTS receipt_admin_audit (
+ id BIGSERIAL PRIMARY KEY, transaction_id BIGINT, action TEXT NOT NULL, reason TEXT NOT NULL,
+ admin_name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
