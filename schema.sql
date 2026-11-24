@@ -310,6 +310,10 @@ ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS visitors INTEGER NOT NULL 
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS issues INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS book_usage INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS book_stock INTEGER NOT NULL DEFAULT 0;
+-- Excel மூலம் ஏற்றிய பழைய வரவினங்களின் UPI எண்கள் (பல இருந்தால் கமாவால் பிரிக்கப்பட்டு) — நூல் இருப்பு 0 ஆகவே இருக்கும்; நூலகர் முதன்முறை பதிவு செய்யும்போது சேர்ப்பார்
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS upi_numbers TEXT NOT NULL DEFAULT '';
+-- Excel மூலம் ஏற்றிய பதிவில் ஒன்றுக்கு மேற்பட்ட UPI இருந்தால், அவற்றின் பணம் செலுத்திய தேதிகள் (YYYY-MM-DD, கமாவால் பிரிக்கப்பட்டு)
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS payment_dates TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS receipt_admin_audit (
  id BIGSERIAL PRIMARY KEY, transaction_id BIGINT, action TEXT NOT NULL, reason TEXT NOT NULL,
  admin_name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -1705,12 +1705,41 @@ def _hist_template():
     """ஏற்கனவே அனுமதித்த மாதங்கள் — புதிய (தொகை மட்டும்) மாதிரி Excel. மொத்த நெடுவரிசைகள் சூத்திரமாக இருக்கும்."""
     heads = [t for t, _ in importer.HIST_NEW_COLS]
     sample = [""] * len(heads)
-    sample[0], sample[1], sample[2] = "04/2025", "எடுத்துக்காட்டு ஊதிய மையம்", "எடுத்துக்காட்டு நூலகம்"
+    sample[0], sample[1], sample[2] = "04/2024", "எடுத்துக்காட்டு ஊதிய மையம்", "எடுத்துக்காட்டு நூலகம்"
     widths = [12, 26, 34, 14] + [16] * (len(heads) - 4)
     return ("approved_months_template.xlsx", [heads], sample, widths)
 
 
 HIST_FORMULA_ROWS = 1500      # சூத்திரம் முன்பே நிரப்பப்படும் வரிகள்
+
+
+def _receipts_template():
+    """ஏற்கனவே பதிவான வரவினங்கள் — மாதிரி Excel (மொத்தம் சூத்திரம்; நூல் இருப்பு இல்லை)."""
+    heads = [t for t, _ in importer.RECEIPT_COLS]
+    sample = [""] * len(heads)
+    sample[0], sample[1], sample[2], sample[3] = "04/2024", "எடுத்துக்காட்டு நூலகம்", "627901018885", "05/04/2024"
+    sample[4], sample[5] = 500, 1200
+    sample[15], sample[16], sample[17] = 850, 420, 380
+    widths = [12, 34, 26, 16] + [14] * 10 + [14, 16, 16, 18]
+    return ("receipts_approved_template.xlsx", [heads], sample, widths)
+
+
+def _add_receipt_formulas(ws, last_row=HIST_FORMULA_ROWS):
+    """'மொத்தம்' = காப்புத்தொகை முதல் இதர வரவுகள் வரை கூட்டுத்தொகை. மாதம் / UPI / தேதி உரையாக இருக்கும்."""
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    ix = {k: i + 1 for i, (_, k) in enumerate(importer.RECEIPT_COLS)}
+    L = lambda k: get_column_letter(ix[k])
+    fill = PatternFill("solid", fgColor="EEF2FA")
+    for r in range(2, last_row + 1):
+        f = (f"=IF(${L('_lib')}{r}=\"\",\"\",SUM({L('security')}{r}:{L('other_income')}{r}))")
+        c = ws.cell(r, ix["_total"], f)
+        c.fill = fill
+        c.font = Font(name="Nirmala UI", bold=True)
+        for k in ("_month", "_upi", "_date"):
+            ws.cell(r, ix[k]).number_format = "@"
+
+
 
 
 def _add_hist_formulas(ws, last_row=HIST_FORMULA_ROWS):
@@ -1731,11 +1760,12 @@ def _add_hist_formulas(ws, last_row=HIST_FORMULA_ROWS):
             c = ws.cell(r, ix[key], f)
             c.fill = fill
             c.font = Font(name="Nirmala UI", bold=True)
-        ws.cell(r, 1).number_format = "@"          # 04/2025 தேதியாக மாறாமல் இருக்க
+        ws.cell(r, 1).number_format = "@"          # 04/2024 தேதியாக மாறாமல் இருக்க
 
 
 TEMPLATE_XLSX = {
     "claims_approved": _hist_template(),
+    "receipts_approved": _receipts_template(),
     "libraries": ("libraries_template.xlsx",
                   [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை", "ஊதிய மையம்"]],
                   ["எடுத்துக்காட்டு நூலகம்", "TNDPL00001", "library@example.com", "கிளை நூலகம்", "எடுத்துக்காட்டு ஊதிய மையம்"],
@@ -1824,6 +1854,8 @@ def build_template(kind):
     # குறியீடு உரையாக இருக்க (முன் பூஜ்யம் போகாமல்); தேதி உரையாகவே இருக்கும்
     if kind == "claims_approved":
         _add_hist_formulas(ws)
+    if kind == "receipts_approved":
+        _add_receipt_formulas(ws)
     if kind == "libraries":
         for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             ws.cell(r, 2).number_format = "@"

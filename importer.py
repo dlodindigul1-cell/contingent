@@ -348,7 +348,7 @@ HIST_NEW_COLS = [
 # தலைப்பில் எழுத்துப்பிழை இருந்தாலும் (எ.கா. 'மொத்த செலவினம') அடையாளம் காண
 HIST_HEADER_ALIASES = {"மொத்த செலவினம": "_total", "மொத்த செலவினம (நாளிதழ்/வாடகை தவிர்த்து)": "_total_ex"}
 HIST_PAPER_RE = re.compile(r"^\s*நாளிதழ்\s*(\d+)")
-HIST_FIRST_YEAR_START = (2025, 4)      # ஏப்ரல் 2025 (நிதியாண்டு 2025-26 தொடக்கம்)
+HIST_FIRST_YEAR_START = (2024, 4)      # ஏப்ரல் 2024 (நிதியாண்டு 2024-25 தொடக்கம்)
 HIST_LAST = (2027, 3)                  # மார்ச் 2027 (நிதியாண்டு 2026-27 முடிவு)
 _MONEY_KEYS = ["electricityBill", "rentAmount", "phoneWifiAmount", "waterTax", "photocopyAmount",
                "busAmount", "travelAmount", "postalAmount", "registerAmount", "stationeryAmount",
@@ -412,7 +412,7 @@ def do_claims_approved(raw):
             continue
         mm, yy = int(my[:2]), int(my[3:])
         if not (HIST_FIRST_YEAR_START <= (yy, mm) <= HIST_LAST):
-            skipped.append(f"வரி {n} ({lib}): மாதம் {my} — ஏப்ரல் 2025 முதல் மார்ச் 2027 வரை மட்டுமே ஏற்றலாம்")
+            skipped.append(f"வரி {n} ({lib}): மாதம் {my} — ஏப்ரல் 2024 முதல் மார்ச் 2027 வரை மட்டுமே ஏற்றலாம்")
             continue
         L = libs.get(lib)
         code = ((L or {}).get("code") or "").strip().upper()
@@ -480,6 +480,186 @@ def do_claims_approved(raw):
         inserted += a
         updated += b
     return result(inserted + updated, skipped) | {"inserted": inserted, "updated": updated}
+
+
+# ---------------------------------------------------------------- ஏற்கனவே பதிவான வரவினங்கள் (Excel)
+# தலைப்பின் பெயரைக் கொண்டே நெடுவரிசை அடையாளம் காணப்படும். 'மொத்தம்' நெடுவரிசை சேமிக்கப்படாது —
+# அமைப்பே இனங்களைக் கூட்டிக் கணக்கிடும். நூல் இருப்பு இதில் இல்லை (நூலகர் பதிவு செய்யும்போது சேர்ப்பார்).
+RECEIPT_COLS = [
+    ("மாதம்", "_month"), ("நூலகத்தின் பெயர்", "_lib"), ("UPI NUMBER", "_upi"), ("தொகை செலுத்திய நாள்", "_date"),
+    ("காப்புத்தொகை", "security"), ("சந்தாத் தொகை", "annual"), ("காலதாமதக் கட்டணம்", "late_fee"),
+    ("நூல் விலைப் பிடித்தம்", "book_fine"), ("பழைய பத்திரிக்கை விற்பனை", "newspaper"),
+    ("பழைய நூல்கள் விற்பனை", "old_book_sale"), ("புரவலர்", "patron"), ("பெரும்புரவலர்", "chief_patron"),
+    ("கொடையாளர்", "donor"), ("இதர வரவுகள்", "other_income"), ("மொத்தம்", "_total"),
+    ("நடப்பு மாத வாசகர் வருகை", "visitors"), ("நடப்பு மாத நூலிரவல்", "issues"),
+    ("நடப்பு மாத நூல்கள் பயன்பாடு", "book_usage"),
+]
+RECEIPT_MONEY = ["security", "annual", "late_fee", "book_fine", "newspaper", "old_book_sale",
+                 "patron", "chief_patron", "donor", "other_income"]
+RECEIPT_INTS = ["visitors", "issues", "book_usage"]
+
+
+def _receipt_head(s):
+    """தலைப்பை ஒப்பிட: இடைவெளி / அடைப்புக்குறி / பெரிய-சிறிய எழுத்து வேறுபாடு பொருட்படுத்தாது."""
+    return re.sub(r"[\s\.\(\)_\-/]+", "", (s or "").strip()).upper()
+
+
+_RECEIPT_HEAD_MAP = {_receipt_head(t): k for t, k in RECEIPT_COLS}
+_RECEIPT_HEAD_MAP.update({_receipt_head("UPI NO"): "_upi", _receipt_head("UTR"): "_upi",
+                          _receipt_head("பழைய நாளிதழ் விற்பனை"): "newspaper",
+                          _receipt_head("பழைய பத்திரிகை விற்பனை"): "newspaper",
+                          _receipt_head("மாதம் (MM/YYYY)"): "_month"})
+
+
+def _upi_list(s):
+    """'627901018885, 630249538322' -> ['627901018885', '630249538322'] (இலக்கங்கள் மட்டும்; நகல் நீக்கம்)."""
+    out = []
+    for part in re.split(r"[,;\s/]+", s or ""):
+        d = re.sub(r"\D", "", part)
+        if d and d not in out:
+            out.append(d)
+    return out
+
+
+def _date_list(s):
+    """'05/04/2024, 10/04/2024' -> [date, date]; புரியாத பகுதி இருந்தால் (dates, [தவறானவை])."""
+    out, bad = [], []
+    for part in re.split(r"[,;\n]+", s or ""):
+        part = part.strip()
+        if not part:
+            continue
+        d = parse_date(part)
+        if d:
+            out.append(d)
+            continue
+        toks = part.split()
+        ds = [parse_date(t) for t in toks]
+        if len(toks) > 1 and all(ds):
+            out.extend(ds)
+        else:
+            bad.append(part)
+    return list(dict.fromkeys(out)), bad
+
+
+def do_receipts_approved(raw):
+    """ஏற்கனவே பதிவான மாத வரவினங்களை ஏற்றும் (ஏப்ரல் 2024 முதல்). இவை 'ஒப்புதல் பெற்றவை' என்றே சேமிக்கப்படும்.
+    - ஏற்கனவே ஒப்புதல் பெற்ற நூலகம்-மாதம் இருந்தால் மாற்றாமல் தவிர்க்கும்.
+    - ஒரே ஒரு UPI எண் இருந்தால், அது 'பயன்படுத்தப்பட்டது' எனப் பதிவாகும் (பின்னர் அதே பாஸ்புத்தகத்தை ஏற்றினாலும் மீண்டும் பயன்படுத்த முடியாது).
+    - அனைத்து இனங்களும் 0 ஆகவும் UPI காலியாகவும் இருந்தால் 'பயன்பாடு மட்டும்' பதிவாகச் சேமிக்கப்படும்."""
+    rows = read_rows(raw, skip=0)
+    if not rows:
+        raise ValueError("கோப்பு காலியாக உள்ளது")
+    col = {}
+    for i, h in enumerate(rows[0]):
+        k = _RECEIPT_HEAD_MAP.get(_receipt_head(h))
+        if k and k not in col:
+            col[k] = i
+    for need in ("_month", "_lib"):
+        if need not in col:
+            raise ValueError("தலைப்பு வரி சரியில்லை — மாதிரி Excel-ஐப் பதிவிறக்கி, அதன் தலைப்புகளை மாற்றாமல் பயன்படுத்தவும் "
+                             "(தலைப்புகள் 'மாதம்' மற்றும் 'நூலகத்தின் பெயர்' இருக்க வேண்டும்).")
+    libs = {r["name"] for r in db.fetch_all("SELECT name FROM libraries")}
+    skipped, entries, seen = [], [], set()
+    for n, r in enumerate(rows[1:], start=2):
+        lib = cell(r, col["_lib"])
+        if not lib:
+            continue
+        my = hist_month(cell(r, col["_month"]))
+        if not my:
+            skipped.append(f"வரி {n} ({lib}): மாதம் புரியவில்லை '{cell(r, col['_month'])}'")
+            continue
+        mm, yy = int(my[:2]), int(my[3:])
+        if not (HIST_FIRST_YEAR_START <= (yy, mm) <= HIST_LAST):
+            skipped.append(f"வரி {n} ({lib}): மாதம் {my} — ஏப்ரல் 2024 முதல் மார்ச் 2027 வரை மட்டுமே ஏற்றலாம்")
+            continue
+        if lib not in libs:
+            skipped.append(f"வரி {n}: நூலகம் '{lib}' நூலகப் பட்டியலில் இல்லை")
+            continue
+        if (lib, my) in seen:
+            skipped.append(f"வரி {n} ({lib}): {my} மாதம் இந்தக் கோப்பிலேயே ஏற்கனவே வந்துவிட்டது — இந்த வரி தவிர்க்கப்பட்டது")
+            continue
+        seen.add((lib, my))
+        g = lambda k: cell(r, col[k]) if k in col else ""
+        money = {k: to_num(g(k)) for k in RECEIPT_MONEY}
+        if any(v < 0 for v in money.values()):
+            skipped.append(f"வரி {n} ({lib}): எதிர் தொகை அனுமதிக்கப்படாது")
+            continue
+        ints = {}
+        for k in RECEIPT_INTS:
+            try:
+                ints[k] = max(int(to_num(g(k))), 0)
+            except Exception:
+                ints[k] = 0
+        upis = _upi_list(g("_upi"))
+        dates, bad = _date_list(g("_date"))
+        if bad:
+            skipped.append(f"வரி {n} ({lib}): தொகை செலுத்திய நாள் புரியவில்லை '{g('_date')}' — தேதி இல்லாமல் சேர்க்கப்பட்டது")
+            dates = []
+        allowed = max(len(upis), 1)           # எத்தனை UPI உள்ளதோ அத்தனை தேதிகள் வரை அனுமதி
+        if len(dates) > allowed:
+            skipped.append(f"வரி {n} ({lib}): {len(upis)} UPI எண்ணுக்கு {len(dates)} தேதிகள் உள்ளன — "
+                           f"தேதிகளின் எண்ணிக்கை UPI எண்ணிக்கையை மிகக்கூடாது; இந்த வரி தவிர்க்கப்பட்டது")
+            continue
+        pdate = min(dates) if dates else None
+        total = sum(money.values(), Decimal(0))
+        mode = "income" if (total > 0 or upis) else "usage"
+        entries.append({"lib": lib, "month": my, "money": money, "ints": ints, "date": pdate,
+                        "upis": upis, "dates": dates, "total": total, "mode": mode, "line": n})
+    if not entries:
+        return result(0, skipped) | {"inserted": 0, "updated": 0}
+
+    done = {"inserted": 0, "updated": 0}
+
+    def f(conn):
+        with conn.cursor() as c:
+            for e in entries:
+                lib, my, m, iv = e["lib"], e["month"], e["money"], e["ints"]
+                c.execute("SELECT id, status FROM library_receipts WHERE library_name=%s AND month_year=%s FOR UPDATE", (lib, my))
+                old = c.fetchone()
+                if old and old[1] == "approved":
+                    skipped.append(f"{lib} · {my}: ஏற்கனவே ஒப்புதல் பெற்றது — மாற்றப்படவில்லை")
+                    continue
+                # UPI எண் வேறொரு நூலகம்/மாதத்தால் ஏற்கனவே பயன்படுத்தப்பட்டிருந்தால் அந்த வரியைத் தவிர்
+                if e["upis"]:
+                    c.execute("SELECT upi_number, library_name, receipt_id FROM receipt_bank_transactions "
+                              "WHERE upi_number = ANY(%s)", (e["upis"],))
+                    clash = [t for t in c.fetchall()
+                             if not (old and t[2] == old[0]) and (t[1] or "") not in ("", lib)]
+                    if clash:
+                        skipped.append(f"வரி {e['line']} ({lib}): UPI {clash[0][0]} ஏற்கனவே '{clash[0][1]}' நூலகத்தால் பயன்படுத்தப்பட்டுள்ளது — தவிர்க்கப்பட்டது")
+                        continue
+                vals = (m["security"], m["annual"], m["newspaper"], e["total"], e["mode"], m["late_fee"], m["book_fine"],
+                        m["old_book_sale"], m["patron"], m["chief_patron"], m["donor"], m["other_income"], e["date"],
+                        iv["visitors"], iv["issues"], iv["book_usage"], ", ".join(e["upis"]),
+                        ", ".join(d.isoformat() for d in e["dates"]) if len(e["dates"]) > 1 else "")
+                if old:
+                    rid = old[0]
+                    c.execute("UPDATE receipt_bank_transactions SET status='available', library_name=NULL, receipt_id=NULL "
+                              "WHERE receipt_id=%s", (rid,))
+                    c.execute("UPDATE library_receipts SET security_amount=%s, annual_amount=%s, newspaper_amount=%s, total_amount=%s, "
+                              "mode=%s, late_fee=%s, book_fine=%s, old_book_sale=%s, patron=%s, chief_patron=%s, donor=%s, "
+                              "other_income=%s, payment_date=%s, visitors=%s, issues=%s, book_usage=%s, upi_numbers=%s, payment_dates=%s, "
+                              "status='approved', approved_by='Excel ஏற்றம்', approved_at=now() WHERE id=%s", vals + (rid,))
+                    done["updated"] += 1
+                else:
+                    c.execute("INSERT INTO library_receipts(library_name, month_year, security_amount, annual_amount, newspaper_amount, "
+                              "total_amount, mode, late_fee, book_fine, old_book_sale, patron, chief_patron, donor, other_income, "
+                              "payment_date, visitors, issues, book_usage, upi_numbers, payment_dates, status, created_by, approved_by, approved_at) "
+                              "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'approved','Excel ஏற்றம்','Excel ஏற்றம்',now()) "
+                              "RETURNING id", (lib, my) + vals)
+                    rid = c.fetchone()[0]
+                    done["inserted"] += 1
+                # ஒரே UPI + தேதி இருந்தால் மட்டுமே வங்கிப் பதிவாகச் சேர்க்க முடியும் (தொகை = மொத்தம்)
+                if len(e["upis"]) == 1 and e["date"] and e["total"] > 0:
+                    c.execute("INSERT INTO receipt_bank_transactions(month_year, transaction_date, upi_number, amount, status, library_name, receipt_id) "
+                              "VALUES (%s,%s,%s,%s,'used',%s,%s) "
+                              "ON CONFLICT (upi_number) DO UPDATE SET status='used', library_name=EXCLUDED.library_name, receipt_id=EXCLUDED.receipt_id",
+                              (my, e["date"], e["upis"][0], e["total"], lib, rid))
+                elif e["upis"]:
+                    c.execute("UPDATE receipt_bank_transactions SET status='used', library_name=%s, receipt_id=%s WHERE upi_number = ANY(%s)",
+                              (lib, rid, e["upis"]))
+    db.run(f)
+    return result(done["inserted"] + done["updated"], skipped) | done
 
 
 # வகை -> (function, விளக்கம்)
@@ -568,4 +748,5 @@ IMPORTERS = {
     "vendors_paper": (do_vendors_paper, "நாளிதழ் Vendor விவரம்"),
     "vendors_rent": (do_vendors_rent, "வாடகை Vendor விவரம்"),
     "claims_approved": (do_claims_approved, "ஏற்கனவே அனுமதித்த சில்லறை செலவின மாதங்கள்"),
+    "receipts_approved": (do_receipts_approved, "ஏற்கனவே பதிவான வரவினங்கள்"),
 }
