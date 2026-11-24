@@ -484,6 +484,8 @@ def build_receipt_report(kind, month, include_pending=False):
         buckets = {t: [] for t in order}
         for r in all_rows: buckets[_group_of(types.get(r['library_name']))].append(r)   # வரிசை: நூலகப் பட்டியல் வரிசை
         out = []; n = 0
+        def stats(rs):
+            return [sum(r['visitors'] or 0 for r in rs), sum(r['issues'] or 0 for r in rs), sum(r['book_usage'] or 0 for r in rs)]
         for t in order:
             if not buckets[t]: continue
             out.append({'section': t})
@@ -491,8 +493,14 @@ def build_receipt_report(kind, month, include_pending=False):
                 n += 1
                 out.append([n, r['library_name'], '\n'.join(u for u, _ in _utr_pairs(r)), _fdate(r['payment_date'])]
                            + pick(amounts(r)) + [r['visitors'] or 0, r['issues'] or 0, r['book_usage'] or 0])
-        totals = ['', 'மொத்தம்', '', ''] + pick(sums(all_rows)) + [
-            sum(r['visitors'] or 0 for r in all_rows), sum(r['issues'] or 0 for r in all_rows), sum(r['book_usage'] or 0 for r in all_rows)]
+            # ஒவ்வொரு வகை முடிவிலும் அந்த வகையின் மொத்தம்
+            out.append({'subtotal': ['', t + ' — மொத்தம்', '', ''] + pick(sums(buckets[t])) + stats(buckets[t])})
+        # அறிக்கையின் இறுதியில் வகை வாரியான சுருக்கம் (Abstract)
+        out.append({'section': 'வகை வாரியான வரவின சுருக்கம் (Abstract)'})
+        for t in order:
+            if not buckets[t]: continue
+            out.append(['', t, '', ''] + pick(sums(buckets[t])) + stats(buckets[t]))
+        totals = ['', 'பெரு மொத்தம்', '', ''] + pick(sums(all_rows)) + stats(all_rows)
         total_libs = db.fetch_one("SELECT count(*) c FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY'))", (month,))['c']
         notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {len(all_rows)}.')
     return {'success': True, 'kind': kind, 'month': month, 'title': REPORT_TITLES[kind], 'columns': cols,
@@ -546,7 +554,8 @@ def receipt_report_xlsx(kind):
             if is_total: x.font = bold; x.fill = fill
     r = hr + 1
     for vals in d['rows']:
-        if isinstance(vals, dict):
+        if isinstance(vals, dict) and 'subtotal' in vals: put(r, vals['subtotal'], True)
+        elif isinstance(vals, dict):
             x = ws.cell(row=r, column=1, value=vals['section']); x.font = bold; x.fill = fill
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=n)
             for c_i in range(1, n + 1): ws.cell(row=r, column=c_i).border = box

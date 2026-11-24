@@ -1434,7 +1434,8 @@ const RR_BREAK = {'காப்புத்தொகை': 'காப்புத
   'பெரும்புரவலர்': 'பெரும்<br>புரவலர்', 'கொடையாளர்': 'கொடை<br>யாளர்', 'இதர வரவுகள்': 'இதர<br>வரவுகள்'};
 function rrTable(d, pdf){
   const head = '<tr>' + d.columns.map(c => '<th style="white-space:normal">' + (RR_BREAK[c.title] || esc(c.title)) + '</th>').join('') + '</tr>';
-  const body = d.rows.map(r => Array.isArray(r) ? '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>' :
+  const totRow = vals => '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, vals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(vals[i]) + '</td>').join('') + '</tr>';
+  const body = d.rows.map(r => Array.isArray(r) ? '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>' : r.subtotal ? totRow(r.subtotal) :
     '<tr class="b"><td colspan="' + d.columns.length + '" style="font-weight:700;text-align:left;background:#e8eff9">' + esc(r.section) + '</td></tr>').join('') ||
     '<tr><td colspan="' + d.columns.length + '">இந்த மாதத்திற்குப் பதிவுகள் இல்லை.</td></tr>';
   const foot = '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, d.totals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(d.totals[i]) + '</td>').join('') + '</tr>';
