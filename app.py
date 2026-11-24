@@ -2193,8 +2193,9 @@ def admin_vendor_delete():
 
 
 # தனித்த நூலக வரவின Module — பழைய சில்லறை செலவின RPC/பக்கங்களை மாற்றாது.
-from receipts_module import receipts as receipts_blueprint
+from receipts_module import receipts as receipts_blueprint, register_rpc as _register_receipt_rpc
 app.register_blueprint(receipts_blueprint)
+_register_receipt_rpc(RPC)
 
 
 @app.get("/healthz")

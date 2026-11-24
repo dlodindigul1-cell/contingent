@@ -1224,6 +1224,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
   🔍 Check and Validate Your Payment with Bank Statement
 </button>
 </div>
+<div id="confirmedUpiList" style="display:none; margin:0 0 14px; padding:10px 12px; background:#ecfdf5; border:2px solid #16a34a; border-radius:10px; font-weight:600;"></div>
 <!-- Bank Validation Preview Card -->
 <div id="bankPreviewCard"
      style="display:none;
@@ -1245,6 +1246,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     </span>
 </p>
 
+<p id="bankUpiDisplay" style="text-align:center; font-size:14px; font-weight:600; margin:4px 0; color:#334155;"></p>
 <p style="text-align:center; font-size:15px; font-weight:600; margin-top:5px;">
     செலுத்திய தேதி :
     <span id="bankDateDisplay"
@@ -1293,6 +1295,8 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
         style="color:#15803d; font-size:18px;">
   </span>
 </div>
+<div id="detailsSection" style="display:none;">
+<div id="payDateWrap">
 <label for="paymentDate" style="text-align:center;">
   தொகை செலுத்திய நாள்
 </label>
@@ -1310,6 +1314,7 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
   padding-bottom:8px;">
   வரவு விவரங்கள் (₹)
 </h4>
+</div>
 <div id="incomeSection">
   <label style="text-align:center;">காப்புத்தொகை</label>
 <input type="number" id="deposit" min="0" max="99999" value="0" step="1"
@@ -1405,6 +1410,17 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 <input type="number" id="usage" min="0" required step="1"
        style="width:160px; margin:6px auto 14px;
               display:block; text-align:center; font-weight:600;">
+
+<label style="text-align:center;">
+ நூல் இருப்பு <small style="font-weight:400;">(இருப்பு நீக்கம் செய்தது போக நூலகத்தில் உள்ள நிகர நூல்கள்)</small>
+</label>
+<div id="stockWarn" style="display:none; margin:6px auto 10px; max-width:420px; padding:10px 12px; background:#fff7e0; border:2px solid #f59e0b; border-radius:8px; color:#92400e; font-weight:700; text-align:center;">
+  ⚠️ Accession register-ல் இருக்கும் நூல்களில் விலக்கம் செய்யப்பட்டது போக மீதமுள்ள நூல்களை மட்டுமே பதிவு செய்ய வேண்டும்.
+</div>
+<input type="number" id="stock" min="0" required step="1"
+       style="width:160px; margin:6px auto 14px;
+              display:block; text-align:center; font-weight:600;">
+</div>
 
   <div id="receiptMsg" class="success" style="display:none; margin:20px 0;"></div>
   <div id="receiptError" class="error" style="display:none; margin:20px 0;"></div>
@@ -2398,6 +2414,7 @@ function showReceiptPreview(data) {
   addRow("வாசகர் வருகை", data.visitors);
   addRow("நூலிரவல்", data.issues);
   addRow("நூல்கள் பயன்பாடு", data.usage);
+  addRow("நூல் இருப்பு", data.stock);
 
   document.getElementById("receiptPreview").style.display = "block";
   document.getElementById("receiptForm").style.display = "none";
@@ -2447,8 +2464,12 @@ function confirmAndSubmitReceipt(btn) {
         document.getElementById('receiptMsg').innerHTML = summary;
         document.getElementById('receiptMsg').style.display = 'block';
 
+        window.stockFirstTime = false;
+        document.getElementById('stockWarn').style.display = 'none';
         setTimeout(() => {
           document.getElementById('receiptForm').reset();
+          confirmedUpis = []; bankAmount = 0; remainingAmount = 0;
+          renderConfirmedUpis(); updateDetailsVisibility();
           calculateTotal();
           document.getElementById('receiptMsg').style.display = 'none';
         }, 6000);
@@ -2478,11 +2499,12 @@ function submitReceipt() {
   return;
 }
   // 🔐 1. Bank Validation Check (FIRST)
-  if (mode === "income" && bankAmount <= 0) {
-  alert("முதலில் Bank Validation செய்யவும்.");
+  if (mode === "income" && (bankAmount <= 0 || !confirmedUpis.length)) {
+  alert("முதலில் UPI எண்ணைச் சரிபார்த்து 'சரி' என உறுதி செய்யவும்.");
   return;
 }
-  const utr = document.getElementById('utrNumber').value.trim();
+  const utr = confirmedUpis.map(x => x.upi).join(', ');
+  const stock = parseInt(document.getElementById('stock').value) || 0;
   const date = document.getElementById('paymentDate').value;
   const visitors = parseInt(document.getElementById('visitors').value) || 0;
   const issues   = parseInt(document.getElementById('issues').value)   || 0;
@@ -2508,12 +2530,6 @@ if (mode === "income" && currentRemaining !== 0) {
   return;
 }
   // Validation (முன்பு போலவே)
- if (mode === "income" && !/^\d{11,12}$/.test(utr)) {
-  errorDiv.textContent = "UTR எண் 11 அல்லது 12 இலக்க எண்ணாக இருக்க வேண்டும்";
-  errorDiv.style.display = 'block';
-  document.getElementById('utrNumber').focus();
-  return;
-}
 
   if (mode === "income" && !date) {
   errorDiv.textContent = "தேதியை தேர்ந்தெடுக்கவும்";
@@ -2521,9 +2537,13 @@ if (mode === "income" && currentRemaining !== 0) {
   return;
 }
 
-  if (visitors <= 0 || issues <= 0 || usage <= 0) {
-    errorDiv.textContent = "வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு ஆகியவை 0-ஐ விட அதிகமாக இருக்க வேண்டும்";
+  if (visitors <= 0 || issues <= 0 || usage <= 0 || stock <= 0) {
+    errorDiv.textContent = "வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு, நூல் இருப்பு ஆகியவை 0-ஐ விட அதிகமாக இருக்க வேண்டும்";
     errorDiv.style.display = 'block';
+    return;
+  }
+  if (window.stockFirstTime && !confirm("⚠️ Accession register-ல் இருக்கும் நூல்களில் விலக்கம் செய்யப்பட்டது போக மீதமுள்ள நூல்களை மட்டுமே நூல் இருப்பாகப் பதிவு செய்ய வேண்டும்.\n\nநீங்கள் உள்ளிட்ட நூல் இருப்பு: " + stock + "\n\nசரியா?")) {
+    document.getElementById('stock').focus();
     return;
   }
 
@@ -2532,7 +2552,9 @@ if (mode === "income" && currentRemaining !== 0) {
     loginEmail: window.selectedEmail,
     libraryName: selectedLib,
     libraryType: document.getElementById('typeSelect').value,
+    mode: mode,
     utr: utr,
+    utrs: confirmedUpis.map(x => x.upi),
     date: date,
     deposit: parseInt(document.getElementById('deposit').value) || 0,
     subscription: parseInt(document.getElementById('subscription').value) || 0,
@@ -2547,6 +2569,7 @@ if (mode === "income" && currentRemaining !== 0) {
     visitors: visitors,
     issues: issues,
     usage: usage,
+    stock: stock,
     totalAmount: parseInt(document.getElementById('totalAmount').value) || 0
   };
 if(mode === "usage"){
@@ -2573,6 +2596,16 @@ function go(n, title){
 
   if(n === 5){
     document.getElementById('libForReceipt').textContent = selectedLib;
+    confirmedUpis = []; bankAmount = 0; remainingAmount = 0;
+    renderConfirmedUpis(); updateDetailsVisibility();
+    window.stockFirstTime = false;
+    document.getElementById('stockWarn').style.display = 'none';
+    google.script.run.withSuccessHandler(r => {
+      if (r && r.success && r.first) {
+        window.stockFirstTime = true;
+        document.getElementById('stockWarn').style.display = 'block';
+      }
+    }).getReceiptStockInfo(selectedLib);
     document.getElementById('receiptMsg').style.display = 'none';
     document.getElementById('receiptError').style.display = 'none';
     calculateTotal(); // மொத்தத்தை ஆரம்பத்தில் காட்ட
@@ -3272,11 +3305,13 @@ function checkBankPayment() {
           நீங்கள் செலுத்திய தொகை ரூ.
           <span id="bankAmountDisplay" style="color:#16a34a; font-size:20px; font-weight:800;"></span>
         </p>
+        <p id="bankUpiDisplay" style="text-align:center; font-size:14px; font-weight:600; margin:4px 0; color:#334155;"></p>
         <p style="text-align:center; font-size:15px; font-weight:600; margin-top:5px;">
           செலுத்திய தேதி :
           <span id="bankDateDisplay" style="color:#2563eb; font-size:17px; font-weight:800;"></span>
         </p>
         <div style="text-align:center; margin-top:20px;">
+          <p style="text-align:center; font-weight:700; margin:0 0 10px;">இது சரியா?</p>
           <button type="button" onclick="confirmBankAmount()" style="background:#16a34a; color:white; padding:10px 25px; border:none; border-radius:8px; margin-right:15px; cursor:pointer;">✅ சரி</button>
           <button type="button" onclick="rejectBankAmount()" style="background:#ef4444; color:white; padding:10px 25px; border:none; border-radius:8px; cursor:pointer;">❌ தவறு</button>
         </div>
@@ -3289,12 +3324,9 @@ function checkBankPayment() {
       const displayDate = new Date(res.date).toLocaleDateString("en-GB");
       document.getElementById("bankDateDisplay").textContent = displayDate;
 
-      bankAmount = res.amount;
-      remainingAmount = res.amount;
-
-      document.getElementById("paymentDate").value = res.date;
-      document.getElementById("paymentDate").readOnly = true;
-      document.getElementById("paymentDate").style.background = "#f1f5f9";
+      document.getElementById("bankUpiDisplay").textContent =
+        "UPI எண்: " + res.upi + (res.name ? "  (" + res.name + ")" : "");
+      pendingBank = res;   // 'சரி' அழுத்திய பின்னரே சேர்க்கப்படும்
 
       card.style.display = "block";
     })
@@ -3303,7 +3335,7 @@ function checkBankPayment() {
       btn.textContent = "🔍 Click here and Validate Your Payment with Bank Statement";
       alert("Server Error: " + err.message);
     })
-    .validatePaymentWithBank(utr);
+    .validatePaymentWithBank(utr, selectedLib);
 }
 function setReceiptMode(mode){
 
@@ -3323,29 +3355,62 @@ function setReceiptMode(mode){
     if(incomeSection) incomeSection.style.display = "none";
 
   }
+  updateDetailsVisibility();
 
 }
+let confirmedUpis = [];
+let pendingBank = null;
+
+function renderConfirmedUpis() {
+  const box = document.getElementById("confirmedUpiList");
+  if (!confirmedUpis.length) { box.style.display = "none"; box.innerHTML = ""; return; }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  box.innerHTML = "✅ உறுதி செய்யப்பட்ட UPI பரிவர்த்தனைகள்:<br>" +
+    confirmedUpis.map((x, i) => esc(x.upi) + " — " + new Date(x.date).toLocaleDateString("en-GB") +
+      " — ₹" + Number(x.amount).toLocaleString("en-IN", {minimumFractionDigits: 2}) +
+      ' <a href="#" onclick="removeConfirmedUpi(' + i + ');return false;" style="color:#b91c1c;">[நீக்கு]</a>').join("<br>") +
+    "<br><b>மொத்தம்: ₹" + Number(bankAmount).toLocaleString("en-IN", {minimumFractionDigits: 2}) + "</b>" +
+    "<br><small>மற்றொரு UPI எண்ணும் இருந்தால் மேலே உள்ளிட்டுச் சரிபார்க்கவும்.</small>";
+  box.style.display = "block";
+}
+
+function removeConfirmedUpi(i) {
+  confirmedUpis.splice(i, 1);
+  bankAmount = confirmedUpis.reduce((a, x) => a + x.amount, 0);
+  remainingAmount = bankAmount;
+  renderConfirmedUpis(); updateDetailsVisibility(); calculateRemainingAmount(); calculateTotal();
+}
+
+// வரவு விவரம் / புள்ளி விவரம்: UPI 'சரி' ஆன பின்னரே (அல்லது 'பயன்பாடு மட்டும்' எனில் உடனே) திறக்கும்
+function updateDetailsVisibility() {
+  const mode = document.getElementById("receiptModeSelect").value;
+  const show = (mode === "usage") || (mode === "income" && confirmedUpis.length > 0);
+  document.getElementById("detailsSection").style.display = show ? "block" : "none";
+  document.getElementById("payDateWrap").style.display = mode === "income" ? "block" : "none";
+  const pd = document.getElementById("paymentDate");
+  if (mode === "income" && confirmedUpis.length) {
+    pd.value = confirmedUpis.map(x => x.date).sort()[0];
+    pd.readOnly = true; pd.style.background = "#f1f5f9";
+  }
+}
+
 function confirmBankAmount() {
-
   document.getElementById("bankPreviewCard").style.display = "none";
-
-  setTimeout(function(){
-
-    alert("Bank தொகை உறுதிப்படுத்தப்பட்டது. இப்போது வரவு விவரங்களை பதிவு செய்யலாம்.");
-
-  },200);
-
+  if (!pendingBank) return;
+  if (!confirmedUpis.some(x => x.upi === pendingBank.upi)) {
+    confirmedUpis.push({upi: pendingBank.upi, amount: Number(pendingBank.amount), date: pendingBank.date});
+  }
+  pendingBank = null;
+  bankAmount = confirmedUpis.reduce((a, x) => a + x.amount, 0);
+  remainingAmount = bankAmount;
+  document.getElementById("utrNumber").value = "";
+  renderConfirmedUpis(); updateDetailsVisibility(); calculateRemainingAmount();
 }
- 
+
 function rejectBankAmount() {
-
-  bankAmount = 0;
-  remainingAmount = 0;
-
+  pendingBank = null;
   document.getElementById("bankPreviewCard").style.display = "none";
-  document.getElementById("paymentDate").value = "";
-
-  alert("தகவல் தவறாக உள்ளது. தயவுசெய்து UTR எண்ணை சரிபார்க்கவும்.");
+  alert("தகவல் தவறாக உள்ளது. தயவுசெய்து UPI எண்ணைச் சரிபார்க்கவும்.");
 }
 
 function calculateRemainingAmount() {

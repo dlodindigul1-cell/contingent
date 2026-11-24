@@ -230,3 +230,102 @@ def release_transaction(tid):
     try:db.run(work)
     except Exception as e:return jsonify(success=False,message=str(e)),400
     return jsonify(success=True,message='குறிப்பிட்ட UPI பதிவு மட்டும் நீக்கப்பட்டது.')
+
+
+# ------------------------------------------------------------------
+#  நூலகர் படிவம் (index.html) — RPC செயல்பாடுகள்
+# ------------------------------------------------------------------
+def _prev_month():
+    ist=dt.timezone(dt.timedelta(hours=5,minutes=30))
+    t=dt.datetime.now(ist).date().replace(day=1)-dt.timedelta(days=1)
+    return f'{t.month:02d}/{t.year}'
+
+def _fail(msg): return {'success':False,'message':msg}
+
+def _can_use(): return _admin() or _librarian()
+
+def _int(v):
+    try: n=int(float(v or 0))
+    except Exception: raise ValueError('எண் மதிப்பு சரியாக இல்லை.')
+    if n<0: raise ValueError('எதிர் மதிப்பு அனுமதிக்கப்படாது.')
+    return n
+
+def validatePaymentWithBank(utr, lib=None):
+    """UPI எண் -> தேதி + தொகை (நூலகர் 'சரி' என உறுதி செய்ய)."""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    utr=re.sub(r'\D','',str(utr or ''))
+    if not re.fullmatch(r'\d{11,12}',utr): return _fail('சரியான 11 அல்லது 12 இலக்க UPI எண்ணை உள்ளிடவும்.')
+    r=db.fetch_one("SELECT id,month_year,to_char(transaction_date,'YYYY-MM-DD') d,amount,payer_name,status,library_name FROM receipt_bank_transactions WHERE upi_number=%s",(utr,))
+    if not r: return _fail('இந்த UPI எண் வங்கிப் பாஸ்புத்தகத்தில் கிடைக்கவில்லை. எண்ணைச் சரிபார்க்கவும்; புதிய பாஸ்புத்தகம் Admin ஏற்றிய பின் மீண்டும் முயலவும்.')
+    if r['status']=='used' or (r['status']=='reserved' and r['library_name']!=lib):
+        return _fail('இந்த UPI எண் ஏற்கனவே ஒரு நூலகத்தால் பயன்படுத்தப்பட்டுள்ளது.')
+    return {'success':True,'upi':utr,'amount':float(r['amount']),'date':r['d'],'name':r['payer_name'] or '','month':r['month_year']}
+
+def getReceiptStockInfo(lib):
+    """நூல் இருப்பை முதல் முறையாகப் பதிவு செய்கிறாரா?"""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    r=db.fetch_one("SELECT count(*) c FROM library_receipts WHERE library_name=%s AND book_stock>0",(str(lib or ''),))
+    return {'success':True,'first':(r['c']==0)}
+
+def saveOrUpdateReceipt(data):
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    data=data or {}
+    lib=str(data.get('libraryName') or '').strip()
+    mode=str(data.get('mode') or '').strip()
+    if mode not in ('income','usage'): return _fail('பதிவு வகையைத் தேர்வு செய்யவும்.')
+    try:
+        visitors,issues,usage,stock=_int(data.get('visitors')),_int(data.get('issues')),_int(data.get('usage')),_int(data.get('stock'))
+        heads={k:_int(data.get(k)) for k in ('deposit','subscription','lateFee','bookFine','oldPaperSale','oldBookSale','patron','chiefPatron','donor','otherIncome')}
+    except ValueError as e: return _fail(str(e))
+    if min(visitors,issues,usage,stock)<=0: return _fail('வாசகர், நூலிரவல், நூல்கள் பயன்பாடு, நூல் இருப்பு ஆகியவை 0-ஐ விட அதிகமாக இருக்க வேண்டும்.')
+    utrs=[]
+    if mode=='income':
+        raw=data.get('utrs') or re.split(r'[,\s]+',str(data.get('utr') or ''))
+        utrs=list(dict.fromkeys(re.sub(r'\D','',str(x)) for x in raw if re.sub(r'\D','',str(x))))
+        if not utrs: return _fail('UPI எண்ணைச் சரிபார்த்து உறுதி செய்யவும்.')
+    else:
+        heads={k:0 for k in heads}
+    total=sum(heads.values())
+    def save(conn):
+        with conn.cursor() as c:
+            c.execute('SELECT 1 FROM libraries WHERE name=%s',(lib,))
+            if not c.fetchone(): raise ValueError('நூலகம் கிடைக்கவில்லை.')
+            trs=[]
+            if mode=='income':
+                c.execute('SELECT id,upi_number,amount,month_year,status,library_name,transaction_date FROM receipt_bank_transactions WHERE upi_number=ANY(%s) FOR UPDATE',(utrs,))
+                trs=c.fetchall()
+                if len(trs)!=len(utrs): raise ValueError('ஒரு UPI எண் வங்கிப் பாஸ்புத்தகத்தில் இல்லை.')
+                months={t[3] for t in trs}
+                if len(months)!=1: raise ValueError('வெவ்வேறு மாத UPI எண்களை ஒரே பதிவில் சேர்க்க முடியாது.')
+                month=months.pop()
+                for t in trs:
+                    if t[4]=='used' or (t[4]=='reserved' and t[5]!=lib): raise ValueError(f'UPI {t[1]} ஏற்கனவே பயன்படுத்தப்பட்டுள்ளது.')
+                bank=sum((Decimal(str(t[2])) for t in trs),Decimal('0'))
+                if bank!=Decimal(total): raise ValueError(f'தொகை பொருந்தவில்லை. UPI மொத்தம் ₹{bank}; இனங்களின் மொத்தம் ₹{total}.')
+                pdate=min(t[6] for t in trs)
+            else:
+                month=_prev_month(); pdate=None
+            c.execute('SELECT id,status FROM library_receipts WHERE library_name=%s AND month_year=%s FOR UPDATE',(lib,month))
+            old=c.fetchone()
+            if old and old[1]=='approved': raise ValueError(f'{month} மாதப் பதிவு ஏற்கனவே ஒப்புதல் பெற்றுள்ளது. மாற்ற Admin-ஐ அணுகவும்.')
+            vals=(heads['deposit'],heads['subscription'],heads['oldPaperSale'],total,mode,heads['lateFee'],heads['bookFine'],heads['oldBookSale'],heads['patron'],heads['chiefPatron'],heads['donor'],heads['otherIncome'],pdate,visitors,issues,usage,stock)
+            if old:
+                rid=old[0]; action='updated'
+                c.execute("UPDATE receipt_bank_transactions SET status='available',library_name=NULL,receipt_id=NULL WHERE receipt_id=%s",(rid,))
+                c.execute("UPDATE library_receipts SET security_amount=%s,annual_amount=%s,newspaper_amount=%s,total_amount=%s,mode=%s,late_fee=%s,book_fine=%s,old_book_sale=%s,patron=%s,chief_patron=%s,donor=%s,other_income=%s,payment_date=%s,visitors=%s,issues=%s,book_usage=%s,book_stock=%s WHERE id=%s",vals+(rid,))
+            else:
+                action='saved'
+                c.execute("INSERT INTO library_receipts(library_name,month_year,security_amount,annual_amount,newspaper_amount,total_amount,mode,late_fee,book_fine,old_book_sale,patron,chief_patron,donor,other_income,payment_date,visitors,issues,book_usage,book_stock,status,created_by) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s) RETURNING id",(lib,month)+vals+(session.get('librarian_email','Librarian'),))
+                rid=c.fetchone()[0]
+            for t in trs:
+                c.execute("UPDATE receipt_bank_transactions SET status='reserved',library_name=%s,receipt_id=%s WHERE id=%s",(lib,rid,t[0]))
+            return rid,month,action
+    try: rid,month,action=db.run(save)
+    except ValueError as e: return _fail(str(e))
+    except Exception:
+        current_app.logger.exception('saveOrUpdateReceipt')
+        return _fail('சேமிக்க முடியவில்லை. மீண்டும் முயலவும்.')
+    return {'success':True,'row':rid,'month':month,'total':total,'action':action}
+
+def register_rpc(RPC):
+    for f in (validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt): RPC[f.__name__]=f
