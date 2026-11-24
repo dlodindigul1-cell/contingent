@@ -96,7 +96,7 @@ def _ensure_schema():
 
 
 # admin மட்டும் சேமிக்கக்கூடியவை
-ADMIN_ONLY = {"saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
+ADMIN_ONLY = {"getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",
@@ -150,7 +150,7 @@ def getLibraryTypes():
     வழக்கமான வகைகள் முதலில், புதிய வகைகள் பின்னால். Database காலி / பிழை எனில் இயல்பு வகைகள்."""
     try:
         rows = db.fetch_all("SELECT btrim(lib_type) AS t, MIN(id) AS first_id FROM libraries "
-                            "WHERE btrim(lib_type) <> '' GROUP BY 1 ORDER BY 2")
+                            "WHERE btrim(lib_type) <> '' AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) GROUP BY 1 ORDER BY 2")
     except Exception:
         app.logger.exception("getLibraryTypes")
         rows = []
@@ -162,7 +162,7 @@ def getLibraryTypes():
 
 @rpc
 def getLibrariesByType(type):
-    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s ORDER BY id",
+    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id",
                         (str(type).strip(),))
     return [r["name"] for r in rows]
 
@@ -180,7 +180,7 @@ def getEmailsForLibrary(libraryName):
 
 @rpc
 def getAllLibraryNamesForAdmin():
-    return [r["name"] for r in db.fetch_all("SELECT name FROM libraries ORDER BY id")]
+    return [r["name"] for r in db.fetch_all("SELECT name FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id")]
 
 
 # ------------------------------------------------------------------
@@ -197,8 +197,8 @@ def getLateRegistrationPermissions(monthYear=None, libraryType=None):
         "        AND v.status='granted') AS voucher "
         "FROM libraries l LEFT JOIN late_registration_permissions p "
         "ON p.library_name=l.name AND p.month_year=%s "
-        "WHERE (%s = '' OR btrim(l.lib_type)=%s) ORDER BY l.id",
-        (m, m, m, typ, typ))
+        "WHERE (%s = '' OR btrim(l.lib_type)=%s) AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY l.id",
+        (m, m, m, typ, typ, m))
     return {"success": True, "month": m, "rows": [
         {"name": r["name"], "type": r["lib_type"], "allowed": r["granted_at"] is not None,
          "registered": bool(r["registered"]), "voucherAllowed": bool(r["voucher"]),
@@ -369,6 +369,8 @@ def submitOrUpdateContingent(data):
     if not lib or not (lib["code"] or "").strip():
         return {"success": False, "message": "நூலக குறியீடு கிடைக்கவில்லை: " + name}
     code = lib["code"].strip().upper()
+    if _lib_inactive_in(name, month_year):
+        return {"success": False, "message": "இந்த நூலகம் %s முதல் செயல்படவில்லை; இந்த மாதத்திற்குப் பதிவு செய்ய இயலாது." % _inactive_date_text(name)}
 
     late_grant = None
     if not session.get("admin"):
@@ -434,6 +436,51 @@ CLAIM_LABELS = {
 }
 
 
+def _lib_active_in(inactive_from, month_year):
+    """செயல்படாத நாள் இல்லை, அல்லது அது மாதத் தொடக்கத்துக்குப் பிந்தையது எனில் அந்த மாதத்தில் நூலகம் செயல்படுகிறது."""
+    if not inactive_from:
+        return True
+    y, mo = parse_month_year(month_year)
+    return inactive_from > dt.date(y, mo, 1)
+
+
+def _lib_inactive_in(name, month_year):
+    r = db.fetch_one("SELECT inactive_from FROM libraries WHERE name = %s", (name,))
+    return bool(r) and not _lib_active_in(r["inactive_from"], month_year)
+
+
+def _inactive_date_text(name):
+    r = db.fetch_one("SELECT inactive_from FROM libraries WHERE name = %s", (name,))
+    return r["inactive_from"].strftime("%d/%m/%Y") if r and r["inactive_from"] else ""
+
+
+# ---- செயல்படாத நூலகங்கள் (Admin) ----
+@rpc
+def getInactiveLibraries():
+    """வகை வாரியாக எல்லா நூலகங்கள் (+ செயல்படாத நாள்)."""
+    rows = db.fetch_all("SELECT name, btrim(lib_type) AS lib_type, inactive_from FROM libraries ORDER BY id")
+    return {"success": True, "rows": [{"name": r["name"], "type": r["lib_type"],
+                                       "from": r["inactive_from"].isoformat() if r["inactive_from"] else ""} for r in rows]}
+
+
+@rpc
+def setLibrariesInactive(names, fromDate):
+    """names: நூலகப் பெயர்கள்; fromDate: 'YYYY-MM-DD' (எந்த நாள் முதல் செயல்படவில்லை). fromDate காலி எனில் மீண்டும் செயல்படுத்தும்."""
+    names = [str(n).strip() for n in (names or []) if str(n).strip()]
+    if not names:
+        return {"success": False, "message": "நூலகங்களைத் தேர்ந்தெடுக்கவும்."}
+    d = None
+    if str(fromDate or "").strip():
+        try:
+            d = dt.date.fromisoformat(str(fromDate).strip()[:10])
+        except ValueError:
+            return {"success": False, "message": "தேதி சரியாக இல்லை."}
+    n = db.execute("UPDATE libraries SET inactive_from = %s WHERE name = ANY(%s)", (d, names))
+    return {"success": True, "count": n,
+            "message": ("%d நூலகங்கள் %s முதல் செயல்படாதவையாகக் குறிக்கப்பட்டன." % (n, d.strftime("%d/%m/%Y"))) if d
+            else "%d நூலகங்கள் மீண்டும் செயல்படுத்தப்பட்டன." % n}
+
+
 def _month_or_now(month_year):
     m = str(month_year or "").strip()
     if len(m) == 7 and m[2] == "/" and m[:2].isdigit() and m[3:].isdigit():
@@ -461,7 +508,7 @@ def _claim_total(row, paper_sum, rates):
 def getRegistrationStatus(monthYear=None):
     """நடப்பு (அல்லது தேர்ந்த) மாதம்: பதிவு செய்தவர்கள் / செய்யாதவர்கள்"""
     m = _month_or_now(monthYear)
-    libs = db.fetch_all("SELECT name, lib_type FROM libraries ORDER BY id")
+    libs = db.fetch_all("SELECT name, lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (m,))
     done = {r["library_name"] for r in
             db.fetch_all("SELECT DISTINCT library_name FROM claims WHERE month_year = %s", (m,))}
     reg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] in done]
@@ -590,7 +637,8 @@ def getClaimsForApproval(monthYear=None):
     m = _month_or_now(monthYear)
     rates = getWageRates()
     rows = db.fetch_all("SELECT c.*, l.id AS lib_id FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
-                        "WHERE c.month_year = %s ORDER BY l.id NULLS LAST, c.library_name", (m,))
+                        "WHERE c.month_year = %s AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || c.month_year, 'DD/MM/YYYY')) "
+                        "ORDER BY l.id NULLS LAST, c.library_name", (m,))
     papers = {}
     for p in db.fetch_all("SELECT claim_id, SUM(amount) AS s FROM claim_newspapers GROUP BY claim_id"):
         papers[p["claim_id"]] = p["s"]
@@ -1162,7 +1210,8 @@ def _approved_claims(month_years, library_name=None):
     my = list(month_years)
     sql = ("SELECT c.*, COALESCE(btrim(l.pay_center), '') AS pc, l.id AS lib_id, COALESCE(l.lib_type, c.library_type, '') AS ltype "
            "FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
-           "WHERE c.approved AND c.month_year = ANY(%s)")
+           "WHERE c.approved AND c.month_year = ANY(%s) "
+           "AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || c.month_year, 'DD/MM/YYYY'))")
     args = [my]
     if library_name:
         sql += " AND c.library_name = %s"
@@ -1216,9 +1265,9 @@ def getLibrarianReport(payCenter, monthYear):
     if not my:
         return {"success": False, "message": "மாதத்தைத் தேர்ந்தெடுக்கவும்."}
     if pc == NO_PAYCENTER:
-        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = '' ORDER BY id")
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = '' AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (my,))
     else:
-        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = %s ORDER BY id", (pc,))
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = %s AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (pc, my))
     net = {}
     for r, parts, total in _approved_claims([my]):
         net[r["library_name"]] = net.get(r["library_name"], Decimal(0)) + total - parts["papers"] - parts["rent"]
@@ -1977,7 +2026,7 @@ def admin_missing():
         have = db.fetch_all("SELECT month_year FROM claims UNION SELECT month_year FROM library_receipts")
         have = [r["month_year"] for r in have if len(r["month_year"] or "") == 7]
         first_fy = min([_fy_start_year(m) for m in have] + [cur_fy])
-        libs = db.fetch_all("SELECT name, lib_type, pay_center FROM libraries ORDER BY id")
+        libs = db.fetch_all("SELECT name, lib_type, pay_center, inactive_from FROM libraries ORDER BY id")
         fys = ["%d-%02d" % (y, (y + 1) % 100) for y in range(first_fy, cur_fy + 2)]    # இனி வரும் ஆண்டு உட்பட
         if fy == "all":
             start = min([_mkey(m) for m in have] + [(cur_fy, 4)]) if have else (cur_fy, 4)
@@ -2007,15 +2056,17 @@ def admin_missing():
     except Exception:
         app.logger.exception("missing report")
         return _bad("தரவைப் படிக்க முடியவில்லை")
-    out, per_month = [], {m: 0 for m in months}
+    out, per_month, cells = [], {m: 0 for m in months}, 0
     for L in libs:
-        ms = [m for m in months if missing(L["name"], m)]
+        act = [m for m in months if _lib_active_in(L["inactive_from"], m)]     # செயல்படாத மாதங்கள் கணக்கில் சேராது
+        cells += len(act)
+        ms = [m for m in act if missing(L["name"], m)]
         for m in ms:
             per_month[m] += 1
         if ms:
             out.append({"name": L["name"], "type": L["lib_type"], "payCenter": L["pay_center"], "months": ms})
     return _ok(fys=fys, fy=fy, months=months, libraries=len(libs), perMonth=[{"month": m, "missing": per_month[m]} for m in months],
-               rows=out, cells=len(libs) * len(months))
+               rows=out, cells=cells)
 
 
 def admin_required_json():

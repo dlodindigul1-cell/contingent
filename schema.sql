@@ -318,3 +318,8 @@ CREATE TABLE IF NOT EXISTS receipt_admin_audit (
  id BIGSERIAL PRIMARY KEY, transaction_id BIGINT, action TEXT NOT NULL, reason TEXT NOT NULL,
  admin_name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- செயல்படாத நூலகங்கள்: இந்த நாள் முதல் நூலகம் செயல்படவில்லை (NULL = செயல்படுகிறது).
+-- இந்த நாளுக்குப் பிந்தைய மாதங்களில் பதிவுகள், பட்டியல்கள், அறிக்கைகளில் அந்த நூலகம் சேராது.
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS inactive_from DATE;

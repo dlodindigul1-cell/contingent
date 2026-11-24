@@ -204,6 +204,7 @@ nav.side .sub.l2 a{padding-left:34px}
   <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
   <a href="#claimsimport" data-v="claimsimport"><span class="n">2A</span><span>சில்லறை செலவின அனுமதித் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே அனுமதித்தவை</small></span></a>
   <a href="#receiptsimport" data-v="receiptsimport"><span class="n">2B</span><span>வரவினத் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே பதிவானவை</small></span></a>
+  <a href="#inactive" data-v="inactive"><span class="n">2D</span><span>செயல்படாத நூலகங்கள்<small>தற்காலிகமாக நிறுத்த · நாள் முதல்</small></span></a>
   <a href="#missing" data-v="missing"><span class="n">2C</span><span>விடுபாடு அறிக்கை<small>பதிவு இல்லாத நூலகங்கள் / மாதங்கள்</small></span></a>
   </div>
   <button type="button" class="grp" aria-expanded="false">நூலக வரவின மேலாண்மை</button>
@@ -747,6 +748,29 @@ a.vd-lib{cursor:pointer;font-weight:600}
     </div>
     <div id="rr_monthly_msg"></div>
     <div id="rr_monthly_out"></div>
+  </div></div>
+</section>
+
+<section class="view" id="v-inactive">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › செயல்படாத நூலகங்கள்</p>
+  <h2 class="pt">2D. செயல்படாத நூலகங்கள்</h2>
+  <p class="lead">நூலக வகையைத் தேர்ந்தெடுத்து, செயல்படாத நூலகங்களைக் குறித்து, எந்த நாள் முதல் செயல்படவில்லை என்பதைக் கொடுக்கவும். அந்த நாளுக்குப் பிந்தைய மாதங்களில் இந்த நூலகங்களுக்குச் சில்லறை செலவினம் / வரவு பதிவு செய்ய முடியாது; பதிவு நிலை, விடுபாடு, அனைத்து அறிக்கைகளிலும் சேராது. அதற்கு முந்தைய மாதங்களின் பதிவுகள் அப்படியே இருக்கும்.</p>
+  <div class="panel"><h3>புதிதாகக் குறிக்க</h3><div class="bd">
+    <div class="toolbar">
+      <select id="ia_type" style="width:auto;min-width:240px" aria-label="நூலக வகை"><option value="">நூலக வகை தேர்க…</option></select>
+      <button class="btn alt sm" type="button" id="ia_all">அனைத்தும் தேர்வு</button>
+      <button class="btn alt sm" type="button" id="ia_none">தேர்வை நீக்கு</button>
+    </div>
+    <div class="pick" id="ia_list"><div style="padding:12px" class="small">வகையைத் தேர்ந்தெடுக்கவும்.</div></div>
+    <div class="toolbar" style="margin-top:12px">
+      <label for="ia_date" style="margin:0">எந்த நாள் முதல் செயல்படவில்லை?</label>
+      <input type="date" id="ia_date" style="width:auto">
+      <button class="btn go sm" type="button" id="ia_save">செயல்படாததாகக் குறி</button>
+    </div>
+    <div id="ia_msg"></div>
+  </div></div>
+  <div class="panel"><h3>தற்போது செயல்படாத நூலகங்கள்</h3><div class="bd">
+    <div class="tw" style="max-height:none"><table><thead><tr><th>வ.எண்.</th><th>நூலகம்</th><th>வகை</th><th>செயல்படாத நாள்</th><th>செயல்</th></tr></thead><tbody id="ia_rows"></tbody></table></div>
   </div></div>
 </section>
 
@@ -1440,7 +1464,8 @@ function rrPdf(id){
     '<div class="h3" style="font-size:15px">' + esc(rptMonthLabel(d.month)) + '</div>' +
     '<table style="font-size:' + (wide ? 12 : 13.5) + 'px">' + rrTable(d, true) + '</table>' +
     '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
-  return rptPdf(html, '', true, wide ? 1700 : 1400, 'Receipts_' + id + '_' + d.month.replace('/', '-') + '.pdf', {format: 'legal', onePage: !!RR[id].onePage});
+  const portrait = id === 'daily';   // R1: A4 portrait; மற்றவை Legal landscape
+  return rptPdf(html, '', !portrait, portrait ? 760 : (wide ? 1700 : 1400), 'Receipts_' + id + '_' + d.month.replace('/', '-') + '.pdf', {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
 }
 Object.keys(RR).forEach(id => {
   const p = 'rr_' + id;
@@ -1456,6 +1481,48 @@ function navRevealActive(){
   const a = document.querySelector('#nav a.on'); if (!a) return;
   for (let sub = a.closest('.sub'); sub; sub = sub.parentElement.closest('.sub')){ const g = sub.previousElementSibling; if (g && g.classList.contains('grp')) navOpen(g, true); }
 }
+
+
+/* ===================== செயல்படாத நூலகங்கள் ===================== */
+let iaRows = [];
+function iaFmt(iso){ return iso ? iso.split('-').reverse().join('/') : ''; }
+function iaRenderList(){
+  const t = $('#ia_type').value;
+  const rows = iaRows.filter(r => r.type === t && !r.from);
+  $('#ia_list').innerHTML = rows.length ? rows.map(r => '<label><input type="checkbox" value="' + esc(r.name) + '"> ' + esc(r.name) + '</label>').join('') :
+    '<div style="padding:12px" class="small">' + (t ? 'இந்த வகையில் செயல்படும் நூலகங்கள் இல்லை.' : 'வகையைத் தேர்ந்தெடுக்கவும்.') + '</div>';
+}
+async function loadInactive(){
+  try{
+    const d = await rpc('getInactiveLibraries', []); if (!d.success) throw new Error(d.message || 'பிழை');
+    iaRows = d.rows;
+    const keep = $('#ia_type').value, types = [];
+    iaRows.forEach(r => { if (r.type && !types.includes(r.type)) types.push(r.type); });
+    $('#ia_type').innerHTML = '<option value="">நூலக வகை தேர்க…</option>' + types.map(t => '<option value="' + esc(t) + '"' + (t === keep ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+    iaRenderList();
+    const off = iaRows.filter(r => r.from);
+    $('#ia_rows').innerHTML = off.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + iaFmt(r.from) +
+      '</td><td><button class="btn alt sm" type="button" data-ia-react="' + esc(r.name) + '">மீண்டும் செயல்படுத்து</button></td></tr>').join('') ||
+      '<tr><td colspan="5">செயல்படாத நூலகங்கள் எதுவும் இல்லை.</td></tr>';
+  }catch(e){ note($('#ia_msg'), 'bad', e.message); }
+}
+$('#ia_type').addEventListener('change', iaRenderList);
+$('#ia_all').addEventListener('click', () => document.querySelectorAll('#ia_list input').forEach(i => i.checked = true));
+$('#ia_none').addEventListener('click', () => document.querySelectorAll('#ia_list input').forEach(i => i.checked = false));
+$('#ia_save').addEventListener('click', async () => {
+  const names = [...document.querySelectorAll('#ia_list input:checked')].map(i => i.value), d = $('#ia_date').value;
+  if (!names.length){ note($('#ia_msg'), 'warn', 'நூலகங்களைத் தேர்ந்தெடுக்கவும்.'); return; }
+  if (!d){ note($('#ia_msg'), 'warn', 'எந்த நாள் முதல் செயல்படவில்லை என்பதைக் குறிப்பிடவும்.'); return; }
+  if (!confirm(names.length + ' நூலகங்களை ' + iaFmt(d) + ' முதல் செயல்படாதவையாகக் குறிக்கவா?\n\n' + names.join(', '))) return;
+  try{ const r = await rpc('setLibrariesInactive', [names, d]); if (!r.success) throw new Error(r.message); note($('#ia_msg'), 'ok', r.message); loadInactive(); }
+  catch(e){ note($('#ia_msg'), 'bad', e.message); }
+});
+$('#ia_rows').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-ia-react]'); if (!b) return;
+  if (!confirm(b.dataset.iaReact + ' நூலகத்தை மீண்டும் செயல்படுத்தவா?')) return;
+  try{ const r = await rpc('setLibrariesInactive', [[b.dataset.iaReact], '']); if (!r.success) throw new Error(r.message); note($('#ia_msg'), 'ok', r.message); loadInactive(); }
+  catch(err){ note($('#ia_msg'), 'bad', err.message); }
+});
 
 const loaded = {};
 function lateMonthValue(){ const e=$('#lateMonth'); if(!e.value){ const d=new Date(); e.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); } return toMY(e.value); }
@@ -1501,6 +1568,7 @@ function route(){
   if (v === 'vendors') loadVendors();
   if (RV_BY_VIEW[v]) rvInit(RV_BY_VIEW[v]);
   if (RR_BY_VIEW[v]) rrInit(RR_BY_VIEW[v]);
+  if (v === 'inactive') loadInactive();
   navRevealActive();
   window.scrollTo(0, 0);
 }

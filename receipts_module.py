@@ -142,7 +142,7 @@ def dashboard():
     months=[r['month_year'] for r in db.fetch_all("SELECT DISTINCT month_year FROM (SELECT month_year FROM receipt_bank_transactions UNION SELECT month_year FROM library_receipts) x")]
     months.sort(key=_month_key,reverse=True)
     month=(request.args.get('month') or '').strip() or (months[0] if months else '')
-    libs=db.fetch_all("SELECT name,lib_type FROM libraries ORDER BY id")
+    libs=db.fetch_all("SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id",(month or '01/2000',))
     done={r['library_name'] for r in db.fetch_all("SELECT library_name FROM library_receipts WHERE month_year=%s",(month,))}
     not_reg=[dict(l) for l in libs if l['name'] not in done]
     upis=db.fetch_all("SELECT id,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,payer_name,amount FROM receipt_bank_transactions WHERE month_year=%s AND status='available' ORDER BY transaction_date,id",(month,))
@@ -157,7 +157,7 @@ def dashboard():
 @receipts.get('/receipts/libraries')
 def receipt_libraries():
     if not (_admin() or _librarian()): return jsonify(success=False),403
-    rows=db.fetch_all('SELECT name,lib_type FROM libraries ORDER BY id')
+    rows=db.fetch_all('SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id')
     return jsonify(rows=[dict(r) for r in rows])
 
 @receipts.get('/receipts/available')
@@ -177,8 +177,10 @@ def submit_receipt():
     total=security+annual+newspaper
     def save(conn):
         with conn.cursor() as c:
-            c.execute('SELECT id FROM libraries WHERE name=%s',(lib,))
-            if not c.fetchone(): raise ValueError('நூலகம் கிடைக்கவில்லை.')
+            c.execute('SELECT id,inactive_from FROM libraries WHERE name=%s',(lib,))
+            lrow=c.fetchone()
+            if not lrow: raise ValueError('நூலகம் கிடைக்கவில்லை.')
+            if lrow[1] and re.fullmatch(r'\d{2}/\d{4}',month) and lrow[1]<=dt.date(int(month[3:]),int(month[:2]),1): raise ValueError('இந்த நூலகம் செயல்படவில்லை.')
             c.execute("SELECT id,amount FROM receipt_bank_transactions WHERE id=ANY(%s) AND month_year=%s AND status='available' AND uploaded_at>=now()-interval '5 days' FOR UPDATE",(list(map(int,ids)),month))
             trs=c.fetchall()
             if len(trs)!=len(set(map(int,ids))): raise ValueError('UPI எண் ஏற்கனவே பயன்படுத்தப்பட்டுள்ளது அல்லது காலவரம்பு முடிந்துள்ளது.')
@@ -201,7 +203,9 @@ def submit_receipt():
 
 _PENDING_SQL = ("SELECT r.*, COALESCE(json_agg(json_build_object('upi',t.upi_number,'amount',t.amount,'date',t.transaction_date)) "
                 "FILTER(WHERE t.id IS NOT NULL),'[]') transactions FROM library_receipts r "
-                "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id WHERE {where} GROUP BY r.id ORDER BY {order}")
+                "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id WHERE {where} "
+                "AND NOT EXISTS (SELECT 1 FROM libraries l WHERE l.name=r.library_name AND l.inactive_from IS NOT NULL "
+                "AND l.inactive_from <= to_date('01/' || r.month_year, 'DD/MM/YYYY')) GROUP BY r.id ORDER BY {order}")
 
 @receipts.get('/receipts/admin/pending')
 def pending():
@@ -324,6 +328,9 @@ def saveOrUpdateReceipt(data):
                 pdate=min(t[6] for t in trs)
             else:
                 month=_prev_month(); pdate=None
+            c.execute("SELECT inactive_from FROM libraries WHERE name=%s",(lib,))
+            inf=c.fetchone()[0]
+            if inf and inf<=dt.date(int(month[3:]),int(month[:2]),1): raise ValueError(f'இந்த நூலகம் {inf.strftime("%d/%m/%Y")} முதல் செயல்படவில்லை; {month} மாதத்திற்குப் பதிவு செய்ய இயலாது.')
             c.execute('SELECT id,status FROM library_receipts WHERE library_name=%s AND month_year=%s FOR UPDATE',(lib,month))
             old=c.fetchone()
             if old and old[1]=='approved': raise ValueError(f'{month} மாதப் பதிவு ஏற்கனவே ஒப்புதல் பெற்றுள்ளது. மாற்ற Admin-ஐ அணுகவும்.')
@@ -388,7 +395,7 @@ def _report_rows(month, include_pending):
         + ", ".join('r.' + c for _, c in REPORT_HEADS) + ", "
         "COALESCE(json_agg(json_build_object('upi',t.upi_number,'date',to_char(t.transaction_date,'YYYY-MM-DD')) "
         "ORDER BY t.transaction_date,t.id) FILTER (WHERE t.id IS NOT NULL),'[]') txs "
-        "FROM library_receipts r JOIN libraries l ON l.name=r.library_name "
+        "FROM library_receipts r JOIN libraries l ON l.name=r.library_name AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || r.month_year, 'DD/MM/YYYY')) "
         "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id "
         "WHERE " + where + " GROUP BY r.id, l.id ORDER BY l.id", (month,))
     return [dict(r) for r in rows]
@@ -486,7 +493,7 @@ def build_receipt_report(kind, month, include_pending=False):
                            + pick(amounts(r)) + [r['visitors'] or 0, r['issues'] or 0, r['book_usage'] or 0])
         totals = ['', 'மொத்தம்', '', ''] + pick(sums(all_rows)) + [
             sum(r['visitors'] or 0 for r in all_rows), sum(r['issues'] or 0 for r in all_rows), sum(r['book_usage'] or 0 for r in all_rows)]
-        total_libs = db.fetch_one('SELECT count(*) c FROM libraries')['c']
+        total_libs = db.fetch_one("SELECT count(*) c FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY'))", (month,))['c']
         notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {len(all_rows)}.')
     return {'success': True, 'kind': kind, 'month': month, 'title': REPORT_TITLES[kind], 'columns': cols,
             'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
