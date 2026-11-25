@@ -749,6 +749,51 @@ def do_vendors_rent(raw):
     return _do_vendors(raw, "rent")
 
 
+# ---------------------------------------------------------------- நூலகப் புள்ளி விவரம் — மார்ச் 2024 அடிப்படை எண்ணிக்கை
+STATS_BASE_COLS = [("வ.எண்.", "_no"), ("நூலக வகை", "_type"), ("நூலகத்தின் பெயர்", "_lib"),
+                   ("உறுப்பினர் காப்புத் தொகை கட்டணம்", "fee"), ("உறுப்பினர் எண்ணிக்கை", "members"),
+                   ("புரவலர் எண்ணிக்கை", "patrons"), ("பெரும்புரவலர் எண்ணிக்கை", "chief_patrons"),
+                   ("கொடையாளர் எண்ணிக்கை", "donors")]
+
+
+def _stat_int(s):
+    s = str(s or "").replace(",", "").strip()
+    if not s:
+        return 0
+    n = Decimal(s)
+    if n < 0 or n != n.to_integral_value():
+        raise ValueError("எண்ணிக்கை முழு எண்ணாக இருக்க வேண்டும்")
+    return int(n)
+
+
+def do_stats_base(raw):
+    """மார்ச் 2024 நூலகப் புள்ளி விவரம்: A வ.எண்., B வகை, C நூலகம், D காப்புத் தொகை கட்டணம்,
+    E உறுப்பினர், F புரவலர், G பெரும்புரவலர், H கொடையாளர். காலியான எண்ணிக்கை = 0. மீண்டும் ஏற்றினால் புதுப்பிக்கும்."""
+    rows, skipped, items = read_rows(raw), [], {}
+    known = set(library_ids())
+    for n, r in enumerate(rows, 2):
+        name = cell(r, 2)
+        if not name:
+            continue
+        if name not in known:
+            skipped.append(f"வரிசை {n}: '{name}' — நூலகப் பட்டியலில் இல்லை")
+            continue
+        try:
+            fee = Decimal(cell(r, 3).replace(",", "") or "0")
+            if fee < 0:
+                raise ValueError("கட்டணம் குறைவாக இருக்க முடியாது")
+            vals = [_stat_int(cell(r, i)) for i in (4, 5, 6, 7)]
+        except Exception as e:
+            skipped.append(f"வரிசை {n}: {name} — {e}")
+            continue
+        items[name] = (name, fee, *vals)
+    run_batch("INSERT INTO library_stats_base (library_name, fee, members, patrons, chief_patrons, donors) VALUES %s "
+              "ON CONFLICT (library_name) DO UPDATE SET fee = EXCLUDED.fee, members = EXCLUDED.members, "
+              "patrons = EXCLUDED.patrons, chief_patrons = EXCLUDED.chief_patrons, donors = EXCLUDED.donors, "
+              "updated_at = now()", list(items.values()))
+    return result(len(items), skipped)
+
+
 IMPORTERS = {
     "libraries":  (do_libraries,  "நூலகப் பட்டியல் (Sheet1)"),
     "newspapers": (do_newspapers, "நாளிதழ் பட்டியல் (NEWSPAPER LIST)"),
@@ -762,4 +807,5 @@ IMPORTERS = {
     "vendors_rent": (do_vendors_rent, "வாடகை Vendor விவரம்"),
     "claims_approved": (do_claims_approved, "ஏற்கனவே அனுமதித்த சில்லறை செலவின மாதங்கள்"),
     "receipts_approved": (do_receipts_approved, "ஏற்கனவே பதிவான வரவினங்கள்"),
+    "stats_base": (do_stats_base, "மார்ச் 2024 நூலகப் புள்ளி விவரம்"),
 }

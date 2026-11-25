@@ -1812,8 +1812,16 @@ def _add_hist_formulas(ws, last_row=HIST_FORMULA_ROWS):
         ws.cell(r, 1).number_format = "@"          # 04/2024 தேதியாக மாறாமல் இருக்க
 
 
+def _stats_base_template():
+    """மார்ச் 2024 நூலகப் புள்ளி விவரம் — நூலகங்கள் வகை வாரியாக நிரப்பப்பட்டு; எண்கள் மட்டும் நிரப்ப வேண்டும்."""
+    heads = [t for t, _ in importer.STATS_BASE_COLS]
+    sample = [1, "கிளை நூலகம்", "எடுத்துக்காட்டு நூலகம்", 15, 1200, 10, 2, 1]
+    return ("stats_base_march2024_template.xlsx", [heads], sample, [8, 26, 38, 18, 16, 14, 16, 16])
+
+
 TEMPLATE_XLSX = {
     "claims_approved": _hist_template(),
+    "stats_base": _stats_base_template(),
     "receipts_approved": _receipts_template(),
     "libraries": ("libraries_template.xlsx",
                   [["நூலகத்தின் பெயர்", "நூலக குறியீடு", "மின்னஞ்சல்", "நூலக வகை", "ஊதிய மையம்"]],
@@ -1845,6 +1853,18 @@ TEMPLATE_XLSX = {
 def _template_rows(kind):
     """தரவுத்தளத்தில் உள்ள பதிவுகளை Excel வரிகளாகத் தரும் (இல்லையெனில் [])."""
     try:
+        if kind == "stats_base":
+            from receipts_module import _group_of, LIB_GROUPS
+            libs = db.fetch_all("SELECT l.id, l.name, l.lib_type, b.fee, b.members, b.patrons, b.chief_patrons, b.donors "
+                                "FROM libraries l LEFT JOIN library_stats_base b ON b.library_name = l.name ORDER BY l.id")
+            order = [t for _, t in LIB_GROUPS] + ["பிற நூலகங்கள்"]
+            libs.sort(key=lambda r: (order.index(_group_of(r["lib_type"])), r["id"]))
+            out = []
+            for n, r in enumerate(libs, 1):
+                z = lambda v: "" if v is None else (int(v) if float(v) == int(v) else float(v))
+                out.append([n, r["lib_type"] or "", r["name"], z(r["fee"]), z(r["members"]), z(r["patrons"]),
+                            z(r["chief_patrons"]), z(r["donors"])])
+            return out
         if kind == "libraries":
             return [[r["name"], r["code"] or "", r["emails"], r["lib_type"], r["pay_center"]] for r in
                     db.fetch_all("SELECT name, code, emails, lib_type, pay_center FROM libraries ORDER BY id")]

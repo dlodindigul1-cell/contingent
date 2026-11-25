@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ta"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>நூலக வரவின அறிக்கைகள்</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:"Noto Sans Tamil",Arial,sans-serif;background:#f4f6fa;margin:0;color:#17243a}
+.wrap{max-width:1250px;margin:20px auto;padding:0 14px}
+.card{background:#fff;border-radius:12px;padding:18px 20px;margin:14px 0;box-shadow:0 2px 12px #0001}
+.topnav{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border-radius:10px;box-shadow:0 2px 12px #0001;font-weight:700}
+.topnav a{color:#174a78;text-decoration:none}.topnav a:last-child{color:#b42318}.topnav a:nth-child(2){color:#0f766e}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+.tabs button{padding:10px 14px;border:1px solid #174a78;background:#fff;color:#174a78;border-radius:8px;cursor:pointer;font-weight:600;font-family:inherit}
+.tabs button.on{background:#174a78;color:#fff}
+.rep{display:none}.rep.on{display:block}
+.lead{color:#566178;margin:4px 0 12px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar select,.toolbar input[type=month]{padding:9px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit}
+.btn{padding:9px 14px;background:#174a78;color:#fff;border:0;border-radius:6px;cursor:pointer;font-family:inherit}
+.btn.alt{background:#0f766e}.btn:disabled{opacity:.6}
+.msg{padding:9px 12px;border-radius:6px;margin:8px 0;font-size:14px}
+.msg.info{background:#e8eff9}.msg.warn{background:#fff4d6}.msg.bad{background:#fceceb;color:#b3261e}
+.tw{overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid #c9d3e3;padding:6px 8px;vertical-align:top}
+th{background:#e8eff9;text-align:center}
+td.num{text-align:right}tr.b td{font-weight:700;background:#f3f6fb}
+</style></head><body>
+<div class="wrap">
+<div class="topnav"><a href="/admin">← Admin முகப்பு</a><a href="/receipts">₹ நூலக வரவின மேலாண்மை</a><a href="/logout">வெளியேறு</a></div>
+<h1>நூலக வரவின அறிக்கைகள்</h1>
+<div class="tabs" id="tabs">
+<button type="button" data-t="daily" class="on">R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</button>
+<button type="button" data-t="upi">R2. மாத வரவுகள் (as per UPI)</button>
+<button type="button" data-t="monthly">R3. மாதாந்திர வரவின அறிக்கை</button>
+<button type="button" data-t="stats">R4. நூலகப் புள்ளி விவர அறிக்கை</button>
+</div>
+
+<section class="card rep on" id="rep-daily"><h2>R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</h2>
+<p class="lead">ஒவ்வொரு நாளும் எத்தனை நூலகங்கள் பதிவு செய்திருந்தாலும் அவற்றின் இனவாரித் தொகைகள் கூட்டி ஒரே வரியாகக் காட்டப்படும். இயல்பாக ஒப்புதல் பெற்ற பதிவுகள் மட்டும் சேரும்.</p>
+<div class="toolbar"><input type="month" id="rr_daily_month" aria-label="வரவு மாதம்"><button class="btn" id="rr_daily_go" type="button">அறிக்கையைக் காட்டு</button>
+<button class="btn alt rr-daily-dl" type="button" id="rr_daily_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-daily-dl" type="button" id="rr_daily_xls" style="display:none">📊 Excel</button>
+<label><input type="checkbox" id="rr_daily_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
+<div id="rr_daily_msg"></div><div id="rr_daily_out"></div></section>
+
+<section class="card rep" id="rep-upi"><h2>R2. மாத வரவுகள் — வங்கி அறிக்கைப்படி (as per UPI)</h2>
+<p class="lead">ஒவ்வொரு நூலகத்தின் UPI (Google Pay / PhonePe) UTR எண், தொகை செலுத்திய நாள் மற்றும் இனவாரித் தொகைகள் காட்டப்படும்.</p>
+<div class="toolbar"><input type="month" id="rr_upi_month" aria-label="வரவு மாதம்"><button class="btn" id="rr_upi_go" type="button">அறிக்கையைக் காட்டு</button>
+<button class="btn alt rr-upi-dl" type="button" id="rr_upi_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-upi-dl" type="button" id="rr_upi_xls" style="display:none">📊 Excel</button>
+<label><input type="checkbox" id="rr_upi_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
+<div id="rr_upi_msg"></div><div id="rr_upi_out"></div></section>
+
+<section class="card rep" id="rep-monthly"><h2>R3. மாதாந்திர வரவின அறிக்கை (மொத்தம் — புள்ளி விவரத்துடன்)</h2>
+<p class="lead">நூலகம் வாரியாக வரவுத் தொகைகளுடன், அந்த மாத வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு ஆகிய புள்ளி விவரங்களும் காட்டப்படும்.</p>
+<div class="toolbar"><input type="month" id="rr_monthly_month" aria-label="வரவு மாதம்"><button class="btn" id="rr_monthly_go" type="button">அறிக்கையைக் காட்டு</button>
+<button class="btn alt rr-monthly-dl" type="button" id="rr_monthly_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-monthly-dl" type="button" id="rr_monthly_xls" style="display:none">📊 Excel</button>
+<label><input type="checkbox" id="rr_monthly_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
+<div id="rr_monthly_msg"></div><div id="rr_monthly_out"></div></section>
+
+<section class="card rep" id="rep-stats"><h2>R4. நூலகப் புள்ளி விவர அறிக்கை — உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர்</h2>
+<p class="lead">மார்ச் 2024 அடிப்படை எண்ணிக்கையுடன் (தரவு ஏற்றம் › 2E), ஏப்ரல் 2024 முதல் ஒப்புதல் பெற்ற வரவுகளிலிருந்து தானாகக் கணக்கிடப்படும். ஒவ்வொரு நூலகத்துக்கும் அறிக்கைக் காலத்தில் சேர்ந்தவை தனியாகவும், மொத்த எண்ணிக்கை தனியாகவும் வரும்; இறுதியில் வகை வாரியான Abstract சுருக்கம் இருக்கும்.</p>
+<div class="toolbar">
+<select id="rr_stats_mode" aria-label="அறிக்கை வகை"><option value="month">மாதாந்திர அறிக்கை</option><option value="fy">நிதியாண்டு அறிக்கை</option><option value="upto">நிதியாண்டில் குறிப்பிட்ட மாதம் வரை</option></select>
+<input type="month" id="rr_stats_month" min="2024-04" aria-label="மாதம்">
+<select id="rr_stats_fy" aria-label="நிதியாண்டு" style="display:none"></select>
+<button class="btn" id="rr_stats_go" type="button">அறிக்கையைக் காட்டு</button>
+<button class="btn alt rr-stats-dl" type="button" id="rr_stats_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-stats-dl" type="button" id="rr_stats_xls" style="display:none">📊 Excel</button>
+<label><input type="checkbox" id="rr_stats_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
+<div id="rr_stats_msg"></div><div id="rr_stats_out"></div></section>
+</div>
+{% raw %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function note(el, kind, text){ el.innerHTML = '<div class="msg ' + kind + '">' + esc(text) + '</div>'; }
+async function getJSON(url){
+  const r = await fetch(url);
+  if (r.status === 401) { location.href = '/admin'; throw new Error('உள்நுழைவு தேவை'); }
+  return r.json();
+}
+function curMonthInput(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function toMY(v){ const q = String(v || '').split('-'); return q.length === 2 ? q[1] + '/' + q[0] : ''; }
+const RPT_TA_MONTHS = ['ஜனவரி','பிப்ரவரி','மார்ச்','ஏப்ரல்','மே','ஜூன்','ஜூலை','ஆகஸ்ட்','செப்டம்பர்','அக்டோபர்','நவம்பர்','டிசம்பர்'];
+function rptMoney(n){ return Number(n || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function rptCell(n){ return Number(n) === 0 ? '–' : rptMoney(n); }
+function rptMonthLabel(my){ const m = String(my).split('/'); return RPT_TA_MONTHS[parseInt(m[0], 10) - 1] + ' ' + m[1]; }
+async function rptPdf(bodyHtml, css, landscape, width, filename, opt){
+  opt = opt || {};
+  if (typeof html2canvas === 'undefined' || !window.jspdf) throw new Error('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்.');
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:0;top:0;width:' + width + 'px;z-index:-1;pointer-events:none;background:#fff;';
+  host.innerHTML = '<style>#rptPage{width:' + width + 'px;box-sizing:border-box;padding:20px 24px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;line-height:1.35}' +
+    '#rptPage table{border-collapse:collapse;width:100%}#rptPage th,#rptPage td{border:1.2px solid #000;padding:4px 6px;vertical-align:middle}' +
+    '#rptPage th{text-align:center;font-weight:700;background:#fff}#rptPage .r{text-align:right}#rptPage .c{text-align:center}#rptPage .b td{font-weight:700}' +
+    '#rptPage .h1{text-align:center;font-weight:700}#rptPage .h2{text-align:center;font-weight:700;margin-top:3px}#rptPage .h3{text-align:center;font-weight:700;margin:3px 0 10px}' + css + '</style><div id="rptPage">' + bodyHtml + '</div>';
+  document.body.appendChild(host);
+  try{
+    try{ await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; }catch(e){}
+    const page = host.querySelector('#rptPage');
+    /* அட்டவணை நிர்ணயித்த அகலம் அமைத்த அகலத்தை விட அதிகமெனில் பக்கத்தையும் அதற்கேற்ப விரிவாக்கு (வலப்பக்கம் வெட்டுப்படாமல்) */
+    const realW = Math.max(width, page.scrollWidth);
+    if (realW > width){ page.style.width = realW + 'px'; host.style.width = realW + 'px'; }
+    const realH = page.scrollHeight;
+    const SC = 2;
+    const canvas = await html2canvas(page, {scale: SC, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, width: realW, height: realH, windowWidth: realW});
+    const base = page.getBoundingClientRect().top;
+    const bottoms = Array.from(page.querySelectorAll('tr')).map(tr => (tr.getBoundingClientRect().bottom - base) * SC);
+    const fmt = opt.format === 'legal' ? 'legal' : 'a4';
+    const SIZE = fmt === 'legal' ? [215.9, 355.6] : [210, 297];   // [அகலம், உயரம்] mm (portrait)
+    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: fmt, orientation: landscape ? 'landscape' : 'portrait'});
+    const PW = landscape ? SIZE[1] : SIZE[0], PH = landscape ? SIZE[0] : SIZE[1], M = 8;
+    if (opt.onePage){
+      /* ஒரே பக்கம்: அகலம்/உயரம் இரண்டில் எது தடையோ அதற்கேற்பச் சுருக்கி, நடுவில் வை */
+      const availW = PW - 2 * M, availH = PH - 2 * M;
+      let w = availW, h = canvas.height * w / canvas.width;
+      if (h > availH){ h = availH; w = canvas.width * h / canvas.height; }
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', M + (availW - w) / 2, M, w, h);
+      pdf.save(filename);
+      return;
+    }
+    const pxPerMm = canvas.width / (PW - 2 * M);
+    const pageH = (PH - 2 * M) * pxPerMm;
+    let y = 0, first = true;
+    while (y < canvas.height - 1){
+      let end = Math.min(y + pageH, canvas.height);
+      if (end < canvas.height){
+        const c = bottoms.filter(b => b > y + pageH * 0.4 && b <= end);
+        if (c.length) end = Math.max.apply(null, c);
+      }
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = Math.ceil(end - y);
+      const ctx = part.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, end - y, 0, 0, canvas.width, end - y);
+      if (!first) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.98), 'JPEG', M, M, PW - 2 * M, (end - y) / pxPerMm);
+      first = false; y = end;
+    }
+    pdf.save(filename);
+  } finally { host.remove(); }
+}
+async function rptPdfBtn(btn, msgEl, fn){
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'PDF உருவாகிறது…';
+  try{ await fn(); }catch(e){ note(msgEl, 'bad', e.message || 'PDF உருவாக்க முடியவில்லை'); }
+  btn.disabled = false; btn.textContent = old;
+}
+function rrCell(col, v, isTot, pdf){
+  const R = pdf ? 'r' : 'num', C = pdf ? 'c' : '';
+  if (col.type === 'money') return '<td class="' + R + '">' + (isTot ? rptMoney(v) : rptCell(v)) + '</td>';
+  if (col.type === 'total') return '<td class="' + R + '"><b>' + rptMoney(v) + '</b></td>';
+  if (col.type === 'int') return '<td class="' + R + '">' + (isTot ? Number(v).toLocaleString('en-IN') : (Number(v) === 0 ? '–' : v)) + '</td>';
+  if (col.type === 'rate') return '<td class="' + R + '">' + (v === '' || v == null ? '' : rptMoney(v)) + '</td>';
+  if (col.type === 'no' || col.type === 'date') return '<td' + (C ? ' class="' + C + '"' : ' style="text-align:center"') + '>' + esc(v) + '</td>';
+  return '<td>' + String(v == null ? '' : v).split('\n').map(esc).join('<br>') + '</td>';
+}
+const RR_BREAK = {'காப்புத்தொகை': 'காப்புத்<br>தொகை', 'சந்தாத் தொகை': 'சந்தாத்<br>தொகை', 'காலதாமதக் கட்டணம்': 'கால<br>தாமதக்<br>கட்டணம்',
+  'நூல் விலைப் பிடித்தம்': 'நூல்<br>விலைப்<br>பிடித்தம்', 'பழைய பத்திரிக்கை விற்பனை': 'பழைய<br>பத்திரிக்கை<br>விற்பனை', 'பழைய நூல்கள் விற்பனை': 'பழைய<br>நூல்கள்<br>விற்பனை',
+  'பெரும்புரவலர்': 'பெரும்<br>புரவலர்', 'கொடையாளர்': 'கொடை<br>யாளர்', 'இதர வரவுகள்': 'இதர<br>வரவுகள்'};
+function rrTable(d, pdf){
+  const head = '<tr>' + d.columns.map(c => '<th style="white-space:normal">' + (RR_BREAK[c.title] || esc(c.title)) + '</th>').join('') + '</tr>';
+  const totRow = vals => '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, vals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(vals[i]) + '</td>').join('') + '</tr>';
+  const body = d.rows.map(r => Array.isArray(r) ? '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>' : r.subtotal ? totRow(r.subtotal) :
+    '<tr class="b"><td colspan="' + d.columns.length + '" style="font-weight:700;text-align:left;background:#e8eff9">' + esc(r.section) + '</td></tr>').join('') ||
+    '<tr><td colspan="' + d.columns.length + '">இந்த மாதத்திற்குப் பதிவுகள் இல்லை.</td></tr>';
+  const foot = '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, d.totals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(d.totals[i]) + '</td>').join('') + '</tr>';
+  return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
+}
+
+const RR = {daily: {onePage: true}, upi: {}, monthly: {}, stats: {}};
+const rptCache = {};
+function rrQuery(id){
+  const p = 'rr_' + id, pend = $('#' + p + '_pend').checked ? '1' : '0';
+  if (id === 'stats'){
+    const mode = $('#' + p + '_mode').value;
+    if (mode === 'fy') return {q: 'mode=fy&fy=' + encodeURIComponent($('#' + p + '_fy').value) + '&pending=' + pend, err: ''};
+    const my = toMY($('#' + p + '_month').value);
+    return {q: 'mode=' + mode + '&month=' + encodeURIComponent(my) + '&pending=' + pend, err: my ? '' : 'மாதத்தைத் தேர்ந்தெடுக்கவும்.'};
+  }
+  const my = toMY($('#' + p + '_month').value);
+  return {q: 'month=' + encodeURIComponent(my) + '&pending=' + pend, err: my ? '' : 'வரவு மாதத்தைத் தேர்ந்தெடுக்கவும்.'};
+}
+async function rrRun(id){
+  const p = 'rr_' + id;
+  $('#' + p + '_out').innerHTML = ''; $('#' + p + '_msg').innerHTML = '';
+  document.querySelectorAll('.rr-' + id + '-dl').forEach(b => b.style.display = 'none'); rptCache[p] = null;
+  const r = rrQuery(id);
+  if (r.err){ note($('#' + p + '_msg'), 'warn', r.err); return; }
+  try{
+    $('#' + p + '_msg').innerHTML = '<div class="msg info">ஏற்றப்படுகிறது…</div>';
+    const d = await getJSON('/receipts/admin/report/' + id + '.json?' + r.q);
+    $('#' + p + '_msg').innerHTML = '';
+    if (!d.success){ note($('#' + p + '_msg'), 'bad', d.message); return; }
+    d.query = r.q; rptCache[p] = d;
+    $('#' + p + '_out').innerHTML = '<p><b>' + esc(d.title) + '</b> — ' + esc(d.subtitle || rptMonthLabel(d.month)) + '</p>' +
+      d.notes.map(t => '<div class="msg info">' + esc(t) + '</div>').join('') +
+      '<div class="tw"><table>' + rrTable(d, false) + '</table></div>';
+    document.querySelectorAll('.rr-' + id + '-dl').forEach(b => b.style.display = '');
+  }catch(e){ note($('#' + p + '_msg'), 'bad', e.message); }
+}
+function rrPdf(id){
+  const d = rptCache['rr_' + id]; if (!d) return Promise.resolve();
+  const wide = d.columns.length > 10;
+  const html = '<div class="h1" style="font-size:20px">திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு</div>' +
+    '<div class="h2" style="font-size:17px">' + esc(d.title) + '</div>' +
+    '<div class="h3" style="font-size:15px">' + esc(d.subtitle || rptMonthLabel(d.month)) + '</div>' +
+    '<table style="font-size:' + (wide ? 12 : 13.5) + 'px">' + rrTable(d, true) + '</table>' +
+    '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
+  const portrait = id === 'daily';
+  const fname = (d.file || ('Receipts_' + id + '_' + String(d.month).replace('/', '-'))) + '.pdf';
+  return rptPdf(html, '', !portrait, portrait ? 760 : (id === 'stats' ? 1300 : (d.columns.length > 15 ? 1700 : 1400)), fname, {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
+}
+Object.keys(RR).forEach(id => {
+  const p = 'rr_' + id;
+  $('#' + p + '_go').addEventListener('click', () => rrRun(id));
+  $('#' + p + '_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#' + p + '_msg'), () => rrPdf(id)));
+  $('#' + p + '_xls').addEventListener('click', () => { const d = rptCache[p]; if (d) location.href = '/receipts/admin/report/' + id + '.xlsx?' + d.query; });
+  if ($('#' + p + '_month')) $('#' + p + '_month').value = curMonthInput();
+});
+/* நிதியாண்டு பட்டியல் — 2024-25 முதல் நடப்பு நிதியாண்டு வரை */
+(function(){
+  const now = new Date(), cur = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1, sel = $('#rr_stats_fy');
+  for (let y = cur; y >= 2024; y--) sel.insertAdjacentHTML('beforeend', '<option value="' + y + '-' + String((y + 1) % 100).padStart(2, '0') + '">' + y + '-' + String((y + 1) % 100).padStart(2, '0') + '</option>');
+})();
+$('#rr_stats_mode').addEventListener('change', () => {
+  const fy = $('#rr_stats_mode').value === 'fy';
+  $('#rr_stats_fy').style.display = fy ? '' : 'none'; $('#rr_stats_month').style.display = fy ? 'none' : '';
+});
+document.querySelector('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-t]'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('section.rep').forEach(s => s.classList.toggle('on', s.id === 'rep-' + b.dataset.t));
+  history.replaceState(null, '', '#' + b.dataset.t);
+});
+(function(){ const h = (location.hash || '').slice(1), b = document.querySelector('#tabs button[data-t="' + h + '"]'); if (b) b.click(); })();
+</script>
+{% endraw %}
+</body></html>

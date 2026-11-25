@@ -323,3 +323,16 @@ CREATE TABLE IF NOT EXISTS receipt_admin_audit (
 -- செயல்படாத நூலகங்கள்: இந்த நாள் முதல் நூலகம் செயல்படவில்லை (NULL = செயல்படுகிறது).
 -- இந்த நாளுக்குப் பிந்தைய மாதங்களில் பதிவுகள், பட்டியல்கள், அறிக்கைகளில் அந்த நூலகம் சேராது.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS inactive_from DATE;
+
+-- நூலகப் புள்ளி விவரம் (உறுப்பினர் / புரவலர் / பெரும்புரவலர் / கொடையாளர்) — மார்ச் 2024 அடிப்படை எண்ணிக்கை.
+-- fee = அந்த நூலகத்தின் உறுப்பினர் காப்புத் தொகை கட்டணம் (காப்புத் தொகை வரவை இதனால் வகுத்து புதிய உறுப்பினர் எண்ணிக்கை கணக்கிடப்படும்).
+-- ஏப்ரல் 2024 முதல் எண்ணிக்கைகள் ஒப்புதல் பெற்ற வரவுப் பதிவுகளிலிருந்து தானாகக் கணக்கிடப்படும்.
+CREATE TABLE IF NOT EXISTS library_stats_base (
+ library_name TEXT PRIMARY KEY,
+ fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+ members INTEGER NOT NULL DEFAULT 0,
+ patrons INTEGER NOT NULL DEFAULT 0,
+ chief_patrons INTEGER NOT NULL DEFAULT 0,
+ donors INTEGER NOT NULL DEFAULT 0,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
