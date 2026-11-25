@@ -110,8 +110,7 @@ LATER = {
     "shareContingentBill", "getAvailableMonthsForLibrary",
     "getAvailableMonthsForLibraryAcknowledgement",
     "saveOrUpdateReceipt", "validatePaymentWithBank",
-    "sendYearlyReceiptAbstract", "sendYearlyExpenseAbstract",
-    "openPrevYearReceiptExpense",
+    "sendYearlyExpenseAbstract",
 }
 LATER_RESULT = {"success": False,
                 "message": "இந்த வசதி புதிய அமைப்பில் இன்னும் இணைக்கப்படவில்லை (அடுத்த கட்டத்தில் வரும்)."}
@@ -1394,6 +1393,72 @@ def getLibraryYearlyExpense(libraryName, fy=None):
     return {"success": True, "library": name, "fy": fy_label, "cols": cols, "rows": rows,
             "totals": {"label": "மொத்தம்", "vals": [jnum(grand_vals[k]) for k in keys],
                        "net": jnum(grand_net), "total": jnum(grand_total)}}
+
+
+# ------------------------------------------------------------------
+#  நூலகர் உள்நுழைவு › 3. நடப்பு ஆண்டு சுருக்கம் – நூலக வரவுகள்  /  5. கடந்த ஆண்டு வரவு-செலவு (தணிக்கைப் படிவம்)
+#  ஒப்புதல் பெற்ற வரவுப் பதிவுகள் மட்டும்; ஆண்டு முழுதும் தொகை இல்லாத இனங்கள் காட்டப்படாது.
+# ------------------------------------------------------------------
+_EN_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+# (தலைப்பு, library_receipts நெடுவரிசை) — தணிக்கை மாதிரிப் படிவத்தின் தலைப்புகள்
+RECEIPT_YEAR_COLS = [("காப்புத் தொகை", "security_amount"), ("சந்தாத் தொகை", "annual_amount"),
+                     ("காலதாமதக் கட்டணம்", "late_fee"), ("நூல் விலைப் பிடித்தம்", "book_fine"),
+                     ("பழைய பத்திரிக்கை விற்பனை", "newspaper_amount"), ("பழைய நூல்கள் விற்பனை", "old_book_sale"),
+                     ("புரவலர் தொகை", "patron"), ("பெரும்புரவலர் தொகை", "chief_patron"),
+                     ("கொடையாளர் தொகை", "donor"), ("இதர வரவுகள்", "other_income")]
+AUDIT_FIRST_FY = 2024          # முதல் தணிக்கை ஆண்டு 2024-2025
+
+
+def _completed_fy_start():
+    """முடிவுற்ற கடைசி நிதியாண்டின் தொடக்க ஆண்டு (எ.கா. நவம்பர் 2026 -> 2025)."""
+    now = dt.datetime.now(IST)
+    return (now.year if now.month >= 4 else now.year - 1) - 1
+
+
+@rpc
+def getLibraryReceiptYearly(libraryName, fy=None, audit=False):
+    """ஒரு நூலகத்தின் நிதியாண்டு வரவுச் சுருக்கம் (ஒப்புதல் பெற்ற வரவுகள்).
+    audit=False: நடப்பு நிதியாண்டு (அல்லது fy), பதிவுள்ள மாதங்கள் மட்டும்.
+    audit=True : முடிவுற்ற நிதியாண்டு மட்டும்; 12 மாதங்களும்; அலுவலக வரவு (சில்லறைச் செலவின அனுமதித் தொகை) சேர்த்து."""
+    name = str(libraryName or "").strip()
+    if not name:
+        return {"success": False, "message": "நூலக பெயர் கிடைக்கவில்லை."}
+    if audit:
+        try:
+            y = int(str(fy)[:4])
+            ok = len(str(fy)) == 9 and int(str(fy)[5:]) == y + 1
+        except ValueError:
+            ok = False
+        if not ok or not (AUDIT_FIRST_FY <= y <= _completed_fy_start()):
+            return {"success": False, "message": "முடிவுற்ற நிதியாண்டுகளுக்கு மட்டுமே தணிக்கைப் படிவம் பெற முடியும்."}
+        fy = "%d-%02d" % (y, (y + 1) % 100)
+    fy_label, months = _fy_months(fy)
+    fy_full = "%s-%d" % (fy_label[:4], int(fy_label[:4]) + 1)
+    by = {}
+    for r in db.fetch_all("SELECT * FROM library_receipts WHERE library_name = %s AND status = 'approved' "
+                          "AND mode = 'income' AND month_year = ANY(%s)", (name, months)):
+        by[r["month_year"]] = r
+    if not by and not audit:
+        return {"success": False, "message": "நடப்பு நிதியாண்டில் (%s) ஒப்புதல் பெற்ற வரவுப் பதிவுகள் இல்லை." % fy_full}
+    cols = [(t, c) for t, c in RECEIPT_YEAR_COLS if any(Decimal(str(r[c] or 0)) != 0 for r in by.values())]
+    rows, gv, gt = [], [Decimal(0)] * len(cols), Decimal(0)
+    for m in months:
+        r = by.get(m)
+        if not r and not audit:
+            continue
+        vals = [Decimal(str((r[c] if r else 0) or 0)) for _, c in cols]
+        tot = Decimal(str((r["total_amount"] if r else 0) or 0))
+        mm, yy = int(m[:2]), m[5:]
+        rows.append({"label": "%s-%s" % (_EN_MONTHS[mm - 1], yy[2:]), "vals": [jnum(v) for v in vals], "total": jnum(tot)})
+        gv = [a + b for a, b in zip(gv, vals)]
+        gt += tot
+    out = {"success": True, "library": name, "fy": fy_label, "fyLabel": fy_full,
+           "cols": [{"title": t} for t, _ in cols], "rows": rows,
+           "totals": {"vals": [jnum(v) for v in gv], "total": jnum(gt)}}
+    if audit:
+        office = sum((t for _, _, t in _approved_claims(months, name)), Decimal(0))
+        out["officeReceipts"] = jnum(office)
+    return out
 
 
 # ------------------------------------------------------------------
