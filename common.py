@@ -165,3 +165,20 @@ def bulk_upsert_claims(cur, entries):
 def multi_worker_type(lib_type):
     t = str(lib_type or "")
     return "மாவட்ட மைய" in t or "முழு நேர" in t
+
+
+# ------------------------------------------------------------------
+#  நடப்பு நிதி ஆண்டு (ஏப்ரல் 2026 – மார்ச் 2027) — ஒப்புகை / அனுமதிக்கப்பட்ட மாதப் பட்டியலுக்கு
+#  அடுத்த நிதி ஆண்டுக்கு மாறும்போது இந்த இரு மதிப்புகளை மட்டும் மாற்றவும்.
+# ------------------------------------------------------------------
+ACTIVE_FY_START = (2026, 4)    # (ஆண்டு, மாதம்)
+ACTIVE_FY_END = (2027, 3)
+
+
+def in_active_fy(month_year):
+    """'MM/YYYY' நடப்பு நிதி ஆண்டுக்குள் உள்ளதா?"""
+    try:
+        m, y = str(month_year).strip().split('/')
+        return ACTIVE_FY_START <= (int(y), int(m)) <= ACTIVE_FY_END
+    except (ValueError, TypeError):
+        return False

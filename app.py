@@ -16,7 +16,7 @@ from flask import Flask, Response, jsonify, redirect, request, session
 from psycopg2.extras import execute_values
 
 import db
-from common import multi_worker_type
+from common import multi_worker_type, in_active_fy
 import importer
 from common import (CLAIM_NUM, CLAIM_TEXT, NEWSPAPER_KEYS, TOTAL_SLOTS, WAGE_MAP, jnum,
                     make_unique_key, snake, to_num, upsert_claim)
@@ -563,9 +563,10 @@ def getApprovedMonthsForLibrary(libraryName):
     rows = db.fetch_all("SELECT month_year FROM claims WHERE library_name = %s AND approved "
                         "ORDER BY substr(month_year, 4, 4) DESC, substr(month_year, 1, 2) DESC",
                         (str(libraryName or "").strip(),))
-    if not rows:
-        return {"success": False, "message": "இந்த நூலகத்துக்கு அனுமதிக்கப்பட்ட மாதங்கள் எதுவும் இல்லை."}
-    return {"success": True, "months": [r["month_year"] for r in rows]}
+    months = [r["month_year"] for r in rows if in_active_fy(r["month_year"])]   # 2026-2027 நிதி ஆண்டு மட்டும்
+    if not months:
+        return {"success": False, "message": "இந்த நூலகத்துக்கு 2026-2027 நிதி ஆண்டில் அனுமதிக்கப்பட்ட மாதங்கள் எதுவும் இல்லை."}
+    return {"success": True, "months": months}
 
 
 # (தலைப்பு, claims நெடுவரிசை) — Excel வரிசைப்படி; தொகை 0 எனில் அறிக்கையில் வராது

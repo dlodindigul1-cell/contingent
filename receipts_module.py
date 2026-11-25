@@ -3,6 +3,7 @@ import calendar, datetime as dt, io, re, hmac, os
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, current_app, jsonify, request, session, render_template
 import db
+from common import in_active_fy
 
 receipts = Blueprint('receipts', __name__)
 PDF_PASSWORD = os.environ.get('RECEIPTS_PDF_PASSWORD', 'EKQ002866')
@@ -874,8 +875,21 @@ def getApprovedReceiptMonths(libraryName):
     if not _can_use(): return _fail('உள்நுழைவு தேவை')
     rows = db.fetch_all("SELECT month_year FROM library_receipts WHERE library_name=%s AND status='approved' AND mode='income' AND total_amount>0 "
                         "ORDER BY substr(month_year,4,4) DESC, substr(month_year,1,2) DESC", (str(libraryName or '').strip(),))
-    if not rows: return _fail('இந்த நூலகத்துக்கு ஒப்புதல் பெற்ற வரவுப் பதிவுகள் எதுவும் இல்லை.')
-    return {'success': True, 'months': [r['month_year'] for r in rows]}
+    months = [r['month_year'] for r in rows if in_active_fy(r['month_year'])]   # 2026-2027 நிதி ஆண்டு மட்டும்
+    if not months: return _fail('இந்த நூலகத்துக்கு 2026-2027 நிதி ஆண்டில் ஒப்புதல் பெற்ற வரவுப் பதிவுகள் எதுவும் இல்லை.')
+    return {'success': True, 'months': months}
+
+
+def _ack_date(month_year):
+    """ஒப்புகை நாள் = அந்த மாதத்துக்கு அடுத்த மாதத்தின் 1-ஆம் தேதி (எ.கா. 06/2026 -> 01/07/2026).
+    அது சனி / ஞாயிறு அல்லது விடுமுறை நாளாக இருந்தால், அடுத்த முதல் வேலை நாள்."""
+    m, y = (int(x) for x in str(month_year).strip().split('/'))
+    d = dt.date(y + (m == 12), 1 if m == 12 else m + 1, 1)
+    hol = {r['holiday_date'] for r in db.fetch_all(
+        "SELECT holiday_date FROM holidays WHERE holiday_date BETWEEN %s AND %s", (d, d + dt.timedelta(days=30)))}
+    while d.weekday() >= 5 or d in hol:
+        d += dt.timedelta(days=1)
+    return d
 
 
 def getReceiptAcknowledgement(libraryName, monthYear):
@@ -892,8 +906,8 @@ def getReceiptAcknowledgement(libraryName, monthYear):
     if r['mode'] != 'income' or total <= 0: return _fail('இந்த மாதம் பணம் செலுத்திய வரவு இல்லை.')
     pairs = _utr_pairs(dict(r))
     items = [{'desc': title, 'amount': _num(r[col])} for title, col in RECEIPT_ACK_ITEMS if Decimal(str(r[col] or 0)) > 0]
-    ack = r['approved_at']
-    if ack: ack = ack.astimezone(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime('%d/%m/%Y')
+    try: ack = _ack_date(r['month_year']).strftime('%d/%m/%Y')
+    except (ValueError, TypeError): ack = ''
     return {'success': True, 'library': r['library_name'], 'month': r['month_year'], 'ackDate': ack or '',
             'total': _num(total), 'inWords': _rupees_words(total), 'account': RECEIPT_BANK_ACCOUNT,
             'utrs': '/'.join(u for u, _ in pairs), 'dates': '/'.join(_fdate(d) for _, d in pairs if d), 'items': items}
