@@ -27,13 +27,13 @@ td.num{text-align:right}tr.b td{font-weight:700;background:#f3f6fb}
 </style></head><body>
 <div class="wrap">
 <div class="topnav"><a href="/admin">← Admin முகப்பு</a><a href="/receipts">₹ நூலக வரவின மேலாண்மை</a><a href="/logout">வெளியேறு</a></div>
-<h1>நூலக வரவின அறிக்கைகள்</h1>
+<h1 id="pageH1">நூலக வரவின அறிக்கைகள்</h1>
 <div class="tabs" id="tabs">
-<button type="button" data-t="daily" class="on">R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</button>
-<button type="button" data-t="upi">R2. மாத வரவுகள் (as per UPI)</button>
-<button type="button" data-t="monthly">R3. மாதாந்திர வரவின அறிக்கை</button>
-<button type="button" data-t="stats">R4. நூலகப் புள்ளி விவர அறிக்கை</button>
-<button type="button" data-t="usage">R5. வாசகர் / நூலிரவல் / பயன்பாடு</button>
+<button type="button" data-g="r" data-t="daily" class="on">R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</button>
+<button type="button" data-g="r" data-t="upi">R2. மாத வரவுகள் (as per UPI)</button>
+<button type="button" data-g="r" data-t="monthly">R3. மாதாந்திர வரவின அறிக்கை</button>
+<button type="button" data-g="s" data-t="stats">R4. நூலகப் புள்ளி விவர அறிக்கை</button>
+<button type="button" data-g="s" data-t="usage">R5. வாசகர் / நூலிரவல் / பயன்பாடு</button>
 </div>
 
 <section class="card rep on" id="rep-daily"><h2>R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</h2>
@@ -236,9 +236,9 @@ function rrPdf(id){
     '<div class="h3" style="font-size:15px">' + esc(d.subtitle || rptMonthLabel(d.month)) + '</div>' +
     '<table style="font-size:' + (wide ? 12 : 13.5) + 'px">' + rrTable(d, true) + '</table>' +
     '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
-  const portrait = id === 'daily' || id === 'usage';
+  const portrait = id === 'daily' || id === 'usage' || id === 'stats';
   const fname = (d.file || ('Receipts_' + id + '_' + String(d.month).replace('/', '-'))) + '.pdf';
-  return rptPdf(html, '', !portrait, portrait ? (id === 'usage' ? 800 : 760) : (id === 'stats' ? 1300 : (d.columns.length > 15 ? 1700 : 1400)), fname, {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
+  return rptPdf(html, '', !portrait, portrait ? (id === 'usage' ? 800 : (id === 'stats' ? (d.mode === 'fy' ? 900 : 760) : 760)) : (id === 'stats' ? 1300 : (d.columns.length > 15 ? 1700 : 1400)), fname, {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
 }
 Object.keys(RR).forEach(id => {
   const p = 'rr_' + id;
@@ -265,7 +265,16 @@ document.querySelector('#tabs').addEventListener('click', e => {
   document.querySelectorAll('section.rep').forEach(s => s.classList.toggle('on', s.id === 'rep-' + b.dataset.t));
   history.replaceState(null, '', '#' + b.dataset.t);
 });
-(function(){ const h = (location.hash || '').slice(1), b = document.querySelector('#tabs button[data-t="' + h + '"]'); if (b) b.click(); })();
+/* R1–R3 = வரவின அறிக்கைகள்; R4–R5 = புள்ளி விவர அறிக்கைகள் (Admin மெனுவில் தனி உருப்படி) — #stats / #usage எனில் புள்ளி விவரக் குழு மட்டும் காட்டப்படும் */
+function initGroup(){
+  const h = (location.hash || '').slice(1), g = (h === 'stats' || h === 'usage') ? 's' : 'r';
+  document.querySelectorAll('#tabs button').forEach(b => b.style.display = b.dataset.g === g ? '' : 'none');
+  const t = g === 's' ? 'நூலகப் புள்ளி விவர அறிக்கைகள்' : 'நூலக வரவின அறிக்கைகள்';
+  $('#pageH1').textContent = t; document.title = t;
+  const pick = document.querySelector('#tabs button[data-t="' + h + '"]') || document.querySelector('#tabs button[data-g="' + g + '"]');
+  if (pick) pick.click();
+}
+window.addEventListener('hashchange', initGroup); initGroup();
 </script>
 {% endraw %}
 </body></html>

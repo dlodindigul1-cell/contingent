@@ -211,7 +211,8 @@ nav.side .sub.l2 a{padding-left:34px}
   <button type="button" class="grp" aria-expanded="false">நூலக வரவினம் மேலாண்மை மற்றும் புள்ளி விவரம்</button>
   <div class="sub">
   <a href="/receipts"><span class="n">₹</span><span>நூலக வரவினம் மேலாண்மை மற்றும் புள்ளி விவரம்<small>வங்கி பாஸ்புத்தகம் · UPI · ஒப்புதல்</small></span></a>
-  <a href="/receipts/reports"><span class="n">📊</span><span>வரவின அறிக்கைகள்<small>R1–R3 · புள்ளி விவரம் (R4) · வாசகர்/நூலிரவல்/பயன்பாடு (R5)</small></span></a>
+  <a href="/receipts/reports"><span class="n">📊</span><span>வரவின அறிக்கைகள்<small>R1 · R2 · R3</small></span></a>
+  <a href="/receipts/reports#stats"><span class="n">📈</span><span>புள்ளி விவர அறிக்கைகள்<small>R4 நூலகப் புள்ளி விவரம் · R5 வாசகர்/நூலிரவல்/பயன்பாடு</small></span></a>
   </div>
   <button type="button" class="grp" aria-expanded="false">சில்லறை செலவின மேலாண்மை</button>
   <div class="sub">
@@ -1383,8 +1384,17 @@ Object.keys(RV).forEach(id => {
 
 
 /* ---------- சுருங்கி விரியும் மெனு ---------- */
-function navOpen(grp, open){ grp.setAttribute('aria-expanded', open ? 'true' : 'false'); const sub = grp.nextElementSibling; if (sub && sub.classList.contains('sub')) sub.classList.toggle('open', open); }
-document.querySelector('#nav').addEventListener('click', e => { const g = e.target.closest('button.grp'); if (g) navOpen(g, g.getAttribute('aria-expanded') !== 'true'); });
+function navSet(grp, open){ grp.setAttribute('aria-expanded', open ? 'true' : 'false'); const sub = grp.nextElementSibling; if (sub && sub.classList.contains('sub')) sub.classList.toggle('open', open); }
+/* ஒரு மெனு விரியும்போது அதே நிலையிலுள்ள மற்ற மெனுக்கள் (அவற்றின் உள் மெனுக்களுடன்) தானாகச் சுருங்கும் */
+function navOpen(grp, open){
+  if (open) Array.from(grp.parentElement.children).forEach(x => { if (x !== grp && x.matches('button.grp')){ navSet(x, false); const s = x.nextElementSibling; if (s && s.classList.contains('sub')) s.querySelectorAll('button.grp').forEach(y => navSet(y, false)); } });
+  navSet(grp, open);
+}
+document.querySelector('#nav').addEventListener('click', e => {
+  const g = e.target.closest('button.grp'); if (g){ navOpen(g, g.getAttribute('aria-expanded') !== 'true'); return; }
+  /* முகப்பு போன்ற மேல்நிலை இணைப்பைத் தேர்ந்தால் திறந்துள்ள எல்லா மெனுக்களும் சுருங்கும் */
+  const a = e.target.closest('a'); if (a && a.parentElement === e.currentTarget) e.currentTarget.querySelectorAll('button.grp').forEach(y => navSet(y, false));
+});
 function navRevealActive(){
   const a = document.querySelector('#nav a.on'); if (!a) return;
   for (let sub = a.closest('.sub'); sub; sub = sub.parentElement.closest('.sub')){ const g = sub.previousElementSibling; if (g && g.classList.contains('grp')) navOpen(g, true); }

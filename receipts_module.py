@@ -628,27 +628,33 @@ def build_stats_report(mode, month, fy, include_pending=False, scope=None):
         p['prev_total'] = [a + b for a, b in zip(p['base'], p['prev'])]
         p['cur_total'] = [a + b for a, b in zip(p['base'], p['cum'])]
 
+    dropped = []
     if mode == 'month':
-        # மாதாந்திரம்: உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர் சேர்க்கை மட்டும்
+        # மாதாந்திரம்: சேர்க்கை மட்டும். புரவலர் / பெரும்புரவலர் / கொடையாளர் — அறிக்கை முழுவதும் மொத்தம் 0 எனில் அந்த நெடுவரிசை தவிர்க்கப்படும் (உறுப்பினர் எப்போதும் இருக்கும்)
+        grand = [sum((per[l['name']]['add'][i] for l in libs), Decimal(0)) for i in range(4)]
+        keep = [i for i in range(4) if i == 0 or grand[i] != 0]
+        dropped = [CATS[i] for i in range(4) if i not in keep]
         cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}] + \
-               [{'title': n, 'type': 'int', 'group': 'சேர்க்கை'} for n in CATS]
-        def row_vals(p): return [_num(x) for x in p['add']]
-        def sum_of(names): return [_num(sum((per[n]['add'][i] for n in names), Decimal(0))) for i in range(4)]
+               [{'title': CATS[i], 'type': 'int', 'group': 'சேர்க்கை'} for i in keep]
+        def row_vals(p): return [_num(p['add'][i]) for i in keep]
+        def sum_of(names): return [_num(sum((per[n]['add'][i] for n in names), Decimal(0))) for i in range(4) if i in keep]
     else:
-        # நிதியாண்டு: ஒவ்வொரு வகைக்கும் (முந்தைய நிதி ஆண்டு | நடப்பு நிதி ஆண்டு)
+        # நிதியாண்டு: ஒவ்வொரு வகைக்கும் (முந்தைய நிதி ஆண்டு | நடப்பு நிதி ஆண்டு | மொத்தம்)
+        #   முந்தைய = முந்தைய ஆண்டு இறுதி வரையிலான மொத்தம்; நடப்பு = நடப்பு நிதி ஆண்டில் (அல்லது தேர்ந்த மாதம் வரை) சேர்ந்தவை மட்டும்; மொத்தம் = முந்தைய + நடப்பு
         prev_sub = _fy_label(sy - 1)
         cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}]
         for n in CATS:
             cols.append({'title': 'முந்தைய நிதி ஆண்டு', 'sub': prev_sub, 'type': 'int', 'group': n})
             cols.append({'title': 'நடப்பு நிதி ஆண்டு', 'sub': P['cur_sub'], 'type': 'int', 'group': n})
+            cols.append({'title': 'மொத்தம்', 'type': 'int', 'group': n})
         def row_vals(p):
             o = []
-            for i in range(4): o += [_num(p['prev_total'][i]), _num(p['cur_total'][i])]
+            for i in range(4): o += [_num(p['prev_total'][i]), _num(p['add'][i]), _num(p['cur_total'][i])]
             return o
         def sum_of(names):
             o = []
             for i in range(4):
-                o += [_num(sum((per[n]['prev_total'][i] for n in names), Decimal(0))), _num(sum((per[n]['cur_total'][i] for n in names), Decimal(0)))]
+                o += [_num(sum((per[n][k][i] for n in names), Decimal(0))) for k in ('prev_total', 'add', 'cur_total')]
             return o
 
     order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
@@ -669,10 +675,11 @@ def build_stats_report(mode, month, fy, include_pending=False, scope=None):
 
     if mode == 'month':
         notes = ['சேர்க்கை = இந்த மாதத்தில் மட்டும் சேர்ந்த உறுப்பினர் / புரவலர் / பெரும்புரவலர் / கொடையாளர் எண்ணிக்கை.']
+        if dropped: notes.append('இம்மாதம் சேர்க்கை இல்லாததால் தவிர்க்கப்பட்ட நெடுவரிசைகள்: ' + ', '.join(dropped) + '.')
     else:
-        notes = ['முந்தைய நிதி ஆண்டு = முந்தைய ஆண்டு இறுதி (மார்ச் ' + str(sy) + ') வரையிலான மொத்த எண்ணிக்கை; '
-                 'நடப்பு நிதி ஆண்டு = ' + ('நடப்பு ஆண்டு இறுதி (மார்ச் ' + str(sy + 1) + ')' if P['scope'] == 'full' else _ta_month(month)) + ' வரையிலான மொத்த எண்ணிக்கை '
-                 '(மார்ச் 2024 அடிப்படை எண்ணிக்கை + அதன்பின் சேர்ந்தவை).']
+        notes = ['முந்தைய நிதி ஆண்டு = முந்தைய ஆண்டு இறுதி (மார்ச் ' + str(sy) + ') வரையிலான மொத்த எண்ணிக்கை (மார்ச் 2024 அடிப்படை + அதன்பின் சேர்ந்தவை); '
+                 'நடப்பு நிதி ஆண்டு = ' + ('இந்த நிதி ஆண்டில்' if P['scope'] == 'full' else 'ஏப்ரல் ' + str(sy) + ' முதல் ' + _ta_month(month) + ' வரை') + ' சேர்ந்தவை மட்டும்; '
+                 'மொத்தம் = முந்தைய நிதி ஆண்டு + நடப்பு நிதி ஆண்டு.']
     notes.append('கணக்கீடு: உறுப்பினர் = காப்புத் தொகை ÷ நூலகத்தின் கட்டணம்; புரவலர் = தொகை ÷ 1000; பெரும்புரவலர் = தொகை ÷ 5000; கொடையாளர் = தொகை ÷ 10000.')
     if pending_skipped: notes.append(f'ஒப்புதல் நிலுவையில் உள்ள {pending_skipped} பதிவுகள் சேர்க்கப்படவில்லை.')
     nb = [l['name'] for l in libs if not per[l['name']]['has_base']]
@@ -816,7 +823,7 @@ def receipt_report_xlsx(kind):
         w = {'no': 6, 'date': 13, 'multi': 20, 'text': 30, 'money': 11, 'total': 13, 'int': 14, 'rate': 13}[col['type']]
         ws.column_dimensions[get_column_letter(c_i)].width = w
     ws.freeze_panes = ws.cell(row=first, column=1)
-    ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
+    ws.page_setup.orientation = 'portrait' if d.get('kind') in ('stats', 'usage') else 'landscape'; ws.page_setup.paperSize = 9; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_title_rows = f'{hr}:{first - 1}'
     buf = io.BytesIO(); wb.save(buf)
