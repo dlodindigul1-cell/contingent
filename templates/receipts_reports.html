@@ -33,6 +33,7 @@ td.num{text-align:right}tr.b td{font-weight:700;background:#f3f6fb}
 <button type="button" data-t="upi">R2. மாத வரவுகள் (as per UPI)</button>
 <button type="button" data-t="monthly">R3. மாதாந்திர வரவின அறிக்கை</button>
 <button type="button" data-t="stats">R4. நூலகப் புள்ளி விவர அறிக்கை</button>
+<button type="button" data-t="usage">R5. வாசகர் / நூலிரவல் / பயன்பாடு</button>
 </div>
 
 <section class="card rep on" id="rep-daily"><h2>R1. மாத வரவுகள் — வங்கி அறிக்கைப்படி</h2>
@@ -57,15 +58,29 @@ td.num{text-align:right}tr.b td{font-weight:700;background:#f3f6fb}
 <div id="rr_monthly_msg"></div><div id="rr_monthly_out"></div></section>
 
 <section class="card rep" id="rep-stats"><h2>R4. நூலகப் புள்ளி விவர அறிக்கை — உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர்</h2>
-<p class="lead">மார்ச் 2024 அடிப்படை எண்ணிக்கையுடன் (தரவு ஏற்றம் › 2E), ஏப்ரல் 2024 முதல் ஒப்புதல் பெற்ற வரவுகளிலிருந்து தானாகக் கணக்கிடப்படும். ஒவ்வொரு நூலகத்துக்கும் அறிக்கைக் காலத்தில் சேர்ந்தவை தனியாகவும், மொத்த எண்ணிக்கை தனியாகவும் வரும்; இறுதியில் வகை வாரியான Abstract சுருக்கம் இருக்கும்.</p>
+<p class="lead">மாதாந்திர அறிக்கையில் அந்த மாதச் சேர்க்கை மட்டும் வரும். நிதியாண்டு அறிக்கையில் உறுப்பினர், புரவலர், பெரும்புரவலர், கொடையாளர் ஒவ்வொன்றுக்கும் <b>முந்தைய நிதி ஆண்டு</b> (முந்தைய ஆண்டு இறுதி மொத்தம்) மற்றும் <b>நடப்பு நிதி ஆண்டு</b> (நடப்பு ஆண்டு இறுதி — அல்லது தேர்ந்த மாதம் — வரையிலான மொத்தம்) வரும்; இறுதியில் வகை வாரியான Abstract இருக்கும். அடிப்படை: மார்ச் 2024 எண்ணிக்கை (தரவு ஏற்றம் › 2E) + ஏப்ரல் 2024 முதல் ஒப்புதல் பெற்ற வரவுகள்.</p>
 <div class="toolbar">
-<select id="rr_stats_mode" aria-label="அறிக்கை வகை"><option value="month">மாதாந்திர அறிக்கை</option><option value="fy">நிதியாண்டு அறிக்கை</option><option value="upto">நிதியாண்டில் குறிப்பிட்ட மாதம் வரை</option></select>
+<select id="rr_stats_mode" aria-label="அறிக்கை வகை"><option value="month">மாதாந்திர அறிக்கை</option><option value="fy">நிதியாண்டு அறிக்கை</option></select>
+<select id="rr_stats_scope" aria-label="நிதியாண்டு எல்லை" style="display:none"><option value="full">முழு நிதியாண்டு</option><option value="upto">மாதம் + வருடம் வரை</option></select>
 <input type="month" id="rr_stats_month" min="2024-04" aria-label="மாதம்">
 <select id="rr_stats_fy" aria-label="நிதியாண்டு" style="display:none"></select>
 <button class="btn" id="rr_stats_go" type="button">அறிக்கையைக் காட்டு</button>
 <button class="btn alt rr-stats-dl" type="button" id="rr_stats_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-stats-dl" type="button" id="rr_stats_xls" style="display:none">📊 Excel</button>
 <label><input type="checkbox" id="rr_stats_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
 <div id="rr_stats_msg"></div><div id="rr_stats_out"></div></section>
+
+<section class="card rep" id="rep-usage"><h2>R5. வாசகர் / நூலிரவல் / பயன்பாடு</h2>
+<p class="lead">நூலகம் வாரியாகவும் வகை வாரியாகவும் வாசகர் வருகை, நூலிரவல், நூல்கள் பயன்பாடு காட்டப்படும்; இறுதியில் Abstract சுருக்கம் இருக்கும். நிதியாண்டு அறிக்கையில் முழு நிதியாண்டு அல்லது ஏப்ரல் முதல் தேர்ந்த மாதம் வரையிலான கூட்டுத்தொகை வரும்.</p>
+<div class="toolbar">
+<select id="rr_usage_mode" aria-label="அறிக்கை வகை"><option value="month">மாதாந்திர அறிக்கை</option><option value="fy">நிதியாண்டு அறிக்கை</option></select>
+<select id="rr_usage_scope" aria-label="நிதியாண்டு எல்லை" style="display:none"><option value="full">முழு நிதியாண்டு</option><option value="upto">மாதம் + வருடம் வரை</option></select>
+<input type="month" id="rr_usage_month" min="2024-04" aria-label="மாதம்">
+<select id="rr_usage_fy" aria-label="நிதியாண்டு" style="display:none"></select>
+<button class="btn" id="rr_usage_go" type="button">அறிக்கையைக் காட்டு</button>
+<button class="btn alt rr-usage-dl" type="button" id="rr_usage_pdf" style="display:none">📄 PDF</button><button class="btn alt rr-usage-dl" type="button" id="rr_usage_xls" style="display:none">📊 Excel</button>
+<label><input type="checkbox" id="rr_usage_pend"> ஒப்புதல் நிலுவையிலுள்ளவற்றையும் சேர்</label></div>
+<div id="rr_usage_msg"></div><div id="rr_usage_out"></div></section>
+
 </div>
 {% raw %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -157,8 +172,23 @@ function rrCell(col, v, isTot, pdf){
 const RR_BREAK = {'காப்புத்தொகை': 'காப்புத்<br>தொகை', 'சந்தாத் தொகை': 'சந்தாத்<br>தொகை', 'காலதாமதக் கட்டணம்': 'கால<br>தாமதக்<br>கட்டணம்',
   'நூல் விலைப் பிடித்தம்': 'நூல்<br>விலைப்<br>பிடித்தம்', 'பழைய பத்திரிக்கை விற்பனை': 'பழைய<br>பத்திரிக்கை<br>விற்பனை', 'பழைய நூல்கள் விற்பனை': 'பழைய<br>நூல்கள்<br>விற்பனை',
   'பெரும்புரவலர்': 'பெரும்<br>புரவலர்', 'கொடையாளர்': 'கொடை<br>யாளர்', 'இதர வரவுகள்': 'இதர<br>வரவுகள்'};
+function rrTh(c, attrs){ return '<th style="white-space:normal"' + (attrs || '') + '>' + (RR_BREAK[c.title] || esc(c.title)) + (c.sub ? '<br><span style="font-weight:400;font-size:.85em">' + esc(c.sub) + '</span>' : '') + '</th>'; }
+function rrHead(cols){
+  if (!cols.some(c => c.group)) return '<tr>' + cols.map(c => rrTh(c)).join('') + '</tr>';
+  /* இரு வரித் தலைப்பு: குழுத் தலைப்பு → துணைத் தலைப்பு */
+  let r1 = '', r2 = '';
+  for (let i = 0; i < cols.length; ){
+    const c = cols[i];
+    if (!c.group){ r1 += rrTh(c, ' rowspan="2"'); i++; continue; }
+    let j = i; while (j + 1 < cols.length && cols[j + 1].group === c.group) j++;
+    r1 += '<th colspan="' + (j - i + 1) + '">' + esc(c.group) + '</th>';
+    for (let k = i; k <= j; k++) r2 += rrTh(cols[k]);
+    i = j + 1;
+  }
+  return '<tr>' + r1 + '</tr><tr>' + r2 + '</tr>';
+}
 function rrTable(d, pdf){
-  const head = '<tr>' + d.columns.map(c => '<th style="white-space:normal">' + (RR_BREAK[c.title] || esc(c.title)) + '</th>').join('') + '</tr>';
+  const head = rrHead(d.columns);
   const totRow = vals => '<tr class="b">' + d.columns.map((c, i) => (c.type === 'money' || c.type === 'total' || c.type === 'int') ? rrCell(c, vals[i], true, pdf).replace('<td', '<td style="font-weight:700"') : '<td style="font-weight:700">' + esc(vals[i]) + '</td>').join('') + '</tr>';
   const body = d.rows.map(r => Array.isArray(r) ? '<tr>' + d.columns.map((c, i) => rrCell(c, r[i], false, pdf)).join('') + '</tr>' : r.subtotal ? totRow(r.subtotal) :
     '<tr class="b"><td colspan="' + d.columns.length + '" style="font-weight:700;text-align:left;background:#e8eff9">' + esc(r.section) + '</td></tr>').join('') ||
@@ -167,15 +197,15 @@ function rrTable(d, pdf){
   return '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
 }
 
-const RR = {daily: {onePage: true}, upi: {}, monthly: {}, stats: {}};
+const RR = {daily: {onePage: true}, upi: {}, monthly: {}, stats: {}, usage: {}};
 const rptCache = {};
 function rrQuery(id){
   const p = 'rr_' + id, pend = $('#' + p + '_pend').checked ? '1' : '0';
-  if (id === 'stats'){
-    const mode = $('#' + p + '_mode').value;
-    if (mode === 'fy') return {q: 'mode=fy&fy=' + encodeURIComponent($('#' + p + '_fy').value) + '&pending=' + pend, err: ''};
+  if (id === 'stats' || id === 'usage'){
+    const mode = $('#' + p + '_mode').value, scope = $('#' + p + '_scope').value;
+    if (mode === 'fy' && scope === 'full') return {q: 'mode=fy&scope=full&fy=' + encodeURIComponent($('#' + p + '_fy').value) + '&pending=' + pend, err: ''};
     const my = toMY($('#' + p + '_month').value);
-    return {q: 'mode=' + mode + '&month=' + encodeURIComponent(my) + '&pending=' + pend, err: my ? '' : 'மாதத்தைத் தேர்ந்தெடுக்கவும்.'};
+    return {q: 'mode=' + mode + (mode === 'fy' ? '&scope=upto' : '') + '&month=' + encodeURIComponent(my) + '&pending=' + pend, err: my ? '' : 'மாதம் மற்றும் வருடத்தைத் தேர்ந்தெடுக்கவும்.'};
   }
   const my = toMY($('#' + p + '_month').value);
   return {q: 'month=' + encodeURIComponent(my) + '&pending=' + pend, err: my ? '' : 'வரவு மாதத்தைத் தேர்ந்தெடுக்கவும்.'};
@@ -206,9 +236,9 @@ function rrPdf(id){
     '<div class="h3" style="font-size:15px">' + esc(d.subtitle || rptMonthLabel(d.month)) + '</div>' +
     '<table style="font-size:' + (wide ? 12 : 13.5) + 'px">' + rrTable(d, true) + '</table>' +
     '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
-  const portrait = id === 'daily';
+  const portrait = id === 'daily' || id === 'usage';
   const fname = (d.file || ('Receipts_' + id + '_' + String(d.month).replace('/', '-'))) + '.pdf';
-  return rptPdf(html, '', !portrait, portrait ? 760 : (id === 'stats' ? 1300 : (d.columns.length > 15 ? 1700 : 1400)), fname, {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
+  return rptPdf(html, '', !portrait, portrait ? (id === 'usage' ? 800 : 760) : (id === 'stats' ? 1300 : (d.columns.length > 15 ? 1700 : 1400)), fname, {format: portrait ? 'a4' : 'legal', onePage: !!RR[id].onePage});
 }
 Object.keys(RR).forEach(id => {
   const p = 'rr_' + id;
@@ -217,14 +247,17 @@ Object.keys(RR).forEach(id => {
   $('#' + p + '_xls').addEventListener('click', () => { const d = rptCache[p]; if (d) location.href = '/receipts/admin/report/' + id + '.xlsx?' + d.query; });
   if ($('#' + p + '_month')) $('#' + p + '_month').value = curMonthInput();
 });
-/* நிதியாண்டு பட்டியல் — 2024-25 முதல் நடப்பு நிதியாண்டு வரை */
-(function(){
-  const now = new Date(), cur = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1, sel = $('#rr_stats_fy');
+/* நிதியாண்டு பட்டியல் — 2024-25 முதல் நடப்பு நிதியாண்டு வரை (R4, R5) */
+['stats', 'usage'].forEach(id => {
+  const p = '#rr_' + id, now = new Date(), cur = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1, sel = $(p + '_fy');
   for (let y = cur; y >= 2024; y--) sel.insertAdjacentHTML('beforeend', '<option value="' + y + '-' + String((y + 1) % 100).padStart(2, '0') + '">' + y + '-' + String((y + 1) % 100).padStart(2, '0') + '</option>');
-})();
-$('#rr_stats_mode').addEventListener('change', () => {
-  const fy = $('#rr_stats_mode').value === 'fy';
-  $('#rr_stats_fy').style.display = fy ? '' : 'none'; $('#rr_stats_month').style.display = fy ? 'none' : '';
+  const sync = () => {
+    const fy = $(p + '_mode').value === 'fy', full = $(p + '_scope').value === 'full';
+    $(p + '_scope').style.display = fy ? '' : 'none';
+    $(p + '_fy').style.display = (fy && full) ? '' : 'none';
+    $(p + '_month').style.display = (fy && full) ? 'none' : '';
+  };
+  $(p + '_mode').addEventListener('change', sync); $(p + '_scope').addEventListener('change', sync); sync();
 });
 document.querySelector('#tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-t]'); if (!b) return;

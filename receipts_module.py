@@ -526,10 +526,16 @@ def build_receipt_report(kind, month, include_pending=False):
 
 
 # ------------------------------------------------------------------
-#  நூலகப் புள்ளி விவர அறிக்கை (உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர்)
-#  அடிப்படை = மார்ச் 2024 (library_stats_base); ஏப்ரல் 2024 முதல் ஒப்புதல் பெற்ற வரவுகளிலிருந்து தானாகக் கணக்கிடப்படும்:
+#  நூலகப் புள்ளி விவர அறிக்கைகள்
+#    R4 = உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர்      (kind 'stats')
+#    R5 = வாசகர் · நூலிரவல் · நூல்கள் பயன்பாடு                  (kind 'usage')
+#  இரண்டிலும் இரு வகை: மாதாந்திரம் (mode=month) | நிதியாண்டு (mode=fy)
+#    நிதியாண்டு: scope=full (ஏப்ரல்–மார்ச் முழுவதும்) | scope=upto (ஏப்ரல் முதல் தேர்ந்த மாதம் வரை)
+#  R4 அடிப்படை = மார்ச் 2024 (library_stats_base); ஏப்ரல் 2024 முதல் ஒப்புதல் பெற்ற வரவுகளிலிருந்து தானாகக் கணக்கிடப்படும்:
 #    புதிய உறுப்பினர் = காப்புத் தொகை ÷ அந்த நூலகத்தின் காப்புத் தொகை கட்டணம்;
 #    புரவலர் = தொகை ÷ 1000; பெரும்புரவலர் = தொகை ÷ 5000; கொடையாளர் = தொகை ÷ 10000.
+#  R4 நிதியாண்டு அறிக்கை: முந்தைய நிதி ஆண்டு = முந்தைய ஆண்டு இறுதி (மார்ச்) வரையிலான மொத்தம்;
+#                         நடப்பு நிதி ஆண்டு = நடப்பு ஆண்டு இறுதி (அல்லது தேர்ந்த மாதம்) வரையிலான மொத்தம்.
 # ------------------------------------------------------------------
 STATS_PATRON_RATES = (Decimal(1000), Decimal(5000), Decimal(10000))
 STATS_FIRST_KEY = '202404'
@@ -539,43 +545,60 @@ TA_MONTHS = ['ஜனவரி','பிப்ரவரி','மார்ச்','
 def _ta_month(my): return TA_MONTHS[int(my[:2]) - 1] + ' ' + my[3:]
 
 
-def build_stats_report(mode, month, fy, include_pending=False):
-    """mode: month (தேர்ந்த மாதம் மட்டும்) | fy (நிதியாண்டு முழுவதும்) | upto (நிதியாண்டு தொடக்கம் முதல் தேர்ந்த மாதம் வரை)."""
-    if mode not in ('month', 'fy', 'upto'): raise ValueError('அறிக்கை வகையைத் தேர்ந்தெடுக்கவும்.')
-    if mode == 'fy':
+def _fy_label(sy): return f'{sy}-{str(sy + 1)[2:]}'
+
+
+def _stats_period(mode, month, fy, scope, what):
+    """அறிக்கைக் காலத்தைத் தீர்மானி. what = 'புள்ளி விவர' / 'வாசகர் · நூலிரவல் · பயன்பாடு' (தலைப்புக்கு)."""
+    if mode not in ('month', 'fy'): raise ValueError('அறிக்கை வகையைத் தேர்ந்தெடுக்கவும்.')
+    p = {'mode': mode, 'scope': None, 'upto_label': ''}
+    if mode == 'fy' and scope not in ('full', 'upto'): scope = 'full'
+    if mode == 'fy' and scope == 'full':
         m = re.fullmatch(r'(\d{4})-(\d{2})', str(fy or '').strip())
         if not m or int(m.group(2)) != (int(m.group(1)) + 1) % 100: raise ValueError('நிதியாண்டைத் தேர்ந்தெடுக்கவும் (உதா: 2025-26).')
-        sy = int(m.group(1)); fy = f'{sy}-{str(sy + 1)[2:]}'
+        sy = int(m.group(1))
         start_key, end_key = f'{sy}04', f'{sy + 1}03'
-        title = 'நூலகப் புள்ளி விவர அறிக்கை — நிதியாண்டு'
-        subtitle = f'நிதியாண்டு {fy} (ஏப்ரல் {sy} – மார்ச் {sy + 1})'
-        fname = f'Library_Stats_FY_{fy}'
+        p.update(scope='full', subtitle=f'நிதியாண்டு {_fy_label(sy)} (ஏப்ரல் {sy} – மார்ச் {sy + 1})',
+                 fname_part=f'FY_{_fy_label(sy)}', title_part='நிதியாண்டு', cur_sub=_fy_label(sy), month_ref=_fy_label(sy))
     else:
         month = _valid_month(month)
         sy = int(month[3:]) if int(month[:2]) >= 4 else int(month[3:]) - 1
         end_key = _month_key(month)
         if mode == 'month':
             start_key = end_key
-            title = 'நூலகப் புள்ளி விவர அறிக்கை — மாதாந்திரம்'
-            subtitle = 'மாதம்: ' + _ta_month(month)
-            fname = 'Library_Stats_' + month.replace('/', '-')
+            p.update(subtitle='மாதம்: ' + _ta_month(month), fname_part=month.replace('/', '-'), title_part='மாதாந்திரம்', cur_sub='', month_ref=month)
         else:
             start_key = f'{sy}04'
-            title = 'நூலகப் புள்ளி விவர அறிக்கை — நிதியாண்டில் குறிப்பிட்ட மாதம் வரை'
-            subtitle = f'ஏப்ரல் {sy} முதல் {_ta_month(month)} வரை (நிதியாண்டு {sy}-{str(sy + 1)[2:]})'
-            fname = 'Library_Stats_upto_' + month.replace('/', '-')
+            p.update(scope='upto', subtitle=f'ஏப்ரல் {sy} முதல் {_ta_month(month)} வரை (நிதியாண்டு {_fy_label(sy)})',
+                     fname_part='upto_' + month.replace('/', '-'), title_part='நிதியாண்டு (குறிப்பிட்ட மாதம் வரை)',
+                     cur_sub=f'{_fy_label(sy)} · {_ta_month(month)} வரை', month_ref=month)
     if end_key < STATS_FIRST_KEY: raise ValueError('ஏப்ரல் 2024 மற்றும் அதற்குப் பிந்தைய மாதங்களுக்கு மட்டுமே கணக்கிட முடியும்.')
     if start_key < STATS_FIRST_KEY: start_key = STATS_FIRST_KEY
-    start_my = start_key[4:] + '/' + start_key[:4]
+    p.update(sy=sy, start_key=start_key, end_key=end_key, prev_key=f'{sy}03', start_my=start_key[4:] + '/' + start_key[:4])
+    return p
+
+
+def _libs_active(start_my):
+    return db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (start_my,))
+
+
+def _pending_count(start_key, end_key):
+    return db.fetch_one("SELECT count(*) c FROM library_receipts WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s AND status='pending'", (start_key, end_key))['c']
+
+
+def build_stats_report(mode, month, fy, include_pending=False, scope=None):
+    """R4 — உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர்."""
+    P = _stats_period(mode, month, fy, scope, 'புள்ளி விவர')
+    start_key, end_key, prev_key, sy = P['start_key'], P['end_key'], P['prev_key'], P['sy']
+    title = 'நூலகப் புள்ளி விவர அறிக்கை — ' + P['title_part']
+    CATS = ('உறுப்பினர்', 'புரவலர்', 'பெரும்புரவலர்', 'கொடையாளர்')
 
     base = {r['library_name']: r for r in db.fetch_all('SELECT * FROM library_stats_base')}
-    libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (start_my,))
+    libs = _libs_active(P['start_my'])
     status_sql = '' if include_pending else " AND status='approved'"
     recs = db.fetch_all("SELECT library_name, month_year, security_amount, patron, chief_patron, donor FROM library_receipts "
                         "WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s" + status_sql, (STATS_FIRST_KEY, end_key))
-    pending_skipped = 0
-    if not include_pending:
-        pending_skipped = db.fetch_one("SELECT count(*) c FROM library_receipts WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s AND status='pending'", (start_key, end_key))['c']
+    pending_skipped = 0 if include_pending else _pending_count(start_key, end_key)
 
     per = {}
     no_fee, fractional = [], []
@@ -583,7 +606,10 @@ def build_stats_report(mode, month, fy, include_pending=False):
         b = base.get(l['name'])
         per[l['name']] = {'fee': Decimal(str(b['fee'])) if b else Decimal(0),
                           'base': [Decimal(b['members']), Decimal(b['patrons']), Decimal(b['chief_patrons']), Decimal(b['donors'])] if b else [Decimal(0)] * 4,
-                          'add': [Decimal(0)] * 4, 'cum': [Decimal(0)] * 4, 'has_base': bool(b)}
+                          'add': [Decimal(0)] * 4,      # அறிக்கைக் காலத்தில் மட்டும் சேர்ந்தவை (மாதாந்திர)
+                          'prev': [Decimal(0)] * 4,     # முந்தைய ஆண்டு இறுதி (மார்ச்) வரை சேர்ந்தவை
+                          'cum': [Decimal(0)] * 4,      # அறிக்கைக் காலம் முடிய சேர்ந்தவை
+                          'has_base': bool(b)}
     for r in recs:
         p = per.get(r['library_name'])
         if p is None: continue
@@ -592,21 +618,39 @@ def build_stats_report(mode, month, fy, include_pending=False):
             if r['library_name'] not in no_fee: no_fee.append(r['library_name'])
         vals = [sec / p['fee'] if p['fee'] > 0 else Decimal(0)] + [Decimal(str(r[c] or 0)) / rate for c, rate in zip(('patron', 'chief_patron', 'donor'), STATS_PATRON_RATES)]
         vals = [v.quantize(Decimal('0.01')) for v in vals]
+        k = _month_key(r['month_year'])
         for i in range(4):
             p['cum'][i] += vals[i]
-            if _month_key(r['month_year']) >= start_key: p['add'][i] += vals[i]
+            if k <= prev_key: p['prev'][i] += vals[i]
+            if k >= start_key: p['add'][i] += vals[i]
         if any(v != v.to_integral_value() for v in vals) and r['library_name'] not in fractional: fractional.append(r['library_name'])
-    for p in per.values(): p['total'] = [a + b for a, b in zip(p['base'], p['cum'])]
+    for p in per.values():
+        p['prev_total'] = [a + b for a, b in zip(p['base'], p['prev'])]
+        p['cur_total'] = [a + b for a, b in zip(p['base'], p['cum'])]
 
-    def row_vals(p): return [_num(x) for x in p['add']] + [_num(x) for x in p['total']]
-    def sum_of(names):
-        add = [sum((per[n]['add'][i] for n in names), Decimal(0)) for i in range(4)]
-        tot = [sum((per[n]['total'][i] for n in names), Decimal(0)) for i in range(4)]
-        return [_num(x) for x in add + tot]
+    if mode == 'month':
+        # மாதாந்திரம்: உறுப்பினர் · புரவலர் · பெரும்புரவலர் · கொடையாளர் சேர்க்கை மட்டும்
+        cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}] + \
+               [{'title': n, 'type': 'int', 'group': 'சேர்க்கை'} for n in CATS]
+        def row_vals(p): return [_num(x) for x in p['add']]
+        def sum_of(names): return [_num(sum((per[n]['add'][i] for n in names), Decimal(0))) for i in range(4)]
+    else:
+        # நிதியாண்டு: ஒவ்வொரு வகைக்கும் (முந்தைய நிதி ஆண்டு | நடப்பு நிதி ஆண்டு)
+        prev_sub = _fy_label(sy - 1)
+        cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}]
+        for n in CATS:
+            cols.append({'title': 'முந்தைய நிதி ஆண்டு', 'sub': prev_sub, 'type': 'int', 'group': n})
+            cols.append({'title': 'நடப்பு நிதி ஆண்டு', 'sub': P['cur_sub'], 'type': 'int', 'group': n})
+        def row_vals(p):
+            o = []
+            for i in range(4): o += [_num(p['prev_total'][i]), _num(p['cur_total'][i])]
+            return o
+        def sum_of(names):
+            o = []
+            for i in range(4):
+                o += [_num(sum((per[n]['prev_total'][i] for n in names), Decimal(0))), _num(sum((per[n]['cur_total'][i] for n in names), Decimal(0)))]
+            return o
 
-    cols = ([{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'}, {'title': 'உறுப்பினர் காப்புத் தொகை கட்டணம்', 'type': 'rate'}] +
-            [{'title': 'சேர்க்கை — ' + n, 'type': 'int'} for n in ('உறுப்பினர்', 'புரவலர்', 'பெரும்புரவலர்', 'கொடையாளர்')] +
-            [{'title': 'மொத்தம் — ' + n, 'type': 'int'} for n in ('உறுப்பினர்', 'புரவலர்', 'பெரும்புரவலர்', 'கொடையாளர்')])
     order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
     buckets = {t: [] for t in order}
     for l in libs: buckets[_group_of(l['lib_type'])].append(l['name'])
@@ -616,29 +660,77 @@ def build_stats_report(mode, month, fy, include_pending=False):
         out.append({'section': t})
         for name in buckets[t]:
             n += 1
-            out.append([n, name, _num(per[name]['fee']) if per[name]['fee'] else ''] + row_vals(per[name]))
-        out.append({'subtotal': ['', f'{t} — மொத்தம் ({len(buckets[t])})', ''] + sum_of(buckets[t])})
+            out.append([n, name] + row_vals(per[name]))
+        out.append({'subtotal': ['', f'{t} — மொத்தம் ({len(buckets[t])})'] + sum_of(buckets[t])})
     out.append({'section': 'வகை வாரியான நூலகங்களின் சுருக்கம் (Abstract)'})
     for t in order:
-        if buckets[t]: out.append(['', f'{t} ({len(buckets[t])})', ''] + sum_of(buckets[t]))
-    totals = ['', f'பெரு மொத்தம் ({len(libs)} நூலகங்கள்)', ''] + sum_of([l['name'] for l in libs])
+        if buckets[t]: out.append(['', f'{t} ({len(buckets[t])})'] + sum_of(buckets[t]))
+    totals = ['', f'பெரு மொத்தம் ({len(libs)} நூலகங்கள்)'] + sum_of([l['name'] for l in libs])
 
-    notes = ['மொத்தம் = மார்ச் 2024 அடிப்படை எண்ணிக்கை + ஏப்ரல் 2024 முதல் அறிக்கைக் காலம் முடிய கணக்கிடப்பட்ட சேர்க்கைகளின் கூட்டுத்தொகை. '
-             'சேர்க்கை = அறிக்கைக் காலத்தில் மட்டும் சேர்ந்தவை.',
-             'கணக்கீடு: உறுப்பினர் = காப்புத் தொகை ÷ நூலகத்தின் கட்டணம்; புரவலர் = தொகை ÷ 1000; பெரும்புரவலர் = தொகை ÷ 5000; கொடையாளர் = தொகை ÷ 10000.']
+    if mode == 'month':
+        notes = ['சேர்க்கை = இந்த மாதத்தில் மட்டும் சேர்ந்த உறுப்பினர் / புரவலர் / பெரும்புரவலர் / கொடையாளர் எண்ணிக்கை.']
+    else:
+        notes = ['முந்தைய நிதி ஆண்டு = முந்தைய ஆண்டு இறுதி (மார்ச் ' + str(sy) + ') வரையிலான மொத்த எண்ணிக்கை; '
+                 'நடப்பு நிதி ஆண்டு = ' + ('நடப்பு ஆண்டு இறுதி (மார்ச் ' + str(sy + 1) + ')' if P['scope'] == 'full' else _ta_month(month)) + ' வரையிலான மொத்த எண்ணிக்கை '
+                 '(மார்ச் 2024 அடிப்படை எண்ணிக்கை + அதன்பின் சேர்ந்தவை).']
+    notes.append('கணக்கீடு: உறுப்பினர் = காப்புத் தொகை ÷ நூலகத்தின் கட்டணம்; புரவலர் = தொகை ÷ 1000; பெரும்புரவலர் = தொகை ÷ 5000; கொடையாளர் = தொகை ÷ 10000.')
     if pending_skipped: notes.append(f'ஒப்புதல் நிலுவையில் உள்ள {pending_skipped} பதிவுகள் சேர்க்கப்படவில்லை.')
     nb = [l['name'] for l in libs if not per[l['name']]['has_base']]
     if nb: notes.append(f'மார்ச் 2024 அடிப்படைத் தரவு ஏற்றப்படாத நூலகங்கள் {len(nb)} — அவற்றுக்கு அடிப்படை எண்ணிக்கை 0 எனக் கொள்ளப்பட்டது (தரவு ஏற்றம் › 2E).')
     if no_fee: notes.append('காப்புத் தொகை கட்டணம் இல்லாததால் உறுப்பினர் எண்ணிக்கை கணக்கிட முடியாத நூலகங்கள் (' + str(len(no_fee)) + '): ' + ', '.join(no_fee[:10]) + (' …' if len(no_fee) > 10 else ''))
     if fractional: notes.append('வகுத்தபின் முழு எண்ணாக வராத தொகை உள்ள நூலகங்கள் (' + str(len(fractional)) + '): ' + ', '.join(fractional[:10]) + (' …' if len(fractional) > 10 else '') + ' — தசமத்துடன் காட்டப்படுகிறது.')
-    return {'success': True, 'kind': 'stats', 'mode': mode, 'month': month if mode != 'fy' else fy, 'title': title, 'subtitle': subtitle,
-            'file': fname, 'columns': cols, 'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
+    return {'success': True, 'kind': 'stats', 'mode': mode, 'month': P['month_ref'], 'title': title, 'subtitle': P['subtitle'],
+            'file': 'Library_Stats_' + P['fname_part'], 'columns': cols, 'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
+
+
+def build_usage_report(mode, month, fy, include_pending=False, scope=None):
+    """R5 — வாசகர் வருகை · நூலிரவல் · நூல்கள் பயன்பாடு (நூலகம் வாரியாக, வகை வாரியாக, இறுதியில் Abstract)."""
+    P = _stats_period(mode, month, fy, scope, 'வாசகர் · நூலிரவல் · பயன்பாடு')
+    start_key, end_key = P['start_key'], P['end_key']
+    title = 'வாசகர் / நூலிரவல் / பயன்பாடு அறிக்கை — ' + P['title_part']
+    libs = _libs_active(P['start_my'])
+    status_sql = '' if include_pending else " AND status='approved'"
+    recs = db.fetch_all("SELECT library_name, COALESCE(sum(visitors),0) v, COALESCE(sum(issues),0) i, COALESCE(sum(book_usage),0) u, count(*) n FROM library_receipts "
+                        "WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s" + status_sql + " GROUP BY library_name", (start_key, end_key))
+    got = {r['library_name']: [int(r['v']), int(r['i']), int(r['u'])] for r in recs}
+    pending_skipped = 0 if include_pending else _pending_count(start_key, end_key)
+
+    cols = [{'title': 'வ.எண்.', 'type': 'no'}, {'title': 'நூலகத்தின் பெயர்', 'type': 'text'},
+            {'title': 'வாசகர் வருகை', 'type': 'int'}, {'title': 'நூலிரவல்', 'type': 'int'}, {'title': 'நூல்கள் பயன்பாடு', 'type': 'int'}]
+    def row_vals(name): return got.get(name, [0, 0, 0])
+    def sum_of(names):
+        return [sum(got.get(n, [0, 0, 0])[i] for n in names) for i in range(3)]
+    order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
+    buckets = {t: [] for t in order}
+    for l in libs: buckets[_group_of(l['lib_type'])].append(l['name'])
+    out, n = [], 0
+    for t in order:
+        if not buckets[t]: continue
+        out.append({'section': t})
+        for name in buckets[t]:
+            n += 1
+            out.append([n, name] + row_vals(name))
+        out.append({'subtotal': ['', f'{t} — மொத்தம் ({len(buckets[t])})'] + sum_of(buckets[t])})
+    out.append({'section': 'வகை வாரியான நூலகங்களின் சுருக்கம் (Abstract)'})
+    for t in order:
+        if buckets[t]: out.append(['', f'{t} ({len(buckets[t])})'] + sum_of(buckets[t]))
+    names = [l['name'] for l in libs]
+    totals = ['', f'பெரு மொத்தம் ({len(libs)} நூலகங்கள்)'] + sum_of(names)
+    reported = sum(1 for nm in names if nm in got)
+    notes = [('இந்த மாதம்' if mode == 'month' else 'அறிக்கைக் காலத்தில்') + f' புள்ளி விவரம் பதிவு செய்த நூலகங்கள் {reported} / {len(libs)}.']
+    if mode == 'fy': notes.append('நிதியாண்டு அறிக்கையில் ஒவ்வொரு நூலகத்துக்கும் ஏப்ரல் முதல் அறிக்கைக் காலம் முடிய உள்ள மாதங்களின் கூட்டுத்தொகை காட்டப்படுகிறது.')
+    if pending_skipped: notes.append(f'ஒப்புதல் நிலுவையில் உள்ள {pending_skipped} பதிவுகள் சேர்க்கப்படவில்லை.')
+    return {'success': True, 'kind': 'usage', 'mode': mode, 'month': P['month_ref'], 'title': title, 'subtitle': P['subtitle'],
+            'file': 'Library_Usage_' + P['fname_part'], 'columns': cols, 'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
 
 
 def _build_any(kind):
     month, pend = _report_args()
+    a = request.args
     if kind == 'stats':
-        return build_stats_report(request.args.get('mode') or 'month', month, request.args.get('fy'), pend)
+        return build_stats_report(a.get('mode') or 'month', month, a.get('fy'), pend, a.get('scope'))
+    if kind == 'usage':
+        return build_usage_report(a.get('mode') or 'month', month, a.get('fy'), pend, a.get('scope'))
     return build_receipt_report(kind, month, pend)
 
 
@@ -674,10 +766,35 @@ def receipt_report_xlsx(kind):
         c = ws.cell(row=r_i, column=1, value=txt); c.font = Font(bold=True, size=size); c.alignment = Alignment(horizontal='center')
         ws.merge_cells(start_row=r_i, start_column=1, end_row=r_i, end_column=n)
     hr = 5
-    for c_i, col in enumerate(cols, 1):
-        x = ws.cell(row=hr, column=c_i, value=col['title']); x.font = bold; x.fill = fill; x.border = box
-        x.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    ws.row_dimensions[hr].height = 48
+    grouped = any(c.get('group') for c in cols)
+    def hdr(cell, text):
+        cell.value = text; cell.font = bold; cell.fill = fill; cell.border = box
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    if not grouped:
+        for c_i, col in enumerate(cols, 1): hdr(ws.cell(row=hr, column=c_i), col['title'])
+        ws.row_dimensions[hr].height = 48
+        first = hr + 1
+    else:
+        # இரு வரித் தலைப்பு: குழுத் தலைப்பு (வரி 1) → துணைத் தலைப்பு (வரி 2); குழு இல்லாத நெடுவரிசைகள் இரு வரிகளையும் இணைக்கும்
+        i = 0
+        while i < n:
+            col = cols[i]
+            if col.get('group'):
+                j = i
+                while j + 1 < n and cols[j + 1].get('group') == col['group']: j += 1
+                hdr(ws.cell(row=hr, column=i + 1), col['group'])
+                for k in range(i + 1, j + 2): ws.cell(row=hr, column=k).border = box; ws.cell(row=hr, column=k).fill = fill
+                if j > i: ws.merge_cells(start_row=hr, start_column=i + 1, end_row=hr, end_column=j + 1)
+                for k in range(i, j + 1):
+                    hdr(ws.cell(row=hr + 1, column=k + 1), cols[k]['title'] + ('\n' + cols[k]['sub'] if cols[k].get('sub') else ''))
+                i = j + 1
+            else:
+                hdr(ws.cell(row=hr, column=i + 1), col['title'])
+                ws.cell(row=hr + 1, column=i + 1).border = box; ws.cell(row=hr + 1, column=i + 1).fill = fill
+                ws.merge_cells(start_row=hr, start_column=i + 1, end_row=hr + 1, end_column=i + 1)
+                i += 1
+        ws.row_dimensions[hr].height = 24; ws.row_dimensions[hr + 1].height = 40
+        first = hr + 2
     def put(row, vals, is_total=False):
         for c_i, (col, v) in enumerate(zip(cols, vals), 1):
             x = ws.cell(row=row, column=c_i, value=v); x.border = box
@@ -685,7 +802,7 @@ def receipt_report_xlsx(kind):
             if col['type'] == 'multi': x.alignment = Alignment(wrap_text=True, vertical='top')
             if col['type'] in ('no', 'date'): x.alignment = Alignment(horizontal='center', vertical='top')
             if is_total: x.font = bold; x.fill = fill
-    r = hr + 1
+    r = first
     for vals in d['rows']:
         if isinstance(vals, dict) and 'subtotal' in vals: put(r, vals['subtotal'], True)
         elif isinstance(vals, dict):
@@ -696,12 +813,12 @@ def receipt_report_xlsx(kind):
         r += 1
     put(r, d['totals'], True)
     for c_i, col in enumerate(cols, 1):
-        w = {'no': 6, 'date': 13, 'multi': 20, 'text': 30, 'money': 11, 'total': 13, 'int': 11, 'rate': 13}[col['type']]
+        w = {'no': 6, 'date': 13, 'multi': 20, 'text': 30, 'money': 11, 'total': 13, 'int': 14, 'rate': 13}[col['type']]
         ws.column_dimensions[get_column_letter(c_i)].width = w
-    ws.freeze_panes = ws.cell(row=hr + 1, column=1)
+    ws.freeze_panes = ws.cell(row=first, column=1)
     ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    ws.print_title_rows = f'{hr}:{hr}'
+    ws.print_title_rows = f'{hr}:{first - 1}'
     buf = io.BytesIO(); wb.save(buf)
     fname = (d['file'] + '.xlsx') if d.get('file') else '%s_%s.xlsx' % (REPORT_FILES[kind], d['month'].replace('/', '-'))
     return Response(buf.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
