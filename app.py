@@ -1449,7 +1449,7 @@ def getLibraryReceiptYearly(libraryName, fy=None, audit=False):
         vals = [Decimal(str((r[c] if r else 0) or 0)) for _, c in cols]
         tot = Decimal(str((r["total_amount"] if r else 0) or 0))
         mm, yy = int(m[:2]), m[5:]
-        rows.append({"label": "%s-%s" % (_EN_MONTHS[mm - 1], yy[2:]), "vals": [jnum(v) for v in vals], "total": jnum(tot)})
+        rows.append({"label": "%s-%s" % (_EN_MONTHS[mm - 1], yy[-2:]), "vals": [jnum(v) for v in vals], "total": jnum(tot)})
         gv = [a + b for a, b in zip(gv, vals)]
         gt += tot
     out = {"success": True, "library": name, "fy": fy_label, "fyLabel": fy_full,
@@ -1458,7 +1458,39 @@ def getLibraryReceiptYearly(libraryName, fy=None, audit=False):
     if audit:
         office = sum((t for _, _, t in _approved_claims(months, name)), Decimal(0))
         out["officeReceipts"] = jnum(office)
+        sv = db.fetch_one("SELECT * FROM audit_receipt_forms WHERE library_name = %s AND fy = %s", (name, fy_label))
+        out["saved"] = None if not sv else {
+            "ob": jnum(sv["opening_balance"]), "exp": jnum(sv["expense"]),
+            "bo": sv["book_opening"], "ba": sv["book_added"], "bw": sv["book_withdrawn"]}
     return out
+
+
+@rpc
+def saveAuditReceiptForm(libraryName, fy, data):
+    """தணிக்கைப் படிவ விவரங்களைச் சேமிக்கும் (நூலகம் + நிதியாண்டுக்கு ஒரு பதிவு; மீண்டும் சேமித்தால் புதுப்பிக்கும்)."""
+    d = getLibraryReceiptYearly(libraryName, fy, True)
+    if not d.get("success"):
+        return d
+    data = data or {}
+    try:
+        ob, exp = Decimal(str(data.get("ob") or 0)), Decimal(str(data.get("exp") or 0))
+        bo, ba, bw = (int(float(data.get(k) or 0)) for k in ("bo", "ba", "bw"))
+    except (ValueError, ArithmeticError):
+        return {"success": False, "message": "எண் மதிப்புகள் சரியாக இல்லை."}
+    if min(ob, exp, bo, ba, bw) < 0:
+        return {"success": False, "message": "எதிர் மதிப்புகள் அனுமதிக்கப்படாது."}
+    total = ob + Decimal(str(d["officeReceipts"])) + Decimal(str(d["totals"]["total"]))
+    if exp > total:
+        return {"success": False, "message": "செலவுத் தொகை, மொத்த வரவை (%s) விடக் கூடுதலாக இருக்கக் கூடாது." % jnum(total)}
+    if bw > bo + ba:
+        return {"success": False, "message": "விலகல் எண்ணிக்கை, ஆரம்ப இருப்பு + சேர்க்கையை விடக் கூடுதலாக இருக்கக் கூடாது."}
+    db.execute("INSERT INTO audit_receipt_forms (library_name, fy, opening_balance, expense, book_opening, book_added, "
+               "book_withdrawn, saved_by, saved_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s, now()) "
+               "ON CONFLICT (library_name, fy) DO UPDATE SET opening_balance = EXCLUDED.opening_balance, "
+               "expense = EXCLUDED.expense, book_opening = EXCLUDED.book_opening, book_added = EXCLUDED.book_added, "
+               "book_withdrawn = EXCLUDED.book_withdrawn, saved_by = EXCLUDED.saved_by, saved_at = now()",
+               (d["library"], d["fy"], ob, exp, bo, ba, bw, session.get("admin_user") or d["library"]))
+    return {"success": True, "message": "சேமிக்கப்பட்டது."}
 
 
 # ------------------------------------------------------------------

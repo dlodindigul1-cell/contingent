@@ -3182,11 +3182,11 @@ function ryCss() {
   return '#ryPage{box-sizing:border-box;width:794px;padding:34px 30px 40px;background:#fff;color:#000;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;font-size:13px;line-height:1.4}' +
     '#ryPage .h1{text-align:center;font-weight:700;font-size:20px}#ryPage .h2{text-align:center;font-weight:700;font-size:17px;margin-top:8px}' +
     '#ryPage .h3{text-align:center;font-weight:700;font-size:15px;margin:10px 0 4px}#ryPage .lib{text-align:center;font-weight:700;font-size:14px;margin:6px 0 16px}' +
-    '#ryPage table.t{width:100%;border-collapse:collapse}#ryPage table.t th,#ryPage table.t td{border:1px solid #000;padding:6px 4px;text-align:center;vertical-align:middle}' +
+    '#ryPage table.t{width:84%;margin:0 auto;border-collapse:collapse}#ryPage table.t th,#ryPage table.t td{border:1px solid #000;padding:6px 4px;text-align:center;vertical-align:middle}' +
     '#ryPage table.t th{background:#dff1fd;font-size:12px}#ryPage table.t td.r{text-align:right;padding-right:8px}#ryPage table.t tr.b td{font-weight:700;background:#f4f4f4}' +
-    '#ryPage .two{display:flex;gap:30px;margin-top:26px}#ryPage .two>div{flex:1}#ryPage .two .ttl{font-weight:700;text-align:center;margin-bottom:6px}' +
+    '#ryPage .two{display:flex;gap:28px;width:84%;margin:26px auto 0}#ryPage .two>div{flex:1}#ryPage .two .ttl{font-weight:700;text-align:center;margin-bottom:6px}' +
     '#ryPage table.k{width:100%;border-collapse:collapse}#ryPage table.k td{padding:5px 4px;font-size:13px}#ryPage table.k td.n{text-align:right;white-space:nowrap;width:70px}' +
-    '#ryPage .ver{margin-top:90px;text-align:right;font-weight:700;font-size:12px;line-height:1.6}';
+    '#ryPage .ver{width:84%;margin:90px auto 0;text-align:right;font-weight:700;font-size:12px;line-height:1.6}';
 }
 function ryTable(d, withSno) {
   const heads = d.cols.map(c => '<th>' + aeEsc(c.title) + '</th>').join("");
@@ -3213,8 +3213,8 @@ function ryAuditHtml(d, f) {
     kv('நூலக வரவுகள் இரசீது வழி', aeMoney(d.totals.total)) + kv('மொத்தம்', aeMoney(total)) +
     kv('செலவு', aeMoney(f.exp)) + kv('இறுதி இருப்பு', aeMoney(closing)) + '</table></div>' +
     '<div><div class="ttl">நூல் இருப்பு விவரம்</div><table class="k">' +
-    kv(aeEsc(d.fyLabel) + ' அன்று ஆரம்ப நூல் இருப்பு', f.bo) + kv(aeEsc(d.fyLabel) + ' நூல் சேர்க்கை', f.ba) +
-    kv(aeEsc(d.fyLabel) + ' விலகல்', f.bw) + kv(aeEsc(d.fyLabel) + ' இறுதி நூல் இருப்பு', bookEnd) + '</table></div></div>' +
+    kv(aeEsc(d.fyLabel) + ' ஆரம்ப இருப்பு', f.bo) + kv(aeEsc(d.fyLabel) + ' சேர்க்கை', f.ba) +
+    kv(aeEsc(d.fyLabel) + ' விலகல்', f.bw) + kv(aeEsc(d.fyLabel) + ' இறுதி இருப்பு', bookEnd) + '</table></div></div>' +
     '<div class="ver">VERIFIED WITH OFFICE ACCOUNTS<br>AND FOUND CORRECT</div></div>';
 }
 async function makePortraitPdf(html, fname) {
@@ -4062,6 +4062,7 @@ function confirmPrevYearReceiptExpense(btn) {
 function showAuditFormModal(d, ex) {
   const old = document.getElementById("auditFormModal");
   if (old) old.remove();
+  const sv = d.saved || null;
   const inp = (id, label, val) => '<label style="display:block;margin:8px 0 2px;font-weight:600;font-size:13px;">' + label + '</label>' +
     '<input id="' + id + '" type="number" min="0" step="any" value="' + val + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;">';
   const ro = (label, id) => '<div style="display:flex;justify-content:space-between;margin:7px 0;font-size:14px;"><span>' + label + '</span><b id="' + id + '"></b></div>';
@@ -4073,40 +4074,61 @@ function showAuditFormModal(d, ex) {
     '<div style="font-weight:800;font-size:16px;color:#4c1d95;text-align:center;margin-bottom:12px;">📑 தணிக்கைப் படிவம் ' + aeEsc(d.fyLabel) + ' — ' + aeEsc(d.library) + '</div>' +
     '<div style="display:flex;gap:22px;flex-wrap:wrap;">' +
       '<div style="flex:1;min-width:260px;"><div style="font-weight:700;margin-bottom:4px;">வரவு செலவு சுருக்கம்</div>' +
-        inp("afOb", "1. ஆரம்ப இருப்பு (₹)", 0) +
+        inp("afOb", "1. ஆரம்ப இருப்பு (₹)", sv ? sv.ob : 0) +
         ro("2. அலுவலக வரவு (சில்லறைச் செலவின அனுமதித் தொகை)", "afOffice") +
         ro("3. நூலக வரவுகள் (வரவினத் தொகை)", "afLib") +
         ro("மொத்தம்", "afTotal") +
-        inp("afExp", "செலவு — மொத்தத் தொகை (₹) (மாற்றலாம்)", ex ? ex.totals.total : 0) +
-        ro("இறுதி இருப்பு (மொத்தம் − செலவு)", "afClose") + '</div>' +
+        inp("afExp", "செலவு — மொத்தத் தொகை (₹) (மாற்றலாம்; மொத்த வரவை விடக் கூடாது)", sv ? sv.exp : 0) +
+        ro("இறுதி இருப்பு (மொத்தம் − செலவு)", "afCloseBal") + '</div>' +
       '<div style="flex:1;min-width:260px;"><div style="font-weight:700;margin-bottom:4px;">நூல் இருப்பு விவரம்</div>' +
-        inp("afBo", d.fyLabel + " அன்று ஆரம்ப நூல் இருப்பு", 0) +
-        inp("afBa", d.fyLabel + " நூல் சேர்க்கை", 0) +
-        inp("afBw", d.fyLabel + " விலகல் (நூல் விலகல் பதிவேட்டின்படி)", 0) +
-        ro("இறுதி நூல் இருப்பு (ஆரம்ப + சேர்க்கை − விலகல்)", "afBookEnd") + '</div></div>' +
-    '<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">' +
+        inp("afBo", d.fyLabel + " ஆரம்ப இருப்பு", sv ? sv.bo : 0) +
+        inp("afBa", d.fyLabel + " சேர்க்கை", sv ? sv.ba : 0) +
+        inp("afBw", d.fyLabel + " விலகல் (நூல் விலகல் பதிவேட்டின்படி)", sv ? sv.bw : 0) +
+        ro("இறுதி இருப்பு (ஆரம்ப + சேர்க்கை − விலகல்)", "afBookEnd") + '</div></div>' +
+    '<div id="afMsg" style="margin-top:10px;text-align:center;font-weight:600;font-size:13px;min-height:18px;"></div>' +
+    '<div style="margin-top:8px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">' +
+      '<button id="afSave" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">💾 சேமி</button>' +
       '<button id="afRcpt" style="background:#2563eb;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">🧾 Receipt PDF</button>' +
       '<button id="afExpBtn" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">💸 Expense PDF</button>' +
-      '<button id="afClose" style="background:#e2e8f0;color:#334155;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">மூடு</button></div></div>';
+      '<button id="afCloseBtn" style="background:#e2e8f0;color:#334155;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">மூடு</button></div></div>';
   document.body.appendChild(modal);
-  const n = id => Math.max(0, Number(document.getElementById(id).value) || 0);
+  const el = id => document.getElementById(id);
+  const n = id => Math.max(0, Number(el(id).value) || 0);
+  const msg = (t, ok) => { el("afMsg").style.color = ok ? "#15803d" : "#b91c1c"; el("afMsg").textContent = t || ""; };
+  const totalOf = () => n("afOb") + d.officeReceipts + d.totals.total;
   const vals = () => ({ ob: n("afOb"), exp: n("afExp"), bo: Math.round(n("afBo")), ba: Math.round(n("afBa")), bw: Math.round(n("afBw")) });
+  let expTouched = !!sv;                      // சேமித்த / கையால் மாற்றிய செலவை தானாக மாற்றாது
   const refresh = () => {
-    const f = vals(), total = f.ob + d.officeReceipts + d.totals.total;
-    document.getElementById("afOffice").textContent = aeMoney(d.officeReceipts);
-    document.getElementById("afLib").textContent = aeMoney(d.totals.total);
-    document.getElementById("afTotal").textContent = aeMoney(total);
-    document.getElementById("afClose").textContent = aeMoney(total - f.exp);
-    document.getElementById("afBookEnd").textContent = f.bo + f.ba - f.bw;
+    const f = vals(), total = totalOf();
+    if (!expTouched) { el("afExp").value = total; f.exp = total; }       // இயல்பு: செலவு = அலுவலக + நூலக வரவு (+ ஆரம்ப இருப்பு)
+    el("afOffice").textContent = aeMoney(d.officeReceipts);
+    el("afLib").textContent = aeMoney(d.totals.total);
+    el("afTotal").textContent = aeMoney(total);
+    el("afCloseBal").textContent = aeMoney(Math.max(0, total - f.exp));
+    el("afBookEnd").textContent = f.bo + f.ba - f.bw;
   };
-  ["afOb", "afExp", "afBo", "afBa", "afBw"].forEach(id => document.getElementById(id).addEventListener("input", refresh));
+  const check = () => {                       // செலவு > மொத்த வரவு அல்லது விலகல் > இருப்பு+சேர்க்கை எனில் தடை
+    const f = vals(), total = totalOf();
+    if (f.exp > total) { msg("செலவுத் தொகை மொத்த வரவை (" + aeMoney(total) + ") விடக் கூடுதலாக இருக்கக் கூடாது.", false); return false; }
+    if (f.bw > f.bo + f.ba) { msg("விலகல் எண்ணிக்கை, ஆரம்ப இருப்பு + சேர்க்கையை விடக் கூடுதலாக இருக்கக் கூடாது.", false); return false; }
+    msg("", true); return true;
+  };
+  ["afOb", "afBo", "afBa", "afBw"].forEach(id => el(id).addEventListener("input", () => { refresh(); check(); }));
+  el("afExp").addEventListener("input", () => { expTouched = true; refresh(); check(); });
   refresh();
-  document.getElementById("afClose").onclick = () => modal.remove();
+  el("afCloseBtn").onclick = () => modal.remove();
   const busy = async (b, fn) => { const o = b.innerHTML; b.disabled = true; b.innerHTML = "⏳ தயாராகிறது…";
-    try { await fn(); } catch (e) { alert("PDF உருவாக்க முடியவில்லை: " + (e && e.message ? e.message : e)); }
+    try { await fn(); } catch (e) { alert("செயல் தோல்வி: " + (e && e.message ? e.message : e)); }
     b.disabled = false; b.innerHTML = o; };
-  document.getElementById("afRcpt").onclick = function () { busy(this, () => makePortraitPdf(ryAuditHtml(d, vals()), ryFile("Audit_Receipt", d))); };
-  document.getElementById("afExpBtn").onclick = function () {
+  el("afSave").onclick = function () {
+    if (!check()) return;
+    busy(this, () => new Promise(res => google.script.run
+      .withSuccessHandler(r => { msg((r && r.message) || (r && r.success ? "சேமிக்கப்பட்டது." : "சேமிக்க முடியவில்லை."), !!(r && r.success)); res(); })
+      .withFailureHandler(e => { msg("Server பிழை: " + e.message, false); res(); })
+      .saveAuditReceiptForm(d.library, d.fyLabel, vals())));
+  };
+  el("afRcpt").onclick = function () { if (!check()) return; busy(this, () => makePortraitPdf(ryAuditHtml(d, vals()), ryFile("Audit_Receipt", d))); };
+  el("afExpBtn").onclick = function () {
     if (!ex) { alert("இந்த ஆண்டில் அனுமதிக்கப்பட்ட செலவினப் பதிவுகள் இல்லை."); return; }
     busy(this, () => makeYearlyExpensePdf(ex));
   };

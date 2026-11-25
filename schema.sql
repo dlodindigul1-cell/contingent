@@ -336,3 +336,18 @@ CREATE TABLE IF NOT EXISTS library_stats_base (
  donors INTEGER NOT NULL DEFAULT 0,
  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- கடந்த ஆண்டு தணிக்கைப் படிவத்தில் நூலகர் உள்ளிடும் விவரங்கள் (நூலகம் + நிதியாண்டு வாரியாக)
+CREATE TABLE IF NOT EXISTS audit_receipt_forms (
+ library_name TEXT NOT NULL,
+ fy TEXT NOT NULL,                                  -- '2025-26'
+ opening_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+ expense NUMERIC(14,2) NOT NULL DEFAULT 0,
+ book_opening INTEGER NOT NULL DEFAULT 0,
+ book_added INTEGER NOT NULL DEFAULT 0,
+ book_withdrawn INTEGER NOT NULL DEFAULT 0,
+ saved_by TEXT NOT NULL DEFAULT '',
+ saved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ PRIMARY KEY (library_name, fy)
+);
