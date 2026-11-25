@@ -1449,7 +1449,7 @@ def getLibraryReceiptYearly(libraryName, fy=None, audit=False):
         vals = [Decimal(str((r[c] if r else 0) or 0)) for _, c in cols]
         tot = Decimal(str((r["total_amount"] if r else 0) or 0))
         mm, yy = int(m[:2]), m[5:]
-        rows.append({"label": "%s-%s" % (_EN_MONTHS[mm - 1], yy[-2:]), "vals": [jnum(v) for v in vals], "total": jnum(tot)})
+        rows.append({"label": m, "vals": [jnum(v) for v in vals], "total": jnum(tot)})
         gv = [a + b for a, b in zip(gv, vals)]
         gt += tot
     out = {"success": True, "library": name, "fy": fy_label, "fyLabel": fy_full,
