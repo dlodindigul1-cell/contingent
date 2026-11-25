@@ -831,5 +831,73 @@ def receipt_report_xlsx(kind):
     return Response(buf.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename="report.xlsx"; filename*=UTF-8\'\'' + quote(fname)})
 
+# ------------------------------------------------------------------
+#  நூலகர் திரை — "நூலக வரவுத் தொகைக்கு ஒப்புதல்" (ஒப்புகை ரசீது PDF)
+#  அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் போலவே: ஒப்புதல் பெற்ற மாதங்கள் பட்டியல் → மாதம் தேர்வு → அந்த மாதத்துக்கு மட்டும் PDF
+#  (PDF-ஐ உலாவி உருவாக்கும்; இங்கே தரவு மட்டும் தரப்படும்)
+# ------------------------------------------------------------------
+RECEIPT_BANK_ACCOUNT = os.environ.get('RECEIPT_BANK_ACCOUNT', '2981000402022914')   # திண்டுக்கல் மாவட்ட நூலக அலுவலர் வங்கி கணக்கு எண்
+RECEIPT_ACK_ITEMS = [('காப்புத் தொகை', 'security_amount'), ('ஆண்டுச் சந்தா', 'annual_amount'),
+                     ('காலதாமதக் கட்டணம்', 'late_fee'), ('நூல் விலைப் பிடித்தம்', 'book_fine'),
+                     ('பழைய நாளிதழ்கள் விற்பனை', 'newspaper_amount'), ('பழைய நூல்கள் விற்பனை', 'old_book_sale'),
+                     ('புரவலர்', 'patron'), ('பெரும்புரவலர்', 'chief_patron'), ('கொடையாளர்', 'donor'), ('இதர வரவுகள்', 'other_income')]
+_W_ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',
+           'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
+_W_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+
+def _w999(n):
+    out = []
+    if n >= 100: out.append(_W_ONES[n // 100] + ' Hundred'); n %= 100
+    if n >= 20: out.append(_W_TENS[n // 10] + ((' ' + _W_ONES[n % 10]) if n % 10 else ''))
+    elif n: out.append(_W_ONES[n])
+    return ' '.join(out)
+
+
+def _rupees_words(amount):
+    """576 -> 'Five Hundred Seventy Six Rupees Only' (இந்திய முறை: Crore / Lakh / Thousand)"""
+    amt = Decimal(str(amount or 0)).quantize(Decimal('0.01'))
+    rupees, paise = int(amt), int((amt - int(amt)) * 100)
+    parts = []
+    for div, name in ((10000000, 'Crore'), (100000, 'Lakh'), (1000, 'Thousand')):
+        q, rupees = divmod(rupees, div)
+        if q: parts.append(_w999(q) + ' ' + name)
+    if rupees: parts.append(_w999(rupees))
+    text = ' '.join(parts) or 'Zero'
+    text += ' Rupees'
+    if paise: text += ' and ' + _w999(paise) + ' Paise'
+    return text + ' Only'
+
+
+def getApprovedReceiptMonths(libraryName):
+    """இந்த நூலகத்தின் ஒப்புதல் பெற்ற வரவு மாதங்கள் (புதியது முதலில்) — பணம் செலுத்தியவை மட்டும்; புள்ளி விவரம் மட்டும் பதிவு செய்த மாதங்கள் வராது."""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    rows = db.fetch_all("SELECT month_year FROM library_receipts WHERE library_name=%s AND status='approved' AND mode='income' AND total_amount>0 "
+                        "ORDER BY substr(month_year,4,4) DESC, substr(month_year,1,2) DESC", (str(libraryName or '').strip(),))
+    if not rows: return _fail('இந்த நூலகத்துக்கு ஒப்புதல் பெற்ற வரவுப் பதிவுகள் எதுவும் இல்லை.')
+    return {'success': True, 'months': [r['month_year'] for r in rows]}
+
+
+def getReceiptAcknowledgement(libraryName, monthYear):
+    """ஒப்புகை ரசீதுக்கான தரவு — தொகை உள்ள இனங்கள் மட்டும்."""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    name, my = str(libraryName or '').strip(), str(monthYear or '').strip()
+    r = db.fetch_one("SELECT r.*, COALESCE(json_agg(json_build_object('upi',t.upi_number,'date',to_char(t.transaction_date,'YYYY-MM-DD')) "
+                     "ORDER BY t.transaction_date,t.id) FILTER (WHERE t.id IS NOT NULL),'[]') txs "
+                     "FROM library_receipts r LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id "
+                     "WHERE r.library_name=%s AND r.month_year=%s GROUP BY r.id", (name, my))
+    if not r: return _fail('இந்த மாதத்துக்கு வரவுப் பதிவு இல்லை.')
+    if r['status'] != 'approved': return _fail('இந்த மாத வரவு இன்னும் ஒப்புதல் பெறவில்லை.')
+    total = Decimal(str(r['total_amount'] or 0))
+    if r['mode'] != 'income' or total <= 0: return _fail('இந்த மாதம் பணம் செலுத்திய வரவு இல்லை.')
+    pairs = _utr_pairs(dict(r))
+    items = [{'desc': title, 'amount': _num(r[col])} for title, col in RECEIPT_ACK_ITEMS if Decimal(str(r[col] or 0)) > 0]
+    ack = r['approved_at']
+    if ack: ack = ack.astimezone(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime('%d/%m/%Y')
+    return {'success': True, 'library': r['library_name'], 'month': r['month_year'], 'ackDate': ack or '',
+            'total': _num(total), 'inWords': _rupees_words(total), 'account': RECEIPT_BANK_ACCOUNT,
+            'utrs': '/'.join(u for u, _ in pairs), 'dates': '/'.join(_fdate(d) for _, d in pairs if d), 'items': items}
+
+
 def register_rpc(RPC):
-    for f in (validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt): RPC[f.__name__]=f
+    for f in (validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt,getApprovedReceiptMonths,getReceiptAcknowledgement): RPC[f.__name__]=f
