@@ -1952,13 +1952,13 @@ TEMPLATE_XLSX = {
                   ["எடுத்துக்காட்டு நூலகம்", 1],
                   [44, 22]),
     "vendors_paper": ("vendors_paper_template.xlsx",
-                      [["LIBRARY CODE", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
-                      ["TNDPL00001", "V001", "எடுத்துக்காட்டு Vendor", "ABCDE1234F", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
-                      [18, 16, 34, 16, 26, 22, 16, 24]),
+                      [["LIBRARY CODE", "LIBRARY NAME", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
+                      ["TNDPL00001", "எடுத்துக்காட்டு நூலகம்", "V001", "எடுத்துக்காட்டு Vendor", "ABCDE1234F", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
+                      [18, 34, 16, 34, 16, 26, 22, 16, 24]),
     "vendors_rent": ("vendors_rent_template.xlsx",
-                     [["LIBRARY CODE", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
-                     ["TNDPL00001", "R001", "எடுத்துக்காட்டு உரிமையாளர்", "", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
-                     [18, 16, 34, 16, 26, 22, 16, 24]),
+                     [["LIBRARY CODE", "LIBRARY NAME", "VENDOR CODE", "NAME", "PAN NUMBER", "BANK NAME", "BRANCH", "IFSC CODE", "ACCOUNT NUMBER"]],
+                     ["TNDPL00001", "எடுத்துக்காட்டு நூலகம்", "R001", "எடுத்துக்காட்டு உரிமையாளர்", "", "State Bank of India", "Dindigul", "SBIN0000001", "123456789012"],
+                     [18, 34, 16, 34, 16, 26, 22, 16, 24]),
 }
 
 
@@ -1994,9 +1994,9 @@ def _template_rows(kind):
         if kind in ("vendors_paper", "vendors_rent"):
             k = "paper" if kind == "vendors_paper" else "rent"
             out = []
-            for r in db.fetch_all("SELECT l.code AS lib_code, v.* FROM vendors v JOIN libraries l ON l.id = v.library_id "
+            for r in db.fetch_all("SELECT l.code AS lib_code, l.name AS lib_name, v.* FROM vendors v JOIN libraries l ON l.id = v.library_id "
                                   "WHERE v.kind = %s ORDER BY l.id, v.id", (k,)):
-                row = [r["lib_code"] or "", r["vendor_code"], r["name"], r["pan_no"], r["bank_name"], r["branch"], r["ifsc"], r["account_no"]]
+                row = [r["lib_code"] or "", r["lib_name"] or "", r["vendor_code"], r["name"], r["pan_no"], r["bank_name"], r["branch"], r["ifsc"], r["account_no"]]
                 out.append(row)
             return out
     except Exception:
@@ -2502,6 +2502,49 @@ def admin_vendor_delete():
     else:
         db.execute("DELETE FROM vendors WHERE id = %s", (vid,))
     return _ok()
+
+
+@app.post("/admin/api/vendor/copy")
+def admin_vendor_copy():
+    """ஒரு நூலகத்தின் Vendor-களைத் தேர்ந்த மற்றொரு நூலகத்துக்கும் நகலெடுக்கும் (ஒரு vendor பல நூலகங்களுக்கு வழங்கும்போது).
+    இலக்கு நூலகத்தில் அதே Vendor Code ஏற்கனவே இருந்தால் தவிர்க்கப்படும்."""
+    denied = admin_required_json()
+    if denied:
+        return denied
+    j = request.get_json(silent=True) or {}
+    kind = _clean(j.get("kind"))
+    try:
+        to_id = int(j.get("toLibraryId") or 0)
+        ids = [int(x) for x in (j.get("vendorIds") or [])]
+    except (TypeError, ValueError):
+        return _bad("கோரிக்கை சரியில்லை.")
+    if kind not in ("paper", "rent"):
+        return _bad("Vendor வகை சரியில்லை.")
+    if not db.fetch_one("SELECT 1 FROM libraries WHERE id = %s", (to_id,)):
+        return _bad("இலக்கு நூலகத்தைத் தேர்ந்தெடுக்கவும்.")
+    if not ids:
+        return _bad("நகலெடுக்க வேண்டிய Vendor-ஐத் தேர்ந்தெடுக்கவும்.")
+
+    def f(conn):
+        copied = skipped = 0
+        with conn.cursor() as cur:
+            cur.execute("SELECT vendor_code, name, pan_no, bank_name, branch, ifsc, account_no, rent_share, library_id "
+                        "FROM vendors WHERE kind = %s AND id = ANY(%s)", (kind, ids))
+            for v in cur.fetchall():
+                if v[8] == to_id:
+                    skipped += 1
+                    continue
+                cur.execute("INSERT INTO vendors (kind, library_id, vendor_code, name, pan_no, bank_name, branch, ifsc, account_no, rent_share) "
+                            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (kind, library_id, vendor_code) DO NOTHING",
+                            (kind, to_id, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]))
+                if cur.rowcount:
+                    copied += 1
+                else:
+                    skipped += 1
+        return copied, skipped
+    res = db.run(f)
+    copied, skipped = res if res else (0, 0)
+    return _ok(copied=copied, skipped=skipped)
 
 
 # தனித்த நூலக வரவின Module — பழைய சில்லறை செலவின RPC/பக்கங்களை மாற்றாது.

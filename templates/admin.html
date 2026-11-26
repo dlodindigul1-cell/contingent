@@ -626,7 +626,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
   <div id="vd_msg"></div>
   <div class="two">
     <div class="panel"><h3>📰 நாளிதழ் Vendor — Excel மூலம் ஏற்ற</h3><div class="bd">
-      <p class="small" style="margin-top:0">நெடுவரிசைகள் (முதல் வரி தலைப்பு): <code>LIBRARY CODE</code> <code>VENDOR CODE</code> <code>NAME</code> <code>PAN NUMBER</code> <code>BANK NAME</code> <code>BRANCH</code> <code>IFSC CODE</code> <code>ACCOUNT NUMBER</code>. மீண்டும் ஏற்றினால் புதுப்பிக்கும்; நகல் உருவாகாது. <a href="/admin/template/vendors_paper.xlsx">மாதிரி / தற்போதைய தரவு Excel</a></p>
+      <p class="small" style="margin-top:0">நெடுவரிசைகள் (முதல் வரி தலைப்பு): <code>LIBRARY CODE</code> <code>LIBRARY NAME</code> <code>VENDOR CODE</code> <code>NAME</code> <code>PAN NUMBER</code> <code>BANK NAME</code> <code>BRANCH</code> <code>IFSC CODE</code> <code>ACCOUNT NUMBER</code>. மீண்டும் ஏற்றினால் புதுப்பிக்கும்; நகல் உருவாகாது. <a href="/admin/template/vendors_paper.xlsx">மாதிரி / தற்போதைய தரவு Excel</a></p>
       <input type="file" id="f_vendors_paper" accept=".xlsx,.xls,.csv" aria-label="நாளிதழ் Vendor Excel" style="margin-bottom:10px">
       <button class="btn go" id="b_vendors_paper" type="button">Excel ஏற்று</button>
       <div id="m_vendors_paper"></div>
@@ -644,6 +644,7 @@ a.vd-lib{cursor:pointer;font-weight:600}
       <select id="vdKind" style="width:auto" aria-label="Vendor வகை"><option value="paper">📰 நாளிதழ் Vendor</option><option value="rent">🏠 வாடகை Vendor</option></select>
       <input type="search" id="vdSearch" placeholder="நூலகம் / vendor / code / IFSC தேடு…" style="max-width:260px" aria-label="Vendor தேடுக">
       <button class="btn go sm" id="vdAdd" type="button">＋ புதிய Vendor</button>
+      <button class="btn alt sm" id="vdCopy" type="button">📥 பிற நூலகத்திலிருந்து Vendor ஏற்று</button>
     </div>
     <div class="toolbar">
       <select id="vdLib" style="max-width:340px" aria-label="நூலகம் தேர்க"><option value="">நூலகத்தைத் தேர்ந்தெடுக்க…</option></select>
@@ -672,6 +673,19 @@ a.vd-lib{cursor:pointer;font-weight:600}
   <div class="row" style="margin-top:14px;justify-content:flex-end">
     <button class="btn alt" id="vf_cancel" type="button">ரத்து</button>
     <button class="btn go" id="vf_save" type="button">சேமி</button>
+  </div>
+</div></div>
+
+<div id="vcpOverlay" class="clm-overlay"><div class="clm-card" style="max-width:640px">
+  <h3 id="vcpTitle" style="margin:0 0 6px;color:var(--navy)">📥 பிற நூலகத்திலிருந்து Vendor ஏற்று</h3>
+  <p class="small" style="margin:0 0 10px">ஒரு vendor பல நூலகங்களுக்கு வழங்கினால், ஏற்கனவே உள்ள நூலகத்தின் vendor விவரத்தை இங்கே தேர்ந்த நூலகத்துக்கும் நகலெடுக்கலாம். இலக்கு நூலகத்தில் அதே Vendor Code இருந்தால் தவிர்க்கப்படும்.</p>
+  <label for="vcp_to">இலக்கு நூலகம் (Vendor சேர்க்க வேண்டியது) *</label><select id="vcp_to" style="margin-bottom:10px"></select>
+  <label for="vcp_from">மூல நூலகம் (Vendor உள்ளது) *</label><select id="vcp_from" style="margin-bottom:10px"></select>
+  <div id="vcp_list" class="pick" style="margin-bottom:10px"></div>
+  <div id="vcp_msg"></div>
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn alt" id="vcp_cancel" type="button">ரத்து</button>
+    <button class="btn go" id="vcp_go" type="button">ஏற்று</button>
   </div>
 </div></div>
 
@@ -1542,6 +1556,47 @@ $('#vf_save').addEventListener('click', async () => {
       if (vdAfter){ const fn = vdAfter; vdAfter = null; fn(savedTxt); }
     }
   }catch(e){ $('#vdFormErr').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+  b.disabled = false;
+});
+/* பிற நூலகத்திலிருந்து Vendor ஏற்று */
+function vcpList(){
+  const from = +$('#vcp_from').value;
+  const rows = vdRows.filter(r => r.libraryId === from);
+  $('#vcp_list').innerHTML = rows.length ? rows.map(r => '<label><input type="checkbox" value="' + r.id + '" checked> ' + esc(r.name) + ' <small>' + esc(r.code) + (r.account ? ' · ' + esc(r.account) : '') + '</small></label>').join('') :
+    '<div style="padding:12px" class="small">மூல நூலகத்தைத் தேர்ந்தெடுக்கவும்.</div>';
+}
+async function vcpOpen(){
+  try{
+    await vdLoadLibs();
+    const kind = $('#vdKind').value;
+    $('#vcpTitle').textContent = '📥 பிற நூலகத்திலிருந்து ' + VD_KIND[kind] + ' ஏற்று';
+    const opts = vdLibs.map(l => '<option value="' + l.id + '">' + esc(l.name) + (l.code ? ' (' + esc(l.code) + ')' : '') + '</option>').join('');
+    $('#vcp_to').innerHTML = '<option value="">தேர்ந்தெடுக்க…</option>' + opts;
+    const have = [...new Map(vdRows.map(r => [r.libraryId, r.library])).entries()];
+    $('#vcp_from').innerHTML = '<option value="">தேர்ந்தெடுக்க…</option>' + have.map(([id, n]) => '<option value="' + id + '">' + esc(n) + '</option>').join('');
+    $('#vcp_msg').innerHTML = ''; vcpList();
+    $('#vcpOverlay').style.display = 'flex';
+  }catch(e){ note($('#vd_msg'), 'bad', e.message); }
+}
+$('#vdCopy').addEventListener('click', vcpOpen);
+$('#vcp_from').addEventListener('change', vcpList);
+$('#vcp_cancel').addEventListener('click', () => { $('#vcpOverlay').style.display = 'none'; });
+$('#vcp_go').addEventListener('click', async () => {
+  const to = $('#vcp_to').value, ids = [...document.querySelectorAll('#vcp_list input:checked')].map(i => +i.value);
+  if (!to){ note($('#vcp_msg'), 'warn', 'இலக்கு நூலகத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  if (!$('#vcp_from').value){ note($('#vcp_msg'), 'warn', 'மூல நூலகத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  if ($('#vcp_from').value === to){ note($('#vcp_msg'), 'warn', 'மூல நூலகமும் இலக்கு நூலகமும் ஒன்றாக இருக்கக் கூடாது.'); return; }
+  if (!ids.length){ note($('#vcp_msg'), 'warn', 'நகலெடுக்க வேண்டிய Vendor-ஐத் தேர்ந்தெடுக்கவும்.'); return; }
+  const b = $('#vcp_go'); b.disabled = true;
+  try{
+    const j = await postJSON('/admin/api/vendor/copy', {kind: $('#vdKind').value, toLibraryId: +to, vendorIds: ids});
+    if (!j.success){ note($('#vcp_msg'), 'bad', j.message || 'நகலெடுக்க முடியவில்லை'); }
+    else{
+      $('#vcpOverlay').style.display = 'none';
+      note($('#vd_msg'), 'ok', j.copied + ' Vendor பதிவு ஏற்றப்பட்டது' + (j.skipped ? ' (' + j.skipped + ' பதிவு ஏற்கனவே இருந்ததால் தவிர்க்கப்பட்டது)' : '') + '.');
+      loadVendors();
+    }
+  }catch(e){ note($('#vcp_msg'), 'bad', e.message); }
   b.disabled = false;
 });
 /* "பார்": நூலகத்தின் vendor விவரங்கள் அட்டையாக */

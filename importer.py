@@ -682,6 +682,7 @@ def do_receipts_approved(raw):
 VENDOR_KEYS = ["lib", "vcode", "name", "pan", "bank", "branch", "ifsc", "acct", "share"]
 VENDOR_HEAD_MAP = {
     "LIBRARYCODE": "lib", "LIBCODE": "lib", "VENDORCODE": "vcode",
+    "LIBRARYNAME": "libname", "LIBNAME": "libname",
     "NAME": "name", "VENDORNAME": "name",
     "PANNUMBER": "pan", "PANNO": "pan", "PAN": "pan",
     "BANKNAME": "bank", "BANK": "bank", "BRANCH": "branch",
@@ -706,7 +707,7 @@ def _do_vendors(raw, kind):
         k = VENDOR_HEAD_MAP.get(_vend_head(h))
         if k and k not in col:
             col[k] = i
-    if "lib" not in col or "vcode" not in col:
+    if ("lib" not in col and "libname" not in col) or "vcode" not in col:
         col = {k: i for i, k in enumerate(VENDOR_KEYS)}
     libs = db.fetch_all("SELECT id, name, code FROM libraries")
     by_code = {(l["code"] or "").upper(): l["id"] for l in libs if l["code"]}
@@ -715,11 +716,12 @@ def _do_vendors(raw, kind):
     for n, r in enumerate(rows[1:], start=2):
         g = lambda k: cell(r, col[k]) if k in col else ""
         lcode, vcode, name = g("lib"), re.sub(r"\s", "", g("vcode")).upper(), g("name")
-        if not (lcode or vcode or name):
+        lname = g("libname").strip()
+        if not (lcode or lname or vcode or name):
             continue
-        lid = by_code.get(lcode.upper()) or by_name.get(lcode)
+        lid = by_code.get(lcode.upper()) or by_name.get(lcode) or by_name.get(lname)     # LIBRARY CODE இல்லையெனில் LIBRARY NAME கொண்டு
         if not lid:
-            skipped.append(f"வரி {n}: நூலக குறியீடு '{lcode}' நூலகப் பட்டியலில் இல்லை")
+            skipped.append(f"வரி {n}: நூலகம் '{lcode or lname}' நூலகப் பட்டியலில் இல்லை")
             continue
         if not vcode:
             skipped.append(f"வரி {n} ({lcode}): VENDOR CODE இல்லை")
