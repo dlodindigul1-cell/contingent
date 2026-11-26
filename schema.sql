@@ -351,3 +351,19 @@ CREATE TABLE IF NOT EXISTS audit_receipt_forms (
  saved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  PRIMARY KEY (library_name, fy)
 );
+
+-- நூலகர் வரவினப் பதிவுக் காலம் (Admin அமைப்பது; மாதம் வாரியாக)
+CREATE TABLE IF NOT EXISTS receipt_entry_windows (
+  month_year TEXT PRIMARY KEY,           -- 'MM/YYYY' (வரவு மாதம்)
+  start_date DATE NOT NULL,
+  end_date   DATE NOT NULL,
+  set_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- நூலகர் விடுப்பு நாட்கள் — மாதம் வாரியாக (காலம்: முந்தைய மாதம் 16 -> குறிப்பிட்ட மாதம் 15)
+CREATE TABLE IF NOT EXISTS staff_leave_monthly (
+  library_id INT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  month_year TEXT NOT NULL,              -- 'MM/YYYY' = காலம் முடியும் மாதம்
+  leave_days NUMERIC(5,1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (library_id, month_year)
+);

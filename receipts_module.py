@@ -194,6 +194,9 @@ def submit_receipt():
     total=security+annual+newspaper
     def save(conn):
         with conn.cursor() as c:
+            c.execute('SELECT start_date,end_date FROM receipt_entry_windows WHERE month_year=%s',(month,))
+            werr=_window_error(month,c.fetchone())
+            if werr: raise ValueError(werr)
             c.execute('SELECT id,inactive_from FROM libraries WHERE name=%s',(lib,))
             lrow=c.fetchone()
             if not lrow: raise ValueError('நூலகம் கிடைக்கவில்லை.')
@@ -275,6 +278,87 @@ def release_transaction(tid):
 
 
 # ------------------------------------------------------------------
+#  நூலகர் வரவினப் பதிவுக் காலம் (Admin அமைப்பது) — வங்கி பாஸ்புத்தகம் ஏற்றிய பின்
+# ------------------------------------------------------------------
+_IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
+def _today(): return dt.datetime.now(_IST).date()
+def _dmy(d): return d.strftime('%d/%m/%Y')
+
+MSG_NO_WINDOW = '(இன்னும் வங்கி அறிக்கைகள் பதிவேற்றப்படவில்லை. பதிவேற்றம் செய்யப்பட்ட பின்னர் தான் தாங்கள் வரவினம் பதிவு செய்ய இயலும்)'
+
+def window_info():
+    """இன்றைய நிலை: open | upcoming | ended | none  (+ card message, scroll text)."""
+    try: rows = db.fetch_all("SELECT month_year,start_date,end_date FROM receipt_entry_windows ORDER BY start_date DESC")
+    except Exception: rows = []
+    t = _today()
+    def pack(r, st):
+        a, b, m = _dmy(r['start_date']), _dmy(r['end_date']), r['month_year']
+        out = {'state': st, 'month': m, 'start': a, 'end': b}
+        if st == 'open':
+            out['scroll'] = f'{m} மாத நூலக வரவினங்களை {a} முதல் {b} வரை மட்டுமே பதிவு செய்ய இயலும்.'
+            out['message'] = ''
+        elif st == 'upcoming':
+            out['scroll'] = f'{m} மாத நூலக வரவினப் பதிவு {a} முதல் {b} வரை மட்டுமே செய்ய இயலும்.'
+            out['message'] = f'{m} மாத வரவினங்களை {a} முதல் {b} வரை மட்டுமே பதிவு செய்ய இயலும். பதிவு காலம் இன்னும் தொடங்கவில்லை.'
+        else:
+            out['scroll'] = 'நூலக வரவினப் பதிவுக் காலம் முடிந்துவிட்டது. அடுத்த காலத்தை Admin அறிவித்த பின் பதிவு செய்யலாம்.'
+            out['message'] = f'{m} மாத வரவினப் பதிவுக் காலம் ({a} – {b}) முடிந்துவிட்டது. அடுத்த பதிவுக் காலத்தை Admin அறிவித்த பின்னர் பதிவு செய்யலாம்.'
+        return out
+    for r in rows:
+        if r['start_date'] <= t <= r['end_date']: return pack(r, 'open')
+    fut = sorted((r for r in rows if r['start_date'] > t), key=lambda r: r['start_date'])
+    if fut: return pack(fut[0], 'upcoming')
+    if rows: return pack(rows[0], 'ended')
+    return {'state': 'none', 'month': '', 'start': '', 'end': '',
+            'scroll': 'வங்கி அறிக்கை பதிவேற்றப்பட்டு, Admin தேதி அறிவித்த பின்னரே நூலக வரவினங்களைப் பதிவு செய்ய இயலும்.',
+            'message': MSG_NO_WINDOW}
+
+def _window_error(month, w):
+    """w = (start_date, end_date) அல்லது None. தவறெனில் செய்தி."""
+    if not w: return 'இந்த மாதத்திற்கான வரவினப் பதிவுக் காலம் இன்னும் அறிவிக்கப்படவில்லை (வங்கி அறிக்கை பதிவேற்றம் / Admin தேதி நிலுவை).'
+    t = _today()
+    if t < w[0] or t > w[1]: return f'{month} மாத வரவினங்களை {_dmy(w[0])} முதல் {_dmy(w[1])} வரை மட்டுமே பதிவு செய்ய இயலும்.'
+    return None
+
+@receipts.get('/receipts/window')
+def window_public():
+    if not (_admin() or _librarian()): return jsonify(success=False),403
+    return jsonify(success=True, **window_info())
+
+@receipts.get('/receipts/admin/windows')
+def windows_list():
+    if not _admin(): return jsonify(success=False),403
+    rows = db.fetch_all("SELECT month_year,start_date,end_date FROM receipt_entry_windows")
+    rows = sorted(rows, key=lambda r: _month_key(r['month_year']), reverse=True)
+    return jsonify(success=True, rows=[{'month': r['month_year'], 'start': r['start_date'].isoformat(), 'end': r['end_date'].isoformat(),
+                                        'start_dmy': _dmy(r['start_date']), 'end_dmy': _dmy(r['end_date'])} for r in rows])
+
+@receipts.post('/receipts/admin/window')
+def window_save():
+    if not _admin(): return jsonify(success=False,message='Admin அனுமதி தேவை'),403
+    j = request.get_json(silent=True) or {}
+    try:
+        month = _valid_month(j.get('month'))
+        a = dt.date.fromisoformat(str(j.get('start') or '')); b = dt.date.fromisoformat(str(j.get('end') or ''))
+    except ValueError as e:
+        return jsonify(success=False,message=str(e) if 'MM/YYYY' in str(e) else 'தேதிகளைச் சரியாகத் தேர்ந்தெடுக்கவும்.'),400
+    if b < a: return jsonify(success=False,message='“வரை” தேதி “முதல்” தேதிக்கு முன்னதாக இருக்கக் கூடாது.'),400
+    if not db.fetch_one("SELECT 1 FROM receipt_bank_transactions WHERE month_year=%s LIMIT 1",(month,)):
+        return jsonify(success=False,message=f'{month} மாத வங்கி பாஸ்புத்தகம் இன்னும் பதிவேற்றப்படவில்லை. முதலில் பதிவேற்றவும்.'),400
+    db.execute("INSERT INTO receipt_entry_windows(month_year,start_date,end_date) VALUES(%s,%s,%s) "
+               "ON CONFLICT(month_year) DO UPDATE SET start_date=EXCLUDED.start_date,end_date=EXCLUDED.end_date,set_at=now()",(month,a,b))
+    return jsonify(success=True,message=f'{month}: நூலகர் பதிவுக் காலம் {_dmy(a)} முதல் {_dmy(b)} வரை அமைக்கப்பட்டது.')
+
+@receipts.post('/receipts/admin/window/delete')
+def window_delete():
+    if not _admin(): return jsonify(success=False,message='Admin அனுமதி தேவை'),403
+    try: month = _valid_month((request.get_json(silent=True) or {}).get('month'))
+    except ValueError as e: return jsonify(success=False,message=str(e)),400
+    db.execute("DELETE FROM receipt_entry_windows WHERE month_year=%s",(month,))
+    return jsonify(success=True,message=f'{month}: பதிவுக் காலம் நீக்கப்பட்டது.')
+
+
+# ------------------------------------------------------------------
 #  நூலகர் படிவம் (index.html) — RPC செயல்பாடுகள்
 # ------------------------------------------------------------------
 def _prev_month():
@@ -347,6 +431,10 @@ def saveOrUpdateReceipt(data):
                 pdate=min(t[6] for t in trs)
             else:
                 month=_prev_month(); pdate=None
+            if not _admin():
+                c.execute('SELECT start_date,end_date FROM receipt_entry_windows WHERE month_year=%s',(month,))
+                werr=_window_error(month,c.fetchone())
+                if werr: raise ValueError(werr)
             c.execute("SELECT inactive_from FROM libraries WHERE name=%s",(lib,))
             inf=c.fetchone()[0]
             if inf and inf<=dt.date(int(month[3:]),int(month[:2]),1): raise ValueError(f'இந்த நூலகம் {inf.strftime("%d/%m/%Y")} முதல் செயல்படவில்லை; {month} மாதத்திற்குப் பதிவு செய்ய இயலாது.')
@@ -913,5 +1001,10 @@ def getReceiptAcknowledgement(libraryName, monthYear):
             'utrs': '/'.join(u for u, _ in pairs), 'dates': '/'.join(_fdate(d) for _, d in pairs if d), 'items': items}
 
 
+def getReceiptWindow():
+    """நூலகர் திரைக்கு: வரவினப் பதிவுக் காலம் (Admin அமைத்தது)."""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    return dict(window_info(), success=True)
+
 def register_rpc(RPC):
-    for f in (validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt,getApprovedReceiptMonths,getReceiptAcknowledgement): RPC[f.__name__]=f
+    for f in (getReceiptWindow,validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt,getApprovedReceiptMonths,getReceiptAcknowledgement): RPC[f.__name__]=f

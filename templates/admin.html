@@ -699,10 +699,24 @@ a.vd-lib{cursor:pointer;font-weight:600}
 <section class="view" id="v-leave">
   <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › விடுப்பு</p>
   <h2 class="pt">2. விடுப்பு விவரம் ஏற்று</h2>
-  <p class="lead">முதலில் நூலகப் பட்டியலை ஏற்றியிருக்க வேண்டும். முதல் இரண்டு வரிகள் தலைப்பாகத் தவிர்க்கப்படும்: A நூலகப் பெயர், B விடுப்பு நாட்கள். <a href="/admin/template/leave.xlsx">மாதிரி Excel</a></p>
-  <div class="panel"><h3>Excel ஏற்றம்</h3><div class="bd">
+  <p class="lead">மாதத்தைத் தேர்ந்தெடுத்தால், அந்த மாதத்தின் காலமான <b>முந்தைய மாதம் 16 முதல் அந்த மாதம் 15 வரை</b> உள்ள நூலகப் பெயர் மற்றும் விடுப்பு நாட்கள் மட்டும் காட்டப்படும். Excel: முதல் இரண்டு வரிகள் தலைப்பாகத் தவிர்க்கப்படும் — A நூலகப் பெயர், B விடுப்பு நாட்கள். <a href="/admin/template/leave.xlsx">மாதிரி Excel</a></p>
+  <div class="panel"><h3>மாதம்</h3><div class="bd">
+    <div class="row"><label for="lv_month" style="font-weight:700">மாதம்</label><select id="lv_month" aria-label="விடுப்பு மாதம்"></select><b id="lv_period" style="color:#0f2a5c"></b></div>
+  </div></div>
+  <div class="panel"><h3>Excel ஏற்றம் (தேர்ந்த மாதத்திற்கு)</h3><div class="bd">
     <div class="row"><div style="flex:1 1 280px"><input type="file" id="f_leave" accept=".xlsx,.xls,.csv" aria-label="விடுப்பு Excel"></div><button class="btn go" id="b_leave">Excel ஏற்று</button></div>
     <div id="m_leave"></div></div></div>
+  <div class="panel"><h3>விடுப்பு விவரம் <button class="btn go sm" type="button" id="lv_add" style="margin-left:10px">➕ புதிதாகச் சேர்</button></h3><div class="bd">
+    <div id="lv_form" style="display:none;margin-bottom:14px;padding:12px;background:#f4f6fa;border:1px solid #cbd5e1;border-radius:6px">
+      <div class="row">
+        <label for="lv_lib" style="font-weight:700">நூலகம்</label><input id="lv_lib" list="lv_libs" style="min-width:260px" autocomplete="off" placeholder="நூலகப் பெயர்"><datalist id="lv_libs"></datalist>
+        <label for="lv_days" style="font-weight:700">விடுப்பு நாட்கள்</label><input id="lv_days" type="number" min="0" max="31" step="0.5" style="width:100px">
+        <button class="btn go sm" type="button" id="lv_save">சேமி</button><button class="btn alt sm" type="button" id="lv_cancel">ரத்து</button>
+      </div>
+    </div>
+    <div id="lv_msg"></div>
+    <div id="lv_table"><span class="lead">மாதத்தைத் தேர்ந்தெடுக்கவும்.</span></div>
+  </div></div>
 </section>
 
 <!-- ================= 2A. சில்லறை செலவின அனுமதித் தரவு ஏற்றம் ================= -->
@@ -1813,6 +1827,7 @@ function route(){
   if (v === 'newsmap'){ loadMapLibs(); loadAssign(); }
   if (v === 'wages' || v === 'cleaner') loadWages();
   if (v === 'holidays') loadHolidays();
+  if (v === 'leave') loadLeave();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
   if (v === 'claimsimport') loadCoverage('claims');
@@ -1852,6 +1867,11 @@ function bindUpload(kind){
   btn.addEventListener('click', async () => {
     if (!inp.files.length){ note(out, 'bad', 'முதலில் Excel கோப்பைத் தேர்ந்தெடுக்கவும்.'); return; }
     const fd = new FormData(); fd.append('file', inp.files[0]);
+    if (kind === 'leave'){
+      const lm = $('#lv_month').value;
+      if (!lm){ note(out, 'bad', 'முதலில் மாதத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+      fd.append('month', lm);
+    }
     btn.disabled = true; note(out, 'info', 'ஏற்றுகிறது… பெரிய கோப்புக்குச் சற்று நேரம் ஆகலாம்.');
     try{
       const j = await postForm('/admin/import/' + kind, fd);
@@ -1863,6 +1883,7 @@ function bindUpload(kind){
         note(out, k, t);
         if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); if ($('#v-manage').classList.contains('on')) loadManage(); }
         if (kind === 'holidays') loadHolidays();
+        if (kind === 'leave') loadLeave();
         if (kind.indexOf('vendors_') === 0) loadVendors();
         if (kind === 'claims_approved') loadCoverage('claims');
         if (kind === 'receipts_approved') loadCoverage('receipts');
@@ -1897,6 +1918,58 @@ async function loadCoverage(kind){
     box.innerHTML = h;
   }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
 }
+
+/* ---------- விடுப்பு (மாத வாரியாக) ---------- */
+let lvLibs = null;
+function lvPeriod(m){
+  const mo = +m.slice(0,2), y = +m.slice(3), pm = mo === 1 ? 12 : mo - 1, py = mo === 1 ? y - 1 : y;
+  return '16/' + String(pm).padStart(2,'0') + '/' + py + ' முதல் 15/' + m.slice(0,2) + '/' + y + ' வரை';
+}
+function lvInitMonths(){
+  const sel = $('#lv_month'); if (sel.options.length) return;
+  const now = new Date(), endY = now.getFullYear(), endM = now.getMonth() + 2;   // அடுத்த மாதம் வரை
+  const list = [];
+  for (let y = 2024, m = 4; y < endY || (y === endY && m <= endM); ){ list.push(String(m).padStart(2,'0') + '/' + y); if (++m > 12){ m = 1; y++; } }
+  list.reverse();
+  const cur = String(now.getMonth() + 1).padStart(2,'0') + '/' + now.getFullYear();
+  sel.innerHTML = list.map(m => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + m + '</option>').join('');
+  sel.addEventListener('change', loadLeave);
+}
+function lvForm(show, name, days){
+  $('#lv_form').style.display = show ? '' : 'none';
+  if (show){ $('#lv_lib').value = name || ''; $('#lv_days').value = days == null ? '' : days; $('#lv_lib').readOnly = !!name; ($('#lv_lib').readOnly ? $('#lv_days') : $('#lv_lib')).focus(); }
+}
+async function loadLeave(){
+  lvInitMonths();
+  const m = $('#lv_month').value, box = $('#lv_table');
+  $('#lv_period').textContent = m ? '(' + lvPeriod(m) + ')' : '';
+  if (!m) return;
+  box.innerHTML = '<span class="lead">ஏற்றப்படுகிறது…</span>';
+  try{
+    if (!lvLibs){ const j = await getJSON('/admin/api/libraries'); lvLibs = j.success ? j.rows.map(r => r.name) : []; $('#lv_libs').innerHTML = lvLibs.map(n => '<option value="' + esc(n) + '">').join(''); }
+    const j = await rpc('getLeaveMonth', [m]);
+    if (!j.success){ box.innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; return; }
+    if (!j.rows.length){ box.innerHTML = '<div class="msg info">' + esc(j.from) + ' முதல் ' + esc(j.to) + ' வரைக்கான விடுப்பு விவரம் இன்னும் ஏற்றப்படவில்லை.</div>'; return; }
+    box.innerHTML = '<div class="msg ok">' + esc(j.from) + ' முதல் ' + esc(j.to) + ' வரை — ' + j.rows.length + ' நூலகங்கள்</div><div class="tw"><table><thead><tr><th style="width:60px">வ.எண்.</th><th>நூலகத்தின் பெயர்</th><th style="width:140px;text-align:right">விடுப்பு நாட்கள்</th><th style="width:190px">செயல்</th></tr></thead><tbody>' +
+      j.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td style="text-align:right">' + esc(r.days) + '</td><td><button type="button" class="btn alt sm" data-lvedit="' + i + '">திருத்து</button> <button type="button" class="btn bad sm" data-lvdel="' + i + '">நீக்கு</button></td></tr>').join('') + '</tbody></table></div>';
+    box.querySelectorAll('[data-lvedit]').forEach(b => b.addEventListener('click', () => { const r = j.rows[+b.dataset.lvedit]; lvForm(true, r.name, r.days); }));
+    box.querySelectorAll('[data-lvdel]').forEach(b => b.addEventListener('click', async () => {
+      const r = j.rows[+b.dataset.lvdel];
+      if (!confirm('"' + r.name + '" — ' + m + ' மாத விடுப்பு விவரத்தை நீக்கவா?')) return;
+      try{ const x = await rpc('deleteLeaveEntry', [m, r.name]); note($('#lv_msg'), x.success ? 'ok' : 'bad', x.message); loadLeave(); }catch(e){ note($('#lv_msg'), 'bad', e.message); }
+    }));
+  }catch(e){ box.innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
+}
+$('#lv_add').addEventListener('click', () => lvForm(true, '', null));
+$('#lv_cancel').addEventListener('click', () => lvForm(false));
+$('#lv_save').addEventListener('click', async () => {
+  const m = $('#lv_month').value, name = $('#lv_lib').value.trim(), d = $('#lv_days').value;
+  if (!m) return note($('#lv_msg'), 'bad', 'மாதத்தைத் தேர்ந்தெடுக்கவும்.');
+  if (!name) return note($('#lv_msg'), 'bad', 'நூலகத்தின் பெயரை உள்ளிடவும்.');
+  if (d === '') return note($('#lv_msg'), 'bad', 'விடுப்பு நாட்களை உள்ளிடவும்.');
+  try{ const x = await rpc('saveLeaveEntry', [m, name, d]); note($('#lv_msg'), x.success ? 'ok' : 'bad', x.message); if (x.success){ lvForm(false); loadLeave(); } }
+  catch(e){ note($('#lv_msg'), 'bad', e.message); }
+});
 ['claims','receipts'].forEach(k => $('#cvRefresh_' + k).addEventListener('click', () => loadCoverage(k)));
 
 /* ---------- விடுபாடு அறிக்கை ---------- */

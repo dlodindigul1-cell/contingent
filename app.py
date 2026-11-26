@@ -7,6 +7,7 @@ import calendar
 import datetime as dt
 import hmac
 import os
+import re
 import time
 from decimal import Decimal
 from html import escape
@@ -103,7 +104,8 @@ ADMIN_ONLY = {"getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMast
               "getLateRegistrationPermissions", "grantLateRegistrationPermission", "revokeLateRegistrationPermission",
               "getLateRegistrationLog", "grantVoucherPermission", "revokeVoucherPermission",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
-              "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport"}
+              "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport",
+              "getLeaveMonth", "saveLeaveEntry", "deleteLeaveEntry"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -981,9 +983,15 @@ def _period_text(start, end):
 def getWorkingDaysCount(libName):
     start, end = working_period(dt.datetime.now(IST).date())
     total = count_working_days(start, end, _holiday_set(start, end))
+    name = str(libName or "").strip()
+    my = f"{end.month:02d}/{end.year}"          # காலம் முடியும் மாதம்
     row = db.fetch_one(
-        "SELECT s.leave_days FROM staff_leave_days s JOIN libraries l ON l.id = s.library_id "
-        "WHERE l.name = %s", (str(libName or "").strip(),))
+        "SELECT s.leave_days FROM staff_leave_monthly s JOIN libraries l ON l.id = s.library_id "
+        "WHERE l.name = %s AND s.month_year = %s", (name, my))
+    if not row:   # இந்த மாதத்திற்கு ஏற்றாவிட்டால் பழைய (மாதமற்ற) மதிப்பு
+        row = db.fetch_one(
+            "SELECT s.leave_days FROM staff_leave_days s JOIN libraries l ON l.id = s.library_id "
+            "WHERE l.name = %s", (name,))
     leave = jnum(row["leave_days"]) if row else 0
     return {
         "totalWD": total,
@@ -992,6 +1000,66 @@ def getWorkingDaysCount(libName):
         "leaveTaken": leave,
         "period": _period_text(start, end),
     }
+
+
+def _leave_month(month):
+    m = str(month or "").strip()
+    if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", m):
+        raise ValueError("மாதத்தைத் தேர்ந்தெடுக்கவும்.")
+    return m
+
+
+def _leave_period(m):
+    y, mo = int(m[3:]), int(m[:2])
+    py, pm = (y, mo - 1) if mo > 1 else (y - 1, 12)
+    return dt.date(py, pm, 16), dt.date(y, mo, 15)
+
+
+@rpc
+def getLeaveMonth(month):
+    """தேர்ந்த மாதத்தின் (முந்தைய மாதம் 16 -> அந்த மாதம் 15) நூலகப் பெயர் + விடுப்பு நாட்கள்."""
+    try:
+        m = _leave_month(month)
+    except ValueError as e:
+        return {"success": False, "message": str(e)}
+    a, b = _leave_period(m)
+    rows = db.fetch_all(
+        "SELECT l.name, s.leave_days FROM staff_leave_monthly s JOIN libraries l ON l.id = s.library_id "
+        "WHERE s.month_year = %s ORDER BY l.id", (m,))
+    return {"success": True, "month": m, "from": a.strftime("%d/%m/%Y"), "to": b.strftime("%d/%m/%Y"),
+            "rows": [{"name": r["name"], "days": jnum(r["leave_days"])} for r in rows]}
+
+
+@rpc
+def saveLeaveEntry(month, libName, days):
+    """புதிதாகச் சேர் / திருத்து (ஒரு நூலகம், ஒரு மாதம்)."""
+    try:
+        m = _leave_month(month)
+        d = Decimal(str(days).strip())
+        if not d.is_finite() or d < 0 or d > 31:
+            raise ValueError
+    except ValueError:
+        return {"success": False, "message": "மாதம் / விடுப்பு நாட்கள் (0–31) சரியாக இல்லை."}
+    except Exception:
+        return {"success": False, "message": "விடுப்பு நாட்கள் சரியாக இல்லை (0–31)."}
+    lib = db.fetch_one("SELECT id FROM libraries WHERE name = %s", (str(libName or "").strip(),))
+    if not lib:
+        return {"success": False, "message": "நூலகப் பட்டியலில் இந்தப் பெயர் இல்லை."}
+    db.execute("INSERT INTO staff_leave_monthly (library_id, month_year, leave_days) VALUES (%s,%s,%s) "
+               "ON CONFLICT (library_id, month_year) DO UPDATE SET leave_days = EXCLUDED.leave_days",
+               (lib["id"], m, d))
+    return {"success": True, "message": "சேமிக்கப்பட்டது."}
+
+
+@rpc
+def deleteLeaveEntry(month, libName):
+    try:
+        m = _leave_month(month)
+    except ValueError as e:
+        return {"success": False, "message": str(e)}
+    db.execute("DELETE FROM staff_leave_monthly WHERE month_year = %s AND library_id = "
+               "(SELECT id FROM libraries WHERE name = %s)", (m, str(libName or "").strip()))
+    return {"success": True, "message": "நீக்கப்பட்டது."}
 
 
 @rpc
@@ -1807,7 +1875,13 @@ with open(os.path.join(BASE, "templates", "login.html"), encoding="utf-8") as _f
 
 def landing_page(error="", next_url="/", open_admin=False):
     err = f'<p class="err">{escape(error)}</p>' if error else ""
+    try:
+        from receipts_module import window_info
+        rwin = window_info()["scroll"]
+    except Exception:
+        rwin = "வரவினப் பதிவுக் காலத்தை நிர்வாகி அறிவிப்பார்."
     html = (LANDING.replace("__ERR__", err).replace("__NEXT__", escape(next_url))
+            .replace("__RWIN__", str(escape(rwin)))
             .replace("__OPEN__", "true" if open_admin else "false"))
     return Response(html, mimetype="text/html")
 
@@ -2222,7 +2296,10 @@ def admin_import_run(kind):
         raw = f.read() if f else b""
         if not raw:
             return jsonify({"success": False, "message": "கோப்பு எதுவும் வரவில்லை"})
-        res = importer.IMPORTERS[kind][0](raw)
+        if kind == "leave":
+            res = importer.do_leave(raw, (request.form.get("month") or "").strip())
+        else:
+            res = importer.IMPORTERS[kind][0](raw)
         msg = f"{res['done']} பதிவுகள் ஏற்றப்பட்டன"
         if "inserted" in res:
             msg += f" (புதியவை {res['inserted']}, புதுப்பிக்கப்பட்டவை {res['updated']})"

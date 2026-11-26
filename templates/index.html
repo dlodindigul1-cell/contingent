@@ -670,12 +670,23 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
     <!-- 🔷 Section Headings -->
 <div class="section-title entry">பதிவு செய்தல்</div>
 
+    <style>
+      .mqLine{overflow:hidden;white-space:nowrap;margin:6px 0 4px;padding:6px 0;background:#fff8e1;border:1px solid #f0d58a;border-radius:6px;color:#8a4b00;font-weight:700;font-size:14px}
+      .mqLine span{display:inline-block;padding-left:100%;animation:mqScroll 30s linear infinite}
+      .mqLine:hover span{animation-play-state:paused}
+      @keyframes mqScroll{to{transform:translateX(-100%)}}
+      #receiptWindowCard{display:none;margin:8px 0;padding:14px 16px;background:#fff3f2;border:1px solid #e6a6a2;border-left:5px solid #b3261e;border-radius:8px;color:#7a1f1a;font-weight:700;line-height:1.6;text-align:center}
+      @media (prefers-reduced-motion:reduce){.mqLine{white-space:normal}.mqLine span{padding-left:0;animation:none}}
+    </style>
+    <div class="mqLine" role="marquee"><span>📢 சில்லறைச் செலவினப் பதிவை ஒவ்வொரு மாதமும் 16 ஆம் தேதி முதல் 20 ஆம் தேதி வரை மட்டுமே பதிவு செய்ய இயலும்.</span></div>
     <button id="contingentBtn" onclick="handleContingentClick()" style="position:relative;">
   1. சில்லறை செலவினப் பட்டியல்
 </button>
 
-<button id="receiptBtn" onclick="go(5,'வரவினங்களை பதிவு செய்தல்')"style="background:#a64dff; color:white; position:relative;">  2. நூலக வரவினங்கள்
+<div class="mqLine"><span id="rcptScrollTxt">📢 நூலக வரவினப் பதிவுக் காலத்தை நிர்வாகி அறிவிப்பார்.</span></div>
+<button id="receiptBtn" onclick="handleReceiptClick()" style="background:#a64dff; color:white; position:relative;">  2. நூலக வரவினங்கள்
 </button>
+<div id="receiptWindowCard" role="alert"></div>
 <div id="adminNewsBtnWrap" style="display:none;">
   <button onclick="go(6,'நாளிதழ் மேலாண்மை')" style="background:#7c3aed; color:white;">🛠 நாளிதழ் மேலாண்மை (Admin)</button>
   <button onclick="location.href='/admin/import'" style="background:#0f766e; color:white;">📥 தரவு இறக்கம் — CSV Upload (Admin)</button>
@@ -4686,6 +4697,25 @@ function saveLibraryNewspaperMapUI() {
     .saveLibraryNewspaperMap(libName, activeSlots);
 }
 
+
+/* ===== நூலக வரவினப் பதிவுக் காலம் (Admin அமைப்பது) ===== */
+function handleReceiptClick() {
+  if (typeof isAdminMode !== "undefined" && isAdminMode === true) { go(5, 'வரவினங்களை பதிவு செய்தல்'); return; }
+  const card = document.getElementById('receiptWindowCard');
+  card.style.display = 'none';
+  google.script.run.withSuccessHandler(function (w) {
+    if (w && w.success && w.state === 'open') { go(5, 'வரவினங்களை பதிவு செய்தல்'); return; }
+    card.textContent = (w && w.message) ? w.message : 'வரவினப் பதிவுக் காலம் இன்னும் அறிவிக்கப்படவில்லை.';
+    card.style.display = 'block';
+  }).withFailureHandler(function (err) {
+    alert('சர்வர் பிழை: ' + (err && err.message ? err.message : err));
+  }).getReceiptWindow();
+}
+window.addEventListener('load', function () {
+  google.script.run.withSuccessHandler(function (w) {
+    if (w && w.success && w.scroll) document.getElementById('rcptScrollTxt').textContent = '📢 ' + w.scroll;
+  }).getReceiptWindow();
+});
 </script>
 <a href="/receipts" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#174a78;color:#fff;padding:12px 16px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px #0003">₹ நூலக வரவினங்கள்</a>
 </body>

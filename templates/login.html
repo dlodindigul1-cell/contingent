@@ -105,6 +105,20 @@ footer{background:var(--navy);color:#c5d3ee;font-size:.88rem}
 footer .in{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 footer b{color:#fff}
 
+/* ---- ஓடும் (scroll) அறிவிப்பு + சொடுக்கினால் விரியும் முறை ---- */
+.mq{overflow:hidden;white-space:nowrap;flex:1;min-width:0}
+.mq span{display:inline-block;padding-left:100%;animation:mq 45s linear infinite}
+.mq:hover span{animation-play-state:paused}
+@keyframes mq{to{transform:translateX(-100%)}}
+.mq.big{padding:10px 4px;font-size:1.05rem;color:var(--navy);font-weight:600;background:#fffaf0;border-left:4px solid var(--saffron)}
+.mq.big em{font-style:normal;color:var(--maroon);margin:0 6px}
+details.panel>summary{list-style:none;cursor:pointer;margin:0;padding:10px 18px;background:var(--sky);font-size:1.05rem;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;align-items:center}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary:after{content:"▼ காட்டு";font-size:.85rem;font-weight:600;color:var(--blue)}
+details.panel[open]>summary:after{content:"▲ மறை"}
+details.panel[open]>summary{border-bottom:1px solid var(--line)}
+.info h2.h2b{margin-top:30px}
+@media (prefers-reduced-motion:reduce){.mq{white-space:normal}.mq span{padding-left:0}}
 @media (max-width:900px){
   main{grid-template-columns:1fr;gap:24px;padding-top:20px}
   .login{order:-1;position:static}
@@ -145,28 +159,36 @@ footer b{color:#fff}
 <div class="border-t" aria-hidden="true"></div>
 
 <div class="notice"><div class="in"><b>அறிவிப்பு</b>
-  <span>சில்லறைச் செலவினப் பதிவு ஒவ்வொரு மாதமும் 16 ஆம் தேதி முதல் 20 ஆம் தேதி வரை மட்டுமே செய்ய இயலும். வவுச்சர் PDF பதிவிறக்கம் 23 ஆம் தேதி வரை.</span></div></div>
+  <div class="mq" role="marquee" aria-live="off"><span>சில்லறைச் செலவினப் பதிவு ஒவ்வொரு மாதமும் 16 ஆம் தேதி முதல் 20 ஆம் தேதி வரை மட்டுமே செய்ய இயலும். வவுச்சர் PDF பதிவிறக்கம் 23 ஆம் தேதி வரை. &nbsp;◆&nbsp; __RWIN__</span></div></div></div>
 
 <main id="main">
   <section class="info" aria-labelledby="h-info">
     <h2 id="h-info">நூலகங்களின் மாதாந்திரச் சில்லறைச் செலவினப் பதிவு</h2>
     <p class="lead">திண்டுக்கல் மாவட்டத்தின் அனைத்து நூலகங்களும் நாளிதழ், தினக்கூலி மற்றும் பிற செலவினங்களை இங்கே பதிவு செய்யலாம். நாளிதழ் அதிகபட்சத் தொகையும் பணி நாட்களும் அந்த மாதத்திற்கு ஏற்பத் தானாகக் கணக்கிடப்படும்.</p>
 
-    <div class="panel"><h3>பதிவு செய்யும் முறை</h3><div class="bd">
+    <details class="panel"><summary>பதிவு செய்யும் முறை — சில்லறைச் செலவினம்</summary><div class="bd">
       <ol class="steps">
         <li><b>உள்நுழைக</b><span>வலப்புறம் “நூலகர்” தேர்ந்தெடுத்து உள்நுழையவும். கடவுச்சொல் தேவையில்லை.</span></li>
         <li><b>நூலகத்தைத் தேர்ந்தெடுக்க</b><span>நூலக வகை, நூலகத்தின் பெயர், பதிவு செய்யப்பட்ட மின்னஞ்சல் ஆகியவற்றைத் தேர்ந்தெடுக்கவும்.</span></li>
-        <li><b>விவரங்களை உள்ளிடுக</b><span>நாளிதழ் தொகை, தினக்கூலி நாட்கள், மின்கட்டணம் உள்ளிட்ட செலவினங்களை உள்ளிடவும்.</span></li>
+        <li><b>விவரங்களை உள்ளிடுக</b><span>“1. சில்லறைச் செலவினப் பட்டியல்” — நாளிதழ் தொகை, தினக்கூலி நாட்கள், மின்கட்டணம் உள்ளிட்ட செலவினங்களை உள்ளிடவும்.</span></li>
         <li><b>சரிபார்த்துச் சமர்ப்பிக்க</b><span>முன்னோட்டத்தில் மொத்தத் தொகையைச் சரிபார்த்துச் சேமிக்கவும்.</span></li>
       </ol>
-    </div></div>
+    </div></details>
+
+    <h2 class="h2b" id="h-info2">நூலகங்களின் மாதாந்திர வரவினம் மற்றும் புள்ளிவிவர மேலாண்மை</h2>
+    <p class="lead">நூலக வரவினங்களையும் (UPI மூலம் செலுத்திய தொகை) வாசகர், நூலிரவல், நூல்கள் பயன்பாடு, நூல் இருப்பு ஆகிய புள்ளிவிவரங்களையும் இங்கே பதிவு செய்யலாம். வங்கி அறிக்கை பதிவேற்றப்பட்டு, நிர்வாகி அறிவித்த தேதிகளுக்குள் மட்டுமே பதிவு செய்ய இயலும்.</p>
+
+    <details class="panel"><summary>பதிவு செய்யும் முறை — வரவினம் மற்றும் புள்ளிவிவரம்</summary><div class="bd">
+      <ol class="steps">
+        <li><b>உள்நுழைக</b><span>“நூலகர்” தேர்ந்தெடுத்து உள்நுழைந்து, உங்கள் நூலகத்தைத் தேர்ந்தெடுக்கவும்.</span></li>
+        <li><b>“2. நூலக வரவினங்கள்” அழுத்துக</b><span>வங்கி அறிக்கை பதிவேற்றப்பட்டு, நிர்வாகி பதிவுக் காலத்தை அறிவித்த பின்னரே இந்தத் திரை திறக்கும்.</span></li>
+        <li><b>பதிவு வகையைத் தேர்ந்தெடுக்க</b><span>தொகை செலுத்தியிருந்தால் UPI எண்ணைச் சரிபார்த்து வரவு இனங்களை உள்ளிடவும்; செலுத்தவில்லையெனில் “பயன்பாடு மட்டும்” தேர்ந்தெடுக்கவும்.</span></li>
+        <li><b>புள்ளிவிவரங்களை உள்ளிட்டுச் சமர்ப்பிக்க</b><span>வாசகர், நூலிரவல், நூல்கள் பயன்பாடு, நூல் இருப்பு ஆகியவற்றை உள்ளிடவும். நிர்வாகி ஒப்புதலுக்குப் பின் ஒப்புகை ரசீது PDF பெறலாம்.</span></li>
+      </ol>
+    </div></details>
 
     <div class="panel"><h3>முக்கிய நாட்கள்</h3><div class="bd">
-      <div class="dates">
-        <div><strong>16 – 20</strong><small>ஒவ்வொரு மாதமும் பதிவுக் காலம்</small></div>
-        <div><strong>16 – 23</strong><small>வவுச்சர் PDF பதிவிறக்கக் காலம் (பின் Admin அனுமதி தேவை)</small></div>
-        <div><strong>16 – 15</strong><small>பணி நாட்கள் கணக்கிடும் காலம் (முந்தைய மாதம் 16 முதல் நடப்பு மாதம் 15 வரை)</small></div>
-      </div>
+      <div class="mq big" role="marquee" aria-live="off"><span><em>◆</em> 16 – 20 : ஒவ்வொரு மாதமும் சில்லறைச் செலவினப் பதிவுக் காலம் <em>◆</em> 16 – 23 : வவுச்சர் PDF பதிவிறக்கக் காலம் (பின் Admin அனுமதி தேவை) <em>◆</em> 16 – 15 : பணி நாட்கள் கணக்கிடும் காலம் (முந்தைய மாதம் 16 முதல் நடப்பு மாதம் 15 வரை) <em>◆</em> வரவினப் பதிவுக் காலம் : __RWIN__ <em>◆</em></span></div>
     </div></div>
   </section>
 

@@ -185,7 +185,10 @@ def do_holidays(raw):
     return result(len(items), skipped)
 
 
-def do_leave(raw):
+def do_leave(raw, month=None):
+    """A நூலகப் பெயர், B விடுப்பு நாட்கள் — தேர்ந்தெடுத்த மாதத்திற்கு (முந்தைய மாதம் 16 -> அந்த மாதம் 15)."""
+    if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", str(month or "")):
+        raise ValueError("முதலில் மாதத்தைத் தேர்ந்தெடுக்கவும் (MM/YYYY).")
     ids, items, skipped = library_ids(), [], []
     for r in read_rows(raw, skip=2):
         name = cell(r, 0)
@@ -197,8 +200,8 @@ def do_leave(raw):
         v = cell(r, 1)
         # எண்ணாக இல்லாவிட்டால் (எ.கா. sheet தேதியாக மாற்றியிருந்தால்) 0
         leave = to_num(v) if re.fullmatch(r"\d+(\.\d+)?", v) else Decimal(0)
-        items.append((ids[name], leave))
-    run_batch("INSERT INTO staff_leave_days (library_id, leave_days) VALUES %s ON CONFLICT (library_id) "
+        items.append((ids[name], month, leave))
+    run_batch("INSERT INTO staff_leave_monthly (library_id, month_year, leave_days) VALUES %s ON CONFLICT (library_id, month_year) "
               "DO UPDATE SET leave_days = EXCLUDED.leave_days", items)
     return result(len(items), skipped)
 
