@@ -1246,6 +1246,15 @@ def _row_json(label, acc):
     return {"label": label, "vals": [jnum(acc["vals"][k]) for k, _ in REPORT_COLS], "net": jnum(net), "total": jnum(acc["total"])}
 
 
+def _drop_zero_cols(rows, totals):
+    """தலைப்பு (நெடுவரிசை) முழுவதும் தொகை 0 எனில் அதை அறிக்கையிலிருந்து நீக்கும் (திரை · PDF · Excel)."""
+    keep = [i for i in range(len(REPORT_COLS)) if any(r["vals"][i] != 0 for r in rows) or totals["vals"][i] != 0]
+    cols = [{"key": REPORT_COLS[i][0], "title": REPORT_COLS[i][1]} for i in keep]
+    for r in rows + [totals]:
+        r["vals"] = [r["vals"][i] for i in keep]
+    return cols
+
+
 def _valid_my(m):
     m = str(m or "").strip()
     return m if (len(m) == 7 and m[2] == "/" and m[:2].isdigit() and m[3:].isdigit() and 1 <= int(m[:2]) <= 12) else ""
@@ -1308,14 +1317,14 @@ def getPayCenterExpenseReport(monthYear):
     rows = [_row_json(n, acc[n]) for n in names]
     if has_unknown:
         rows.append(_row_json(NO_PAYCENTER, unknown))
-    rows = [r for r in rows if r["total"] != 0]        # மொத்தம் 0 உள்ள ஊதிய மையங்கள் காட்டப்படாது
     grand = {"vals": _zero_parts(), "total": Decimal(0)}
     for a in list(acc.values()) + ([unknown] if has_unknown else []):
         for k, _ in REPORT_COLS:
             grand["vals"][k] += a["vals"][k]
         grand["total"] += a["total"]
-    return {"success": True, "month": my, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
-            "rows": rows, "totals": _row_json("மொத்தம்", grand)}
+    totals = _row_json("மொத்தம்", grand)
+    cols = _drop_zero_cols(rows, totals)
+    return {"success": True, "month": my, "cols": cols, "rows": rows, "totals": totals}
 
 
 def _fy_months(fy):
@@ -1343,9 +1352,10 @@ def getYearlySummaryReport(fy):
         for k, _ in REPORT_COLS:
             grand["vals"][k] += a["vals"][k]
         grand["total"] += a["total"]
-    return {"success": True, "fy": fy_label, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
-            "rows": [r for r in (_row_json(_month_label(m), acc[m]) for m in months) if r["total"] != 0],   # மொத்தம் 0 உள்ள மாதங்கள் காட்டப்படாது
-            "totals": _row_json("ஆண்டு மொத்தம்", grand)}
+    rows = [_row_json(_month_label(m), acc[m]) for m in months]
+    totals = _row_json("ஆண்டு மொத்தம்", grand)
+    cols = _drop_zero_cols(rows, totals)
+    return {"success": True, "fy": fy_label, "cols": cols, "rows": rows, "totals": totals}
 
 
 # நூலகர் உள்நுழைவு › 4. நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள் (தலைப்புகள் — தொகை உள்ளவை மட்டும் காட்டப்படும்)
