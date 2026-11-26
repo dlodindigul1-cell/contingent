@@ -36,7 +36,7 @@ a{color:var(--blue)}
 
 /* ---- அமைப்பு ---- */
 .shell{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:292px 1fr;gap:0;align-items:start}
-nav.side{background:var(--white);border:1px solid var(--line);border-top:0;position:sticky;top:0}
+nav.side{background:var(--white);border:1px solid var(--line);border-top:0;position:sticky;top:0;max-height:100vh;overflow-y:auto}
 nav.side h2{margin:0;padding:12px 16px;background:var(--blue);color:#fff;font-size:16px;font-weight:600}
 nav.side a{display:flex;gap:10px;align-items:flex-start;padding:11px 16px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:15px;line-height:1.45}
 nav.side a .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--sky);color:var(--navy);font-weight:700;font-size:13px;display:grid;place-items:center;margin-top:1px}
@@ -179,6 +179,246 @@ nav.side .sub{display:none}
 nav.side .sub.open{display:block}
 nav.side .sub.l2 a{padding-left:34px}
 @media (max-width:900px){nav.side .sub,nav.side .sub.open{display:contents}nav.side button.grp{display:none}}
+
+/* ---- 4–7A, நாளிதழ் மேலாண்மை, பணி நாட்கள், அறிக்கைகள்: /receipts பக்கத்தின் தோற்றம் ---- */
+#v-wages .panel,
+#v-cleaner .panel,
+#v-status .panel,
+#v-approval .panel,
+#v-latepermission .panel,
+#v-newspapers .panel,
+#v-newsmap .panel,
+#v-holidays .panel,
+#v-rptlib .panel,
+#v-rptpay .panel,
+#v-rptyear .panel,
+#v-rptpaper .panel,
+#v-rptvpay .panel,
+#v-rptrent .panel{background:#fff;border:0;border-radius:12px;box-shadow:0 2px 12px #0001;margin:14px 0}
+#v-wages .panel>h3,
+#v-cleaner .panel>h3,
+#v-status .panel>h3,
+#v-approval .panel>h3,
+#v-latepermission .panel>h3,
+#v-newspapers .panel>h3,
+#v-newsmap .panel>h3,
+#v-holidays .panel>h3,
+#v-rptlib .panel>h3,
+#v-rptpay .panel>h3,
+#v-rptyear .panel>h3,
+#v-rptpaper .panel>h3,
+#v-rptvpay .panel>h3,
+#v-rptrent .panel>h3{background:none;border:0;padding:20px 20px 0;font-size:20px;font-weight:700;color:#17243a}
+#v-wages .panel .bd,
+#v-cleaner .panel .bd,
+#v-status .panel .bd,
+#v-approval .panel .bd,
+#v-latepermission .panel .bd,
+#v-newspapers .panel .bd,
+#v-newsmap .panel .bd,
+#v-holidays .panel .bd,
+#v-rptlib .panel .bd,
+#v-rptpay .panel .bd,
+#v-rptyear .panel .bd,
+#v-rptpaper .panel .bd,
+#v-rptvpay .panel .bd,
+#v-rptrent .panel .bd{padding:20px}
+#v-wages >.toolbar,
+#v-cleaner >.toolbar,
+#v-status >.toolbar,
+#v-approval >.toolbar,
+#v-latepermission >.toolbar,
+#v-newspapers >.toolbar,
+#v-newsmap >.toolbar,
+#v-holidays >.toolbar,
+#v-rptlib >.toolbar,
+#v-rptpay >.toolbar,
+#v-rptyear >.toolbar,
+#v-rptpaper >.toolbar,
+#v-rptvpay >.toolbar,
+#v-rptrent >.toolbar{background:#fff;border-radius:12px;box-shadow:0 2px 12px #0001;padding:14px 20px;margin:14px 0}
+#v-wages .btn:not(.alt):not(.go):not(.bad),
+#v-cleaner .btn:not(.alt):not(.go):not(.bad),
+#v-status .btn:not(.alt):not(.go):not(.bad),
+#v-approval .btn:not(.alt):not(.go):not(.bad),
+#v-latepermission .btn:not(.alt):not(.go):not(.bad),
+#v-newspapers .btn:not(.alt):not(.go):not(.bad),
+#v-newsmap .btn:not(.alt):not(.go):not(.bad),
+#v-holidays .btn:not(.alt):not(.go):not(.bad),
+#v-rptlib .btn:not(.alt):not(.go):not(.bad),
+#v-rptpay .btn:not(.alt):not(.go):not(.bad),
+#v-rptyear .btn:not(.alt):not(.go):not(.bad),
+#v-rptpaper .btn:not(.alt):not(.go):not(.bad),
+#v-rptvpay .btn:not(.alt):not(.go):not(.bad),
+#v-rptrent .btn:not(.alt):not(.go):not(.bad){background:#174a78;border-color:#174a78;border-radius:6px}
+#v-wages .btn.alt,
+#v-cleaner .btn.alt,
+#v-status .btn.alt,
+#v-approval .btn.alt,
+#v-latepermission .btn.alt,
+#v-newspapers .btn.alt,
+#v-newsmap .btn.alt,
+#v-holidays .btn.alt,
+#v-rptlib .btn.alt,
+#v-rptpay .btn.alt,
+#v-rptyear .btn.alt,
+#v-rptpaper .btn.alt,
+#v-rptvpay .btn.alt,
+#v-rptrent .btn.alt{background:#fff;color:#174a78;border:1px solid #174a78;border-radius:6px}
+#v-wages .btn.go,
+#v-cleaner .btn.go,
+#v-status .btn.go,
+#v-approval .btn.go,
+#v-latepermission .btn.go,
+#v-newspapers .btn.go,
+#v-newsmap .btn.go,
+#v-holidays .btn.go,
+#v-rptlib .btn.go,
+#v-rptpay .btn.go,
+#v-rptyear .btn.go,
+#v-rptpaper .btn.go,
+#v-rptvpay .btn.go,
+#v-rptrent .btn.go{border-radius:6px}
+#v-wages .btn.bad,
+#v-cleaner .btn.bad,
+#v-status .btn.bad,
+#v-approval .btn.bad,
+#v-latepermission .btn.bad,
+#v-newspapers .btn.bad,
+#v-newsmap .btn.bad,
+#v-holidays .btn.bad,
+#v-rptlib .btn.bad,
+#v-rptpay .btn.bad,
+#v-rptyear .btn.bad,
+#v-rptpaper .btn.bad,
+#v-rptvpay .btn.bad,
+#v-rptrent .btn.bad{border-radius:6px}
+#v-wages input[type=text],
+#v-wages input[type=number],
+#v-wages input[type=month],
+#v-wages input[type=date],
+#v-wages input[type=search],
+#v-wages select,
+#v-cleaner input[type=text],
+#v-cleaner input[type=number],
+#v-cleaner input[type=month],
+#v-cleaner input[type=date],
+#v-cleaner input[type=search],
+#v-cleaner select,
+#v-status input[type=text],
+#v-status input[type=number],
+#v-status input[type=month],
+#v-status input[type=date],
+#v-status input[type=search],
+#v-status select,
+#v-approval input[type=text],
+#v-approval input[type=number],
+#v-approval input[type=month],
+#v-approval input[type=date],
+#v-approval input[type=search],
+#v-approval select,
+#v-latepermission input[type=text],
+#v-latepermission input[type=number],
+#v-latepermission input[type=month],
+#v-latepermission input[type=date],
+#v-latepermission input[type=search],
+#v-latepermission select,
+#v-newspapers input[type=text],
+#v-newspapers input[type=number],
+#v-newspapers input[type=month],
+#v-newspapers input[type=date],
+#v-newspapers input[type=search],
+#v-newspapers select,
+#v-newsmap input[type=text],
+#v-newsmap input[type=number],
+#v-newsmap input[type=month],
+#v-newsmap input[type=date],
+#v-newsmap input[type=search],
+#v-newsmap select,
+#v-holidays input[type=text],
+#v-holidays input[type=number],
+#v-holidays input[type=month],
+#v-holidays input[type=date],
+#v-holidays input[type=search],
+#v-holidays select,
+#v-rptlib input[type=text],
+#v-rptlib input[type=number],
+#v-rptlib input[type=month],
+#v-rptlib input[type=date],
+#v-rptlib input[type=search],
+#v-rptlib select,
+#v-rptpay input[type=text],
+#v-rptpay input[type=number],
+#v-rptpay input[type=month],
+#v-rptpay input[type=date],
+#v-rptpay input[type=search],
+#v-rptpay select,
+#v-rptyear input[type=text],
+#v-rptyear input[type=number],
+#v-rptyear input[type=month],
+#v-rptyear input[type=date],
+#v-rptyear input[type=search],
+#v-rptyear select,
+#v-rptpaper input[type=text],
+#v-rptpaper input[type=number],
+#v-rptpaper input[type=month],
+#v-rptpaper input[type=date],
+#v-rptpaper input[type=search],
+#v-rptpaper select,
+#v-rptvpay input[type=text],
+#v-rptvpay input[type=number],
+#v-rptvpay input[type=month],
+#v-rptvpay input[type=date],
+#v-rptvpay input[type=search],
+#v-rptvpay select,
+#v-rptrent input[type=text],
+#v-rptrent input[type=number],
+#v-rptrent input[type=month],
+#v-rptrent input[type=date],
+#v-rptrent input[type=search],
+#v-rptrent select{border-radius:6px;border:1px solid #cbd5e1}
+#v-wages th,
+#v-wages td,
+#v-cleaner th,
+#v-cleaner td,
+#v-status th,
+#v-status td,
+#v-approval th,
+#v-approval td,
+#v-latepermission th,
+#v-latepermission td,
+#v-newspapers th,
+#v-newspapers td,
+#v-newsmap th,
+#v-newsmap td,
+#v-holidays th,
+#v-holidays td,
+#v-rptlib th,
+#v-rptlib td,
+#v-rptpay th,
+#v-rptpay td,
+#v-rptyear th,
+#v-rptyear td,
+#v-rptpaper th,
+#v-rptpaper td,
+#v-rptvpay th,
+#v-rptvpay td,
+#v-rptrent th,
+#v-rptrent td{border:0;border-bottom:1px solid #ddd;padding:9px}
+#v-wages th,
+#v-cleaner th,
+#v-status th,
+#v-approval th,
+#v-latepermission th,
+#v-newspapers th,
+#v-newsmap th,
+#v-holidays th,
+#v-rptlib th,
+#v-rptpay th,
+#v-rptyear th,
+#v-rptpaper th,
+#v-rptvpay th,
+#v-rptrent th{background:#f4f6fa;color:#17243a}
 </style>
 </head>
 <body>
@@ -1215,7 +1455,7 @@ $('#ry_xls').addEventListener('click', () => { const d = rptCache.year; if (d) l
 
 
 /* ===================== 12. Vendor விவரம் ===================== */
-let vdRows = [], vdLibs = [], vdEdit = null;
+let vdRows = [], vdLibs = [], vdEdit = null, vdAfter = null;
 const VD_KIND = {paper: 'நாளிதழ் Vendor', rent: 'வாடகை Vendor'};
 async function vdLoadLibs(){
   if (vdLibs.length) return;
@@ -1258,7 +1498,7 @@ $('#vdKind').addEventListener('change', loadVendors);
 $('#vdSearch').addEventListener('input', vdRender);
 $('#vdBody').addEventListener('click', async e => {
   const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
-  if (ed){ vdOpenForm(vdRows.find(r => r.id === +ed.dataset.edit)); }
+  if (ed){ vdAfter = null; vdOpenForm(vdRows.find(r => r.id === +ed.dataset.edit)); }
   if (dl){
     const r = vdRows.find(x => x.id === +dl.dataset.del); if (!r) return;
     if (!confirm('"' + r.name + '" (' + r.code + ') — ' + r.library + ' நூலகத்தின் இந்த Vendor பதிவை நீக்கவா?')) return;
@@ -1280,7 +1520,7 @@ function vdOpenForm(r){
   $('#vdFormErr').innerHTML = '';
   $('#vdOverlay').style.display = 'flex';
 }
-$('#vdAdd').addEventListener('click', () => vdOpenForm(null));
+$('#vdAdd').addEventListener('click', () => { vdAfter = null; vdOpenForm(null); });
 $('#vf_cancel').addEventListener('click', () => { $('#vdOverlay').style.display = 'none'; });
 $('#vf_save').addEventListener('click', async () => {
   const b = $('#vf_save'); b.disabled = true;
@@ -1293,8 +1533,10 @@ $('#vf_save').addEventListener('click', async () => {
     if (!j.success){ $('#vdFormErr').innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; }
     else{
       $('#vdOverlay').style.display = 'none';
-      note($('#vd_msg'), 'ok', 'சேமிக்கப்பட்டது.' + (j.others ? ' (அதே Vendor Code உள்ள மற்ற ' + j.others + ' பதிவுகளும் புதுப்பிக்கப்பட்டன)' : ''));
+      const savedTxt = 'சேமிக்கப்பட்டது.' + (j.others ? ' (அதே Vendor Code உள்ள மற்ற ' + j.others + ' பதிவுகளும் புதுப்பிக்கப்பட்டன)' : '');
+      note($('#vd_msg'), 'ok', savedTxt);
       loadVendors();
+      if (vdAfter){ const fn = vdAfter; vdAfter = null; fn(savedTxt); }
     }
   }catch(e){ $('#vdFormErr').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
   b.disabled = false;
@@ -1338,11 +1580,12 @@ const RV_BY_VIEW = {}; Object.keys(RV).forEach(k => { RV_BY_VIEW[RV[k].view] = k
 function rvInit(id){ if (!$('#rv_' + id + '_month').value) $('#rv_' + id + '_month').value = curMonthInput(); }
 function rvTable(cfg, d, pdf){
   const cell = (c, r) => { const v = c[1] === 'amount' ? rptMoney(r.amount) : esc(r[c[1]]); const k = c[2] === 'r' ? (pdf ? 'r' : 'num') : (c[2] === 'c' && pdf ? 'c' : ''); return '<td' + (k ? ' class="' + k + '"' : '') + '>' + v + '</td>'; };
-  const head = '<tr><th>வ.எண்.</th>' + cfg.cols.map(c => '<th>' + esc(c[0]) + '</th>').join('') + '</tr>';
-  const body = d.rows.map(r => '<tr><td' + (pdf ? ' class="c"' : '') + '>' + r.no + '</td>' + cfg.cols.map(c => cell(c, r)).join('') + '</tr>').join('') ||
-    '<tr><td colspan="' + (cfg.cols.length + 1) + '">இந்த மாதம் அனுமதிக்கப்பட்ட பதிவுகள் இல்லை.</td></tr>';
+  const act = r => (r.vendors || []).map(v => '<div style="white-space:nowrap;margin-bottom:3px"><button class="btn alt sm" type="button" data-rv-edit="' + v.id + '" title="' + esc(v.name) + '">✏️ திருத்து</button> <button class="btn bad sm" type="button" data-rv-del="' + v.id + '" data-name="' + esc(v.name) + '" data-code="' + esc(v.code) + '"' + (cfg.view === 'rptvpay' ? ' data-all="1"' : '') + '>🗑 நீக்கு</button>' + ((r.vendors || []).length > 1 ? ' <span class="small">' + esc(v.name) + '</span>' : '') + '</div>').join('') || '<span class="small">Vendor இல்லை</span>';
+  const head = '<tr><th>வ.எண்.</th>' + cfg.cols.map(c => '<th>' + esc(c[0]) + '</th>').join('') + (pdf ? '' : '<th>செயல்</th>') + '</tr>';
+  const body = d.rows.map(r => '<tr><td' + (pdf ? ' class="c"' : '') + '>' + r.no + '</td>' + cfg.cols.map(c => cell(c, r)).join('') + (pdf ? '' : '<td>' + act(r) + '</td>') + '</tr>').join('') ||
+    '<tr><td colspan="' + (cfg.cols.length + (pdf ? 1 : 2)) + '">இந்த மாதம் அனுமதிக்கப்பட்ட பதிவுகள் இல்லை.</td></tr>';
   const n = cfg.cols.length;
-  const foot = '<tr class="b"><td></td>' + cfg.cols.map((c, i) => i === n - 1 ? '<td class="' + (pdf ? 'r' : 'num') + '">' + rptMoney(d.total) + '</td>' : (i === n - 2 ? '<td class="' + (pdf ? 'r' : 'num') + '">மொத்தம்</td>' : '<td></td>')).join('') + '</tr>';
+  const foot = '<tr class="b"><td></td>' + cfg.cols.map((c, i) => i === n - 1 ? '<td class="' + (pdf ? 'r' : 'num') + '">' + rptMoney(d.total) + '</td>' : (i === n - 2 ? '<td class="' + (pdf ? 'r' : 'num') + '">மொத்தம்</td>' : '<td></td>')).join('') + (pdf ? '' : '<td></td>') + '</tr>';
   const colgroup = pdf ? '<colgroup>' + cfg.widths.map(w => '<col style="width:' + w + '%">').join('') + '</colgroup>' : '';
   return colgroup + '<thead>' + head + '</thead><tbody>' + body + foot + '</tbody>';
 }
@@ -1375,8 +1618,37 @@ function rvPdf(id){
     '<div style="margin-top:36px;text-align:right;font-weight:700;font-family:Arial,sans-serif;font-size:15px;line-height:1.5">District Library Officer<br>Dindigul</div>';
   return rptPdf(html, '', false, 794, cfg.file + '_' + d.month.replace('/', '-') + '.pdf');
 }
+async function rvEdit(id, vid){
+  const cfg = RV[id], kind = id === 'rent' ? 'rent' : 'paper', p = 'rv_' + id;
+  try{
+    await vdLoadLibs();
+    const j = await getJSON('/admin/api/vendors?kind=' + kind);
+    if (!j.success) throw new Error(j.message || 'Vendor விவரம் கிடைக்கவில்லை');
+    vdRows = j.rows;
+    const r = vdRows.find(x => x.id === vid);
+    if (!r){ note($('#' + p + '_msg'), 'bad', 'Vendor பதிவு கிடைக்கவில்லை. அறிக்கையை மீண்டும் காட்டவும்.'); return; }
+    vdAfter = async txt => { await rvRun(id); note($('#' + p + '_msg'), 'ok', 'Vendor விவரம் ' + txt); };
+    vdOpenForm(r);
+  }catch(e){ note($('#' + p + '_msg'), 'bad', e.message); }
+}
+async function rvDelete(id, b){
+  const p = 'rv_' + id;
+  if (!confirm('"' + b.dataset.name + '" (' + b.dataset.code + ') — இந்த Vendor பதிவை நீக்கவா?\n\n' + (b.dataset.all ? 'குறிப்பு: இதே Vendor Code உள்ள எல்லா நூலகங்களின் Vendor பதிவுகளும் நீக்கப்படும்.' : 'குறிப்பு: இது அந்த நூலகத்தின் Vendor பதிவை மட்டும் நீக்கும்.'))) return;
+  try{
+    const j = await postJSON('/admin/api/vendor/delete', {id: +b.dataset.rvDel, allCode: !!b.dataset.all});
+    if (!j.success) throw new Error(j.message || 'நீக்க முடியவில்லை');
+    await rvRun(id);
+    note($('#' + p + '_msg'), 'ok', 'Vendor பதிவு நீக்கப்பட்டது.');
+    if (typeof vdRows !== 'undefined') vdRows = vdRows.filter(x => x.id !== +b.dataset.rvDel);
+  }catch(e){ note($('#' + p + '_msg'), 'bad', e.message); }
+}
 Object.keys(RV).forEach(id => {
   const p = 'rv_' + id, cfg = RV[id];
+  $('#' + p + '_out').addEventListener('click', e => {
+    const ed = e.target.closest('[data-rv-edit]'), dl = e.target.closest('[data-rv-del]');
+    if (ed) rvEdit(id, +ed.dataset.rvEdit);
+    else if (dl) rvDelete(id, dl);
+  });
   $('#' + p + '_go').addEventListener('click', () => rvRun(id));
   $('#' + p + '_pdf').addEventListener('click', e => rptPdfBtn(e.currentTarget, $('#' + p + '_msg'), () => rvPdf(id)));
   $('#' + p + '_xls').addEventListener('click', () => { const d = rptCache[p]; if (d) location.href = '/admin/report/' + cfg.xls + '.xlsx?month=' + encodeURIComponent(d.month); });
@@ -1385,10 +1657,19 @@ Object.keys(RV).forEach(id => {
 
 /* ---------- சுருங்கி விரியும் மெனு ---------- */
 function navSet(grp, open){ grp.setAttribute('aria-expanded', open ? 'true' : 'false'); const sub = grp.nextElementSibling; if (sub && sub.classList.contains('sub')) sub.classList.toggle('open', open); }
+/* திறந்த மெனு உள்ளடக்கம் திரைக்கு வெளியே போகாமல் மெனுப் பட்டையிலேயே தெரியுமாறு உருட்டும் */
+function navShow(grp){
+  const nav = document.querySelector('#nav'); if (!nav || !grp) return;
+  const sub = grp.nextElementSibling, end = (sub && sub.classList.contains('sub') ? sub : grp);
+  const top = grp.offsetTop, bottom = end.offsetTop + end.offsetHeight;
+  if (bottom > nav.scrollTop + nav.clientHeight) nav.scrollTop = Math.max(0, Math.min(top - 8, bottom - nav.clientHeight));
+  else if (top < nav.scrollTop) nav.scrollTop = Math.max(0, top - 8);
+}
 /* ஒரு மெனு விரியும்போது அதே நிலையிலுள்ள மற்ற மெனுக்கள் (அவற்றின் உள் மெனுக்களுடன்) தானாகச் சுருங்கும் */
 function navOpen(grp, open){
   if (open) Array.from(grp.parentElement.children).forEach(x => { if (x !== grp && x.matches('button.grp')){ navSet(x, false); const s = x.nextElementSibling; if (s && s.classList.contains('sub')) s.querySelectorAll('button.grp').forEach(y => navSet(y, false)); } });
   navSet(grp, open);
+  if (open) navShow(grp);
 }
 document.querySelector('#nav').addEventListener('click', e => {
   const g = e.target.closest('button.grp'); if (g){ navOpen(g, g.getAttribute('aria-expanded') !== 'true'); return; }

@@ -1308,6 +1308,7 @@ def getPayCenterExpenseReport(monthYear):
     rows = [_row_json(n, acc[n]) for n in names]
     if has_unknown:
         rows.append(_row_json(NO_PAYCENTER, unknown))
+    rows = [r for r in rows if r["total"] != 0]        # மொத்தம் 0 உள்ள ஊதிய மையங்கள் காட்டப்படாது
     grand = {"vals": _zero_parts(), "total": Decimal(0)}
     for a in list(acc.values()) + ([unknown] if has_unknown else []):
         for k, _ in REPORT_COLS:
@@ -1343,7 +1344,7 @@ def getYearlySummaryReport(fy):
             grand["vals"][k] += a["vals"][k]
         grand["total"] += a["total"]
     return {"success": True, "fy": fy_label, "cols": [{"key": k, "title": t} for k, t in REPORT_COLS],
-            "rows": [_row_json(_month_label(m), acc[m]) for m in months],
+            "rows": [r for r in (_row_json(_month_label(m), acc[m]) for m in months) if r["total"] != 0],   # மொத்தம் 0 உள்ள மாதங்கள் காட்டப்படாது
             "totals": _row_json("ஆண்டு மொத்தம்", grand)}
 
 
@@ -1502,7 +1503,7 @@ VENDOR_MISSING = {"success": False, "message": "Vendor அட்டவணை இ
 def _vendor_map(kind):
     """{library_id: [vendor, ...]}"""
     by = {}
-    for v in db.fetch_all("SELECT library_id, vendor_code, name, rent_share FROM vendors WHERE kind = %s ORDER BY library_id, id", (kind,)):
+    for v in db.fetch_all("SELECT id, library_id, vendor_code, name, rent_share FROM vendors WHERE kind = %s ORDER BY library_id, id", (kind,)):
         by.setdefault(v["library_id"], []).append(v)
     return by
 
@@ -1560,7 +1561,8 @@ def getPaperVendorExpenseReport(monthYear):
         if not vs:
             missing.append(d["name"])
         rows.append({"no": i, "library": d["name"], "vendor": " / ".join(v["name"] for v in vs),
-                     "code": " / ".join(v["vendor_code"] for v in vs), "amount": jnum(d["amount"])})
+                     "code": " / ".join(v["vendor_code"] for v in vs), "amount": jnum(d["amount"]),
+                     "vendors": [{"id": v["id"], "name": v["name"], "code": v["vendor_code"]} for v in vs]})
         grand += d["amount"]
     return {"success": True, "month": my, "rows": rows, "total": jnum(grand), "inWords": amount_in_words(grand),
             "missing": missing, "notes": []}
@@ -1586,7 +1588,8 @@ def getPaperVendorPaymentReport(monthYear):
         if len(vs) > 1:
             multi.append(d["name"])
         for v, share in zip(vs, _split_amount(d["amount"], [Decimal(1)] * len(vs))):
-            a = agg.setdefault(v["vendor_code"], {"vendor": v["name"], "code": v["vendor_code"], "amount": Decimal(0)})
+            a = agg.setdefault(v["vendor_code"], {"vendor": v["name"], "code": v["vendor_code"], "amount": Decimal(0),
+                                                  "vendors": [{"id": v["id"], "name": v["name"], "code": v["vendor_code"]}]})
             a["amount"] += share
     rows = [dict(a, no=0) for _, a in sorted(agg.items())]
     if unassigned > 0:
@@ -1623,7 +1626,8 @@ def getRentPaymentReport(monthYear):
             continue
         for v, share in zip(vs, _split_amount(d["amount"], [Decimal(1)] * len(vs))):
             n += 1
-            rows.append({"no": n, "library": d["name"], "vendor": v["name"], "code": v["vendor_code"], "amount": jnum(share)})
+            rows.append({"no": n, "library": d["name"], "vendor": v["name"], "code": v["vendor_code"], "amount": jnum(share),
+                         "vendors": [{"id": v["id"], "name": v["name"], "code": v["vendor_code"]}]})
             grand += share
     return {"success": True, "month": my, "rows": rows, "total": jnum(grand), "inWords": amount_in_words(grand),
             "missing": missing, "notes": []}
@@ -2482,7 +2486,11 @@ def admin_vendor_delete():
     if denied:
         return denied
     j = request.get_json(silent=True) or {}
-    db.execute("DELETE FROM vendors WHERE id = %s", (int(j.get("id") or 0),))
+    vid = int(j.get("id") or 0)
+    if j.get("allCode"):        # Vendor-க்குத் தொகை செலுத்தும் அறிக்கை: அதே Vendor Code உள்ள எல்லா நூலகப் பதிவுகளும் நீங்கும்
+        db.execute("DELETE FROM vendors WHERE (kind, vendor_code) IN (SELECT kind, vendor_code FROM vendors WHERE id = %s)", (vid,))
+    else:
+        db.execute("DELETE FROM vendors WHERE id = %s", (vid,))
     return _ok()
 
 
