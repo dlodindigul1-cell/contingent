@@ -367,3 +367,12 @@ CREATE TABLE IF NOT EXISTS staff_leave_monthly (
   leave_days NUMERIC(5,1) NOT NULL DEFAULT 0,
   PRIMARY KEY (library_id, month_year)
 );
+
+
+-- வரவினக் கட்டண மடங்கு விதிகள் (Admin திருத்தக்கூடியது): patron / chief_patron / donor
+-- (காப்புத் தொகை கட்டணம் நூலகம் வாரியாக library_stats_base.fee-ல் உள்ளது)
+CREATE TABLE IF NOT EXISTS receipt_fee_rules (
+  key TEXT PRIMARY KEY,
+  value NUMERIC(10,2) NOT NULL CHECK (value > 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -2556,6 +2556,15 @@ if (mode === "income" && currentRemaining !== 0) {
     return;
   }
 
+  if (mode === "income") {
+    const re = ruleErrors();
+    if (re.length) {
+      errorDiv.textContent = re.join(' ');
+      errorDiv.style.display = 'block';
+      return;
+    }
+  }
+
   // தரவை தயார் செய்
   const data = {
     loginEmail: window.selectedEmail,
@@ -3511,10 +3520,50 @@ function removeConfirmedUpi(i) {
 }
 
 // வரவு விவரம் / புள்ளி விவரம்: UPI 'சரி' ஆன பின்னரே (அல்லது 'பயன்பாடு மட்டும்' எனில் உடனே) திறக்கும்
+
+// ===== கட்டண மடங்கு விதிகள் (Admin அமைப்பது): காப்புத் தொகை / புரவலர் / பெரும்புரவலர் / கொடையாளர் =====
+let receiptRules = null, receiptRulesLib = null;
+function ruleMap() {
+  if (!receiptRules) return [];
+  return [['deposit', 'காப்புத்தொகை', receiptRules.fee], ['patron', 'புரவலர்', receiptRules.patron],
+          ['chiefPatron', 'பெரும்புரவலர்', receiptRules.chiefPatron], ['donor', 'கொடையாளர்', receiptRules.donor]];
+}
+function ruleErrors() {
+  const out = [];
+  ruleMap().forEach(([id, label, unit]) => {
+    const v = parseInt(document.getElementById(id).value) || 0;
+    if (v > 0 && unit > 0 && v % unit !== 0) out.push(label + ' ₹' + v + ' தவறு — ₹' + unit + ' மற்றும் அதன் மடங்காக மட்டுமே உள்ளிடவும்.');
+  });
+  return out;
+}
+function paintRuleHints() {
+  ruleMap().forEach(([id, label, unit]) => {
+    const inp = document.getElementById(id);
+    let el = document.getElementById('rule_' + id);
+    if (!el) {
+      el = document.createElement('div'); el.id = 'rule_' + id;
+      el.style.cssText = 'text-align:center;font-size:13px;margin:-8px 0 12px;color:#64748b';
+      inp.insertAdjacentElement('afterend', el);
+    }
+    const v = parseInt(inp.value) || 0, bad = v > 0 && unit > 0 && v % unit !== 0;
+    el.style.color = bad ? '#b3261e' : '#64748b';
+    el.textContent = unit > 0 ? ((bad ? '⚠️ ' : '') + '₹' + unit + ' மற்றும் அதன் மடங்கு மட்டும்') : (id === 'deposit' ? 'இந்த நூலகத்திற்கு காப்புத் தொகை கட்டணம் அமைக்கப்படவில்லை' : '');
+  });
+}
+function loadReceiptRules() {
+  if (!selectedLib || receiptRulesLib === selectedLib) { paintRuleHints(); return; }
+  const lib = selectedLib;
+  google.script.run.withSuccessHandler(res => {
+    if (res && res.success) { receiptRules = res; receiptRulesLib = lib; paintRuleHints(); }
+  }).getReceiptRules(lib);
+}
+['deposit', 'patron', 'chiefPatron', 'donor'].forEach(id => document.getElementById(id).addEventListener('input', paintRuleHints));
+
 function updateDetailsVisibility() {
   const mode = document.getElementById("receiptModeSelect").value;
   const show = (mode === "usage") || (mode === "income" && confirmedUpis.length > 0);
   document.getElementById("detailsSection").style.display = show ? "block" : "none";
+  if (show && mode === "income") loadReceiptRules();
   document.getElementById("payDateWrap").style.display = mode === "income" ? "block" : "none";
   const pd = document.getElementById("paymentDate");
   if (mode === "income" && confirmedUpis.length) {

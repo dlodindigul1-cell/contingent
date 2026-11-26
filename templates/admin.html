@@ -488,6 +488,7 @@ nav.side .sub.l2 a{padding-left:34px}
   <div class="sub">
   <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
   <a href="#vendors" data-v="vendors"><span class="n">12</span><span>Vendor விவரம்<small>நாளிதழ் · வாடகை · வங்கி விவரம்</small></span></a>
+  <a href="#feerules" data-v="feerules"><span class="n">12A</span><span>வரவினக் கட்டண விதிகள்<small>காப்புத் தொகை · புரவலர் · கொடையாளர் மடங்கு</small></span></a>
   </div>
 </nav>
 
@@ -611,6 +612,26 @@ nav.side .sub.l2 a{padding-left:34px}
     <button class="btn go" id="lf_save" type="button">சேமி</button>
   </div>
 </div></div>
+
+<!-- ================= 12A. வரவினக் கட்டண விதிகள் ================= -->
+<section class="view" id="v-feerules">
+  <p class="crumb">நிர்வாகம் › நூலக மேலாண்மை › வரவினக் கட்டண விதிகள்</p>
+  <h2 class="pt">12A. வரவினக் கட்டண விதிகள்</h2>
+  <p class="lead">நூலகர் வரவினம் பதிவு செய்யும்போது <b>காப்புத் தொகை</b> அந்த நூலகத்தின் உறுப்பினர் காப்புத் தொகை கட்டணத்தின் மடங்காகவும், <b>புரவலர் · பெரும்புரவலர் · கொடையாளர்</b> தொகைகள் கீழ்க்காணும் கட்டணங்களின் மடங்காகவும் மட்டுமே இருக்க வேண்டும்; இல்லையெனில் பதிவு ஏற்கப்படாது. இங்கே அவற்றைப் பார்க்கலாம், திருத்தலாம். (காப்புத் தொகை கட்டணம் 0 எனில் அந்த நூலகத்துக்கு காப்புத் தொகை சோதனை நடைபெறாது.)</p>
+  <div id="m_feerules"></div>
+  <div class="panel"><h3>பொதுக் கட்டணங்கள் (எல்லா நூலகங்களுக்கும்)</h3><div class="bd">
+    <div class="toolbar" style="align-items:flex-end;flex-wrap:wrap;gap:14px">
+      <label>புரவலர் ₹ <input type="number" min="1" step="1" id="fr_patron" style="width:120px"></label>
+      <label>பெரும்புரவலர் ₹ <input type="number" min="1" step="1" id="fr_chief_patron" style="width:120px"></label>
+      <label>கொடையாளர் ₹ <input type="number" min="1" step="1" id="fr_donor" style="width:120px"></label>
+      <button class="btn go sm" id="fr_saveRates" type="button">பொதுக் கட்டணங்களைச் சேமி</button>
+    </div>
+  </div></div>
+  <div class="panel"><h3>உறுப்பினர் காப்புத் தொகை கட்டணம் — வகை வாரியாக · நூலகம் வாரியாக <span id="frCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
+    <div class="toolbar"><input type="search" id="frSearch" placeholder="நூலகப் பெயர் தேடு…" style="max-width:260px" aria-label="நூலகம் தேடுக"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="frOnlyZero"> கட்டணம் அமைக்காதவை மட்டும்</label></div>
+    <div id="frTypes"></div>
+  </div></div>
+</section>
 
 <!-- ================= 12. Vendor விவரம் ================= -->
 <style>
@@ -1838,11 +1859,75 @@ function route(){
   if (v === 'rptpay') rptPayInit();
   if (v === 'rptyear') rptYearInit();
   if (v === 'vendors') loadVendors();
+  if (v === 'feerules') loadFeeRules();
   if (RV_BY_VIEW[v]) rvInit(RV_BY_VIEW[v]);
   if (v === 'inactive') loadInactive();
   navRevealActive();
   window.scrollTo(0, 0);
 }
+
+/* ---------- 12A. வரவினக் கட்டண விதிகள் ---------- */
+let frData = null;
+async function loadFeeRules(){
+  const out = $('#m_feerules');
+  try{
+    const j = await getJSON('/receipts/admin/fee-rules');
+    if (!j.success) throw new Error(j.message || 'படிக்க முடியவில்லை');
+    frData = j; out.innerHTML = '';
+    $('#fr_patron').value = j.rates.patron; $('#fr_chief_patron').value = j.rates.chief_patron; $('#fr_donor').value = j.rates.donor;
+    renderFeeRules();
+  }catch(e){ note(out, 'bad', e.message); }
+}
+function renderFeeRules(){
+  if (!frData) return;
+  const q = $('#frSearch').value.trim().toLowerCase(), onlyZero = $('#frOnlyZero').checked;
+  const groups = {};
+  frData.libraries.forEach(l => { (groups[l.type] = groups[l.type] || []).push(l); });
+  const zero = frData.libraries.filter(l => !l.fee).length;
+  $('#frCount').textContent = '(' + frData.libraries.length + ' நூலகங்கள் · கட்டணம் அமைக்காதவை ' + zero + ')';
+  const html = Object.keys(groups).map(t => {
+    const all = groups[t], libs = all.filter(l => (!q || l.name.toLowerCase().includes(q)) && (!onlyZero || !l.fee));
+    if (!libs.length) return '';
+    const fees = [...new Set(all.map(l => l.fee))];
+    return '<details class="frgrp" data-type="' + esc(t) + '"' + ((q || onlyZero) ? ' open' : '') + ' style="border:1px solid var(--line);border-radius:6px;margin:8px 0;padding:6px 10px">' +
+      '<summary style="cursor:pointer;font-weight:700">' + esc(t) + ' <span style="font-weight:400;color:var(--muted)">— ' + all.length + ' நூலகங்கள் · ' + (fees.length === 1 ? 'அனைத்திற்கும் ₹' + esc(fees[0]) : 'பல்வேறு கட்டணங்கள்') + '</span></summary>' +
+      '<div class="toolbar" style="margin:8px 0;gap:8px;flex-wrap:wrap"><label>இந்த வகையின் அனைத்து நூலகங்களுக்கும் ₹ <input type="number" min="0" step="1" class="fr_typefee" style="width:100px"></label>' +
+      '<button class="btn alt sm" type="button" data-frtype="' + esc(t) + '">வகைக்கு அமை</button>' +
+      '<button class="btn go sm" type="button" data-frsave="' + esc(t) + '">இந்த வகையில் மாற்றியவற்றைச் சேமி</button></div>' +
+      '<div class="tw" style="max-height:360px"><table><thead><tr><th style="width:50px">வ.எ.</th><th>நூலகம்</th><th style="width:170px">காப்புத் தொகை கட்டணம் ₹</th></tr></thead><tbody>' +
+      libs.map((l, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(l.name) + '</td><td><input type="number" min="0" step="1" class="fr_fee" data-name="' + esc(l.name) + '" data-orig="' + l.fee + '" value="' + l.fee + '" style="width:110px"' + (l.fee ? '' : ' placeholder="அமைக்கவில்லை"') + '></td></tr>').join('') +
+      '</tbody></table></div></details>';
+  }).join('');
+  $('#frTypes').innerHTML = html || '<div class="msg info">பொருந்தும் நூலகங்கள் இல்லை.</div>';
+}
+async function frPost(body){
+  const out = $('#m_feerules');
+  try{
+    const j = await postJSON('/receipts/admin/fee-rules', body);
+    if (!j.success) throw new Error(j.message || 'சேமிக்க முடியவில்லை');
+    note(out, 'ok', '✅ ' + j.message); await loadFeeRules();
+  }catch(e){ note(out, 'bad', e.message); }
+}
+$('#fr_saveRates').addEventListener('click', () => {
+  if (!confirm('புரவலர் / பெரும்புரவலர் / கொடையாளர் கட்டணங்களை மாற்றவா? இது எல்லா நூலகர் பதிவுகளுக்கும் உடனே பொருந்தும்.')) return;
+  frPost({rates: {patron: $('#fr_patron').value, chief_patron: $('#fr_chief_patron').value, donor: $('#fr_donor').value}});
+});
+$('#frSearch').addEventListener('input', renderFeeRules);
+$('#frOnlyZero').addEventListener('change', renderFeeRules);
+$('#frTypes').addEventListener('click', e => {
+  const a = e.target.closest('button[data-frtype]'), b = e.target.closest('button[data-frsave]');
+  if (a){
+    const grp = a.closest('details'), v = grp.querySelector('.fr_typefee').value;
+    if (v === '' || Number(v) < 0) return alert('தொகையை உள்ளிடவும்.');
+    if (confirm('“' + a.dataset.frtype + '” வகையின் அனைத்து நூலகங்களுக்கும் காப்புத் தொகை கட்டணம் ₹' + v + ' என அமைக்கவா?')) frPost({type_fee: {type: a.dataset.frtype, fee: v}});
+  }
+  if (b){
+    const fees = [...b.closest('details').querySelectorAll('.fr_fee')].filter(i => Number(i.value) !== Number(i.dataset.orig)).map(i => ({name: i.dataset.name, fee: i.value === '' ? 0 : i.value}));
+    if (!fees.length) return alert('மாற்றம் எதுவும் இல்லை.');
+    frPost({fees});
+  }
+});
+
 window.addEventListener('hashchange', route);
 
 /* ---------- முகப்பு ---------- */

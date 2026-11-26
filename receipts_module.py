@@ -412,6 +412,9 @@ def saveOrUpdateReceipt(data):
     else:
         heads={k:0 for k in heads}
     total=sum(heads.values())
+    if mode=='income':
+        merr=_multiples_error(lib,heads['deposit'],heads['patron'],heads['chiefPatron'],heads['donor'])
+        if merr: return _fail(merr)
     def save(conn):
         with conn.cursor() as c:
             c.execute('SELECT 1 FROM libraries WHERE name=%s',(lib,))
@@ -1006,5 +1009,191 @@ def getReceiptWindow():
     if not _can_use(): return _fail('உள்நுழைவு தேவை')
     return dict(window_info(), success=True)
 
+
+# ------------------------------------------------------------------
+#  கட்டண மடங்கு விதிகள் — காப்புத் தொகை (நூலகம் வாரியாக), புரவலர் / பெரும்புரவலர் / கொடையாளர் (பொது)
+#  நூலகர் உள்ளிடும் தொகை இவற்றின் மடங்காக மட்டுமே இருக்க வேண்டும்; Admin இவற்றைத் திருத்தலாம்.
+# ------------------------------------------------------------------
+DEFAULT_RATES = {'patron': Decimal(1000), 'chief_patron': Decimal(5000), 'donor': Decimal(10000)}
+RATE_LABELS = {'patron': 'புரவலர்', 'chief_patron': 'பெரும்புரவலர்', 'donor': 'கொடையாளர்'}
+
+
+def _rates():
+    """Admin அமைத்த கட்டணங்கள்; அமைக்கப்படாவிட்டால் 1000 / 5000 / 10000."""
+    out = dict(DEFAULT_RATES)
+    try:
+        for r in db.fetch_all('SELECT key, value FROM receipt_fee_rules'):
+            v = Decimal(str(r['value']))
+            if r['key'] in out and v > 0: out[r['key']] = v
+    except Exception:
+        current_app.logger.warning('receipt_fee_rules படிக்க முடியவில்லை — இயல்புநிலை பயன்படுகிறது', exc_info=True)
+    return out
+
+
+def _lib_fee(lib):
+    r = db.fetch_one('SELECT fee FROM library_stats_base WHERE library_name=%s', (lib,))
+    return Decimal(str(r['fee'])) if r and r['fee'] else Decimal(0)
+
+
+def _fmt(d):
+    d = Decimal(str(d))
+    return str(int(d)) if d == d.to_integral_value() else str(d)
+
+
+def _multiples_error(lib, security, patron, chief, donor, rates=None, fee=None):
+    """தவறு இருந்தால் தமிழ்ச் செய்தி; இல்லையெனில் None."""
+    rates = rates or _rates()
+    fee = _lib_fee(lib) if fee is None else Decimal(str(fee))
+    errs = []
+    sec = Decimal(str(security or 0))
+    if sec > 0 and fee > 0 and sec % fee != 0:
+        errs.append(f'காப்புத் தொகை ₹{_fmt(sec)} தவறு. இந்த நூலகத்தின் உறுப்பினர் காப்புத் தொகை கட்டணம் ₹{_fmt(fee)}; அதன் மடங்காக (₹{_fmt(fee)}, ₹{_fmt(fee*2)}, ₹{_fmt(fee*3)} …) மட்டுமே உள்ளிடவும்.')
+    for key, val in (('patron', patron), ('chief_patron', chief), ('donor', donor)):
+        v = Decimal(str(val or 0)); rate = rates[key]
+        if v > 0 and v % rate != 0:
+            errs.append(f'{RATE_LABELS[key]} தொகை ₹{_fmt(v)} தவறு. ₹{_fmt(rate)} மற்றும் அதன் மடங்காக மட்டுமே உள்ளிடவும்.')
+    return ' '.join(errs) or None
+
+
+def getReceiptRules(lib=None):
+    """நூலகர் படிவத்தில் காட்ட: இந்த நூலகத்தின் காப்புத் தொகை கட்டணம் + புரவலர் கட்டணங்கள்."""
+    if not _can_use(): return _fail('உள்நுழைவு தேவை')
+    rates = _rates()
+    return {'success': True, 'fee': float(_lib_fee(str(lib or '').strip())) if lib else 0,
+            'patron': float(rates['patron']), 'chiefPatron': float(rates['chief_patron']), 'donor': float(rates['donor'])}
+
+
+def _audit(c, action, reason):
+    c.execute("INSERT INTO receipt_admin_audit(transaction_id,action,reason,admin_name) VALUES(NULL,%s,%s,%s)",
+              (action, reason, session.get('admin_user', 'Admin')))
+
+
+@receipts.get('/receipts/admin/fee-rules')
+def fee_rules_get():
+    """நூலக மேலாண்மை > வரவினக் கட்டண விதிகள்: வகை வாரியாக → நூலகம் வாரியாக."""
+    if not _admin(): return jsonify(success=False, message='Admin உள்நுழைவு தேவை'), 401
+    rates = _rates()
+    rows = db.fetch_all("SELECT l.id, l.name, COALESCE(l.lib_type,'') lib_type, COALESCE(b.fee,0) fee FROM libraries l "
+                        "LEFT JOIN library_stats_base b ON b.library_name=l.name "
+                        "WHERE (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) ORDER BY l.lib_type, l.id")
+    return jsonify(success=True, rates={k: float(v) for k, v in rates.items()},
+                   libraries=[{'id': r['id'], 'name': r['name'], 'type': r['lib_type'] or 'வகை குறிப்பிடப்படவில்லை', 'fee': float(r['fee'])} for r in rows])
+
+
+@receipts.post('/receipts/admin/fee-rules')
+def fee_rules_save():
+    """பொதுக் கட்டணங்கள் (புரவலர் / பெரும்புரவலர் / கொடையாளர்) மற்றும்/அல்லது நூலகக் காப்புத் தொகை கட்டணங்கள்.
+    body: {rates:{patron,chief_patron,donor}, fees:[{name,fee}], type_fee:{type,fee}}"""
+    if not _admin(): return jsonify(success=False, message='Admin உள்நுழைவு தேவை'), 401
+    j = request.get_json(silent=True) or {}
+    try:
+        new_rates = {}
+        for k, v in (j.get('rates') or {}).items():
+            if k not in DEFAULT_RATES: continue
+            n = _money(v)
+            if n <= 0: raise ValueError(f'{RATE_LABELS[k]} கட்டணம் 0-ஐ விட அதிகமாக இருக்க வேண்டும்.')
+            new_rates[k] = n
+        fees = {}
+        for it in (j.get('fees') or []):
+            name = str(it.get('name') or '').strip()
+            if name: fees[name] = _money(it.get('fee'))
+        tf = j.get('type_fee') or None
+        type_fee = (str(tf.get('type') or '').strip(), _money(tf.get('fee'))) if tf else None
+    except ValueError as e:
+        return jsonify(success=False, message=str(e)), 400
+
+    def work(conn):
+        notes = []
+        with conn.cursor() as c:
+            for k, v in new_rates.items():
+                c.execute('SELECT value FROM receipt_fee_rules WHERE key=%s', (k,)); old = c.fetchone()
+                oldv = Decimal(str(old[0])) if old else DEFAULT_RATES[k]
+                if oldv == v: continue
+                c.execute('INSERT INTO receipt_fee_rules(key,value) VALUES(%s,%s) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()', (k, v))
+                notes.append(f'{RATE_LABELS[k]} ₹{_fmt(oldv)}→₹{_fmt(v)}')
+            targets = dict(fees)
+            if type_fee:
+                c.execute("SELECT name FROM libraries WHERE COALESCE(lib_type,'')=%s OR (%s='வகை குறிப்பிடப்படவில்லை' AND COALESCE(lib_type,'')='')", (type_fee[0], type_fee[0]))
+                for (n,) in c.fetchall(): targets[n] = type_fee[1]
+            changed = 0
+            for name, v in targets.items():
+                c.execute('SELECT 1 FROM libraries WHERE name=%s', (name,))
+                if not c.fetchone(): continue
+                c.execute('SELECT fee FROM library_stats_base WHERE library_name=%s', (name,)); old = c.fetchone()
+                if old and Decimal(str(old[0])) == v: continue
+                c.execute('INSERT INTO library_stats_base(library_name,fee) VALUES(%s,%s) ON CONFLICT(library_name) DO UPDATE SET fee=EXCLUDED.fee, updated_at=now()', (name, v))
+                changed += 1
+                if len(targets) <= 5: notes.append(f'{name}: காப்புத் தொகை கட்டணம் ₹{_fmt(old[0]) if old else 0}→₹{_fmt(v)}')
+            if changed and len(targets) > 5: notes.append(f'{changed} நூலகங்களின் காப்புத் தொகை கட்டணம் மாற்றப்பட்டது' + (f' (வகை: {type_fee[0]} → ₹{_fmt(type_fee[1])})' if type_fee else ''))
+            if notes: _audit(c, 'fee_rules', '; '.join(notes))
+        return notes
+    try: notes = db.run(work)
+    except Exception:
+        current_app.logger.exception('fee_rules_save')
+        return jsonify(success=False, message='சேமிக்க முடியவில்லை.'), 500
+    return jsonify(success=True, message='சேமிக்கப்பட்டது.' if notes else 'மாற்றம் எதுவும் இல்லை.')
+
+
+EDIT_FIELDS = (('security_amount', 'காப்புத்தொகை'), ('annual_amount', 'சந்தாத் தொகை'), ('late_fee', 'காலதாமதக் கட்டணம்'),
+               ('book_fine', 'நூல் விலைப் பிடித்தம்'), ('newspaper_amount', 'பழைய பத்திரிக்கை விற்பனை'),
+               ('old_book_sale', 'பழைய நூல்கள் விற்பனை'), ('patron', 'புரவலர்'), ('chief_patron', 'பெரும்புரவலர்'),
+               ('donor', 'கொடையாளர்'), ('other_income', 'இதர வரவுகள்'))
+EDIT_INTS = (('visitors', 'வாசகர்'), ('issues', 'நூலிரவல்'), ('book_usage', 'நூல்கள் பயன்பாடு'), ('book_stock', 'நூல் இருப்பு'))
+
+
+@receipts.post('/receipts/admin/approved/<int:rid>/edit')
+def approved_edit(rid):
+    """ஒப்புதல் பெற்ற பதிவைத் திருத்துதல் (Admin). காரணம் கட்டாயம்; பழைய → புதிய மதிப்புகள் audit-ல் பதிவாகும்.
+    மொத்தம் வங்கி UPI தொகையுடனும், கட்டணங்கள் மடங்கு விதிகளுடனும் பொருந்த வேண்டும் — force=true எனில் மட்டும் மீறலாம்."""
+    if not _admin(): return jsonify(success=False, message='Admin உள்நுழைவு தேவை'), 401
+    j = request.get_json(silent=True) or {}
+    reason = str(j.get('reason') or '').strip(); force = bool(j.get('force'))
+    if not reason: return jsonify(success=False, message='திருத்தத்திற்கான காரணத்தை உள்ளிடவும்.'), 400
+    vals = j.get('values') or {}
+    try:
+        money = {k: _money(vals.get(k)) for k, _ in EDIT_FIELDS}
+        ints = {k: _int(vals.get(k)) for k, _ in EDIT_INTS}
+    except ValueError as e:
+        return jsonify(success=False, message=str(e)), 400
+    total = sum(money.values(), Decimal(0))
+
+    def work(conn):
+        with conn.cursor() as c:
+            c.execute('SELECT library_name,month_year,status,mode,total_amount,' + ','.join(k for k, _ in EDIT_FIELDS + EDIT_INTS) +
+                      ' FROM library_receipts WHERE id=%s FOR UPDATE', (rid,))
+            row = c.fetchone()
+            if not row: raise ValueError('பதிவு கிடைக்கவில்லை.')
+            lib, month, status, mode = row[0], row[1], row[2], row[3]
+            if status != 'approved': raise ValueError('இது ஒப்புதல் பெற்ற பதிவு அல்ல.')
+            if mode == 'usage':
+                money_nz = [k for k, v in money.items() if v]
+                if money_nz: raise ValueError('இது “பயன்பாடு மட்டும்” பதிவு; வரவுத் தொகை உள்ளிட முடியாது.')
+            old = dict(zip([k for k, _ in EDIT_FIELDS + EDIT_INTS], row[5:]))
+            if not force:
+                if mode != 'usage':
+                    c.execute('SELECT COALESCE(sum(amount),0), count(*) FROM receipt_bank_transactions WHERE receipt_id=%s', (rid,))
+                    bank, cnt = c.fetchone()
+                    if cnt and Decimal(str(bank)) != total:
+                        raise ValueError(f'மொத்தம் ₹{_fmt(total)} — வங்கி UPI மொத்தம் ₹{_fmt(bank)} உடன் பொருந்தவில்லை. தொகையைச் சரிசெய்யவும்; வேண்டுமென்றே மாற்றினால் “எச்சரிக்கையை மீறி சேமி” என்பதைத் தேர்ந்து சேமிக்கவும்.')
+                    merr = _multiples_error(lib, money['security_amount'], money['patron'], money['chief_patron'], money['donor'])
+                    if merr: raise ValueError(merr + ' (வேண்டுமென்றே மாற்றினால் “எச்சரிக்கையை மீறி சேமி” என்பதைத் தேர்க.)')
+            changes = []
+            for k, label in EDIT_FIELDS + EDIT_INTS:
+                new = money.get(k, ints.get(k)); o = Decimal(str(old[k] or 0))
+                if Decimal(str(new)) != o: changes.append(f'{label} {_fmt(o)}→{_fmt(new)}')
+            if not changes: raise ValueError('மாற்றம் எதுவும் இல்லை.')
+            sets = ','.join(f'{k}=%s' for k, _ in EDIT_FIELDS + EDIT_INTS)
+            c.execute(f'UPDATE library_receipts SET {sets}, total_amount=%s WHERE id=%s',
+                      tuple(money[k] for k, _ in EDIT_FIELDS) + tuple(ints[k] for k, _ in EDIT_INTS) + (total, rid))
+            _audit(c, 'edit_approved', f'{lib} / {month}: ' + '; '.join(changes) + f'; மொத்தம் {_fmt(row[4])}→{_fmt(total)}; காரணம்: {reason}' + (' [force]' if force else ''))
+            return lib, month
+    try: lib, month = db.run(work)
+    except ValueError as e: return jsonify(success=False, message=str(e)), 400
+    except Exception:
+        current_app.logger.exception('approved_edit')
+        return jsonify(success=False, message='சேமிக்க முடியவில்லை.'), 500
+    return jsonify(success=True, message=f'{lib} — {month} பதிவு திருத்தப்பட்டது.', total=float(total))
+
+
 def register_rpc(RPC):
-    for f in (getReceiptWindow,validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt,getApprovedReceiptMonths,getReceiptAcknowledgement): RPC[f.__name__]=f
+    for f in (getReceiptWindow,validatePaymentWithBank,getReceiptStockInfo,saveOrUpdateReceipt,getApprovedReceiptMonths,getReceiptAcknowledgement,getReceiptRules): RPC[f.__name__]=f
