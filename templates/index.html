@@ -2483,6 +2483,17 @@ function confirmAndSubmitReceipt(btn) {
           document.getElementById('receiptMsg').style.display = 'none';
         }, 6000);
 
+      } else if (res.needStats && res.needStats.length) {
+        // Admin: மடங்கல்லாத தொகை — புள்ளி விவரத்தில் எடுக்க வேண்டிய எண்ணிக்கையைக் கேட்கும்
+        let counts = {};
+        for (const n of res.needStats) {
+          const v = prompt(n.label + ' தொகை ₹' + n.amount + ' மடங்காக இல்லை.\nஇந்த மாதப் புள்ளி விவரத்தில் ' + n.label + ' எண்ணிக்கை எத்தனையாக எடுக்க வேண்டும்?');
+          if (v === null || v.trim() === '' || isNaN(v) || Number(v) < 0) { counts = null; break; }
+          counts[n.key] = v.trim();
+        }
+        if (counts) { window.pendingReceiptData.statCounts = counts; confirmAndSubmitReceipt(btn); return; }
+        document.getElementById('receiptError').textContent = res.message || "புள்ளி விவர எண்ணிக்கை தேவை";
+        document.getElementById('receiptError').style.display = 'block';
       } else {
         document.getElementById('receiptError').textContent =
           res.message || "பதிவு தோல்வி";
@@ -3530,9 +3541,10 @@ function ruleMap() {
 }
 function ruleErrors() {
   const out = [];
+  if (typeof isAdminMode !== 'undefined' && isAdminMode) return out;   // Admin மடங்கல்லாத தொகையை ஏற்கலாம்
   ruleMap().forEach(([id, label, unit]) => {
     const v = parseInt(document.getElementById(id).value) || 0;
-    if (v > 0 && unit > 0 && v % unit !== 0) out.push(label + ' ₹' + v + ' தவறு — ₹' + unit + ' மற்றும் அதன் மடங்காக மட்டுமே உள்ளிடவும்.');
+    if (v > 0 && unit > 0 && v % unit !== 0) out.push(label + ' ₹' + v + ' — ₹' + unit + '-இன் மடங்காக இல்லை. Admin-ஐத் தொடர்பு கொள்ளுங்கள்.');
   });
   return out;
 }
@@ -3547,7 +3559,7 @@ function paintRuleHints() {
     }
     const v = parseInt(inp.value) || 0, bad = v > 0 && unit > 0 && v % unit !== 0;
     el.style.color = bad ? '#b3261e' : '#64748b';
-    el.textContent = unit > 0 ? ((bad ? '⚠️ ' : '') + '₹' + unit + ' மற்றும் அதன் மடங்கு மட்டும்') : (id === 'deposit' ? 'இந்த நூலகத்திற்கு காப்புத் தொகை கட்டணம் அமைக்கப்படவில்லை' : '');
+    el.textContent = unit > 0 ? ((bad ? '⚠️ மடங்காக இல்லை — Admin-ஐத் தொடர்பு கொள்ளுங்கள்' : '₹' + unit + ' மற்றும் அதன் மடங்கு மட்டும்')) : (id === 'deposit' ? 'இந்த நூலகத்திற்கு காப்புத் தொகை கட்டணம் அமைக்கப்படவில்லை' : '');
   });
 }
 function loadReceiptRules() {

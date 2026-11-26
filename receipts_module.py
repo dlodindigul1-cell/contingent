@@ -412,9 +412,16 @@ def saveOrUpdateReceipt(data):
     else:
         heads={k:0 for k in heads}
     total=sum(heads.values())
+    multiples_ok=False; stat={k:None for k in STAT_COLS}
     if mode=='income':
         merr=_multiples_error(lib,heads['deposit'],heads['patron'],heads['chiefPatron'],heads['donor'])
-        if merr: return _fail(merr)
+        if merr:
+            if not _admin(): return _fail(merr)      # நூலகர்: Admin-ஐத் தொடர்பு கொள்ள வேண்டும்
+            multiples_ok=True                         # Admin: மடங்கல்லாத தொகையை ஏற்கலாம் (பிழைப் பட்டியலில் வராது)
+            viol=_violating_keys(lib,heads['deposit'],heads['patron'],heads['chiefPatron'],heads['donor'])
+            try: stat=_stat_counts(data.get('statCounts'),viol)
+            except ValueError as e:
+                return {'success':False,'message':str(e),'needStats':[{'key':k,'label':STAT_LABELS[k],'amount':{'security_amount':heads['deposit'],'patron':heads['patron'],'chief_patron':heads['chiefPatron'],'donor':heads['donor']}[k]} for k in viol]}
     def save(conn):
         with conn.cursor() as c:
             c.execute('SELECT 1 FROM libraries WHERE name=%s',(lib,))
@@ -448,11 +455,12 @@ def saveOrUpdateReceipt(data):
             if old:
                 rid=old[0]; action='updated'
                 c.execute("UPDATE receipt_bank_transactions SET status='available',library_name=NULL,receipt_id=NULL WHERE receipt_id=%s",(rid,))
-                c.execute("UPDATE library_receipts SET security_amount=%s,annual_amount=%s,newspaper_amount=%s,total_amount=%s,mode=%s,late_fee=%s,book_fine=%s,old_book_sale=%s,patron=%s,chief_patron=%s,donor=%s,other_income=%s,payment_date=%s,visitors=%s,issues=%s,book_usage=%s,book_stock=%s WHERE id=%s",vals+(rid,))
+                c.execute("UPDATE library_receipts SET security_amount=%s,annual_amount=%s,newspaper_amount=%s,total_amount=%s,mode=%s,late_fee=%s,book_fine=%s,old_book_sale=%s,patron=%s,chief_patron=%s,donor=%s,other_income=%s,payment_date=%s,visitors=%s,issues=%s,book_usage=%s,book_stock=%s,multiples_ok=%s WHERE id=%s",vals+(multiples_ok,rid))
             else:
                 action='saved'
-                c.execute("INSERT INTO library_receipts(library_name,month_year,security_amount,annual_amount,newspaper_amount,total_amount,mode,late_fee,book_fine,old_book_sale,patron,chief_patron,donor,other_income,payment_date,visitors,issues,book_usage,book_stock,status,created_by) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s) RETURNING id",(lib,month)+vals+(session.get('librarian_email','Librarian'),))
+                c.execute("INSERT INTO library_receipts(library_name,month_year,security_amount,annual_amount,newspaper_amount,total_amount,mode,late_fee,book_fine,old_book_sale,patron,chief_patron,donor,other_income,payment_date,visitors,issues,book_usage,book_stock,status,created_by,multiples_ok) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s,%s) RETURNING id",(lib,month)+vals+(session.get('librarian_email','Librarian'),multiples_ok))
                 rid=c.fetchone()[0]
+            c.execute('UPDATE library_receipts SET stat_members=%s,stat_patrons=%s,stat_chief_patrons=%s,stat_donors=%s WHERE id=%s',(stat['security_amount'],stat['patron'],stat['chief_patron'],stat['donor'],rid))
             for t in trs:
                 c.execute("UPDATE receipt_bank_transactions SET status='reserved',library_name=%s,receipt_id=%s WHERE id=%s",(lib,rid,t[0]))
             return rid,month,action
@@ -688,7 +696,7 @@ def build_stats_report(mode, month, fy, include_pending=False, scope=None):
     base = {r['library_name']: r for r in db.fetch_all('SELECT * FROM library_stats_base')}
     libs = _libs_active(P['start_my'])
     status_sql = '' if include_pending else " AND status='approved'"
-    recs = db.fetch_all("SELECT library_name, month_year, security_amount, patron, chief_patron, donor FROM library_receipts "
+    recs = db.fetch_all("SELECT library_name, month_year, security_amount, patron, chief_patron, donor, stat_members, stat_patrons, stat_chief_patrons, stat_donors FROM library_receipts "
                         "WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s" + status_sql, (STATS_FIRST_KEY, end_key))
     pending_skipped = 0 if include_pending else _pending_count(start_key, end_key)
 
@@ -709,6 +717,9 @@ def build_stats_report(mode, month, fy, include_pending=False, scope=None):
         if sec > 0 and p['fee'] <= 0:
             if r['library_name'] not in no_fee: no_fee.append(r['library_name'])
         vals = [sec / p['fee'] if p['fee'] > 0 else Decimal(0)] + [Decimal(str(r[c] or 0)) / rate for c, rate in zip(('patron', 'chief_patron', 'donor'), STATS_PATRON_RATES)]
+        # Admin மடங்கல்லாத தொகைக்கு நிர்ணயித்த எண்ணிக்கை இருந்தால் அதையே எடுக்கும்
+        for i, col in enumerate(('stat_members', 'stat_patrons', 'stat_chief_patrons', 'stat_donors')):
+            if r[col] is not None: vals[i] = Decimal(str(r[col]))
         vals = [v.quantize(Decimal('0.01')) for v in vals]
         k = _month_key(r['month_year'])
         for i in range(4):
@@ -1047,13 +1058,46 @@ def _multiples_error(lib, security, patron, chief, donor, rates=None, fee=None):
     errs = []
     sec = Decimal(str(security or 0))
     if sec > 0 and fee > 0 and sec % fee != 0:
-        errs.append(f'காப்புத் தொகை ₹{_fmt(sec)} தவறு. இந்த நூலகத்தின் உறுப்பினர் காப்புத் தொகை கட்டணம் ₹{_fmt(fee)}; அதன் மடங்காக (₹{_fmt(fee)}, ₹{_fmt(fee*2)}, ₹{_fmt(fee*3)} …) மட்டுமே உள்ளிடவும்.')
+        errs.append(f'காப்புத் தொகை ₹{_fmt(sec)} தவறு. இந்த நூலகத்தின் உறுப்பினர் காப்புத் தொகை கட்டணம் ₹{_fmt(fee)}; அதன் மடங்காக மட்டுமே உள்ளிட முடியும்; மடங்காக இல்லாத தொகைக்கு Admin-ஐத் தொடர்பு கொள்ளுங்கள்.')
     for key, val in (('patron', patron), ('chief_patron', chief), ('donor', donor)):
         v = Decimal(str(val or 0)); rate = rates[key]
         if v > 0 and v % rate != 0:
-            errs.append(f'{RATE_LABELS[key]} தொகை ₹{_fmt(v)} தவறு. ₹{_fmt(rate)} மற்றும் அதன் மடங்காக மட்டுமே உள்ளிடவும்.')
+            errs.append(f'{RATE_LABELS[key]} தொகை ₹{_fmt(v)} தவறு. ₹{_fmt(rate)}-இன் மடங்காக இல்லை; மடங்காக இல்லாத தொகைக்கு Admin-ஐத் தொடர்பு கொள்ளுங்கள்.')
     return ' '.join(errs) or None
 
+
+
+STAT_COLS = {'security_amount': 'stat_members', 'patron': 'stat_patrons', 'chief_patron': 'stat_chief_patrons', 'donor': 'stat_donors'}
+STAT_LABELS = {'security_amount': 'உறுப்பினர்', 'patron': 'புரவலர்', 'chief_patron': 'பெரும்புரவலர்', 'donor': 'கொடையாளர்'}
+
+
+def _violating_keys(lib, security, patron, chief, donor, rates=None, fee=None):
+    """மடங்கு விதி மீறும் இனங்கள் (security_amount / patron / chief_patron / donor)."""
+    rates = rates or _rates()
+    fee = _lib_fee(lib) if fee is None else Decimal(str(fee))
+    out = []
+    sec = Decimal(str(security or 0))
+    if sec > 0 and fee > 0 and sec % fee != 0: out.append('security_amount')
+    for k, v in (('patron', patron), ('chief_patron', chief), ('donor', donor)):
+        v = Decimal(str(v or 0))
+        if v > 0 and v % rates[k] != 0: out.append(k)
+    return out
+
+
+def _stat_counts(raw, violating):
+    """Admin உள்ளிட்ட புள்ளி விவர எண்ணிக்கைகள். மீறும் இனங்களுக்குக் கட்டாயம்; மற்றவற்றுக்கு NULL (தானாகக் கணக்கு)."""
+    raw = raw or {}; out = {}
+    for k in STAT_COLS:
+        v = raw.get(k)
+        if k in violating:
+            if v in (None, ''): raise ValueError(f'{STAT_LABELS[k]}: தொகை மடங்காக இல்லை — இந்த மாதப் புள்ளி விவரத்தில் எடுக்க வேண்டிய எண்ணிக்கையை உள்ளிடவும்.')
+            try: n = Decimal(str(v).strip())
+            except Exception: raise ValueError(f'{STAT_LABELS[k]}: எண்ணிக்கை சரியாக இல்லை.')
+            if not n.is_finite() or n < 0: raise ValueError(f'{STAT_LABELS[k]}: எண்ணிக்கை சரியாக இல்லை.')
+            out[k] = n.quantize(Decimal('0.01'))
+        else:
+            out[k] = None
+    return out
 
 def getReceiptRules(lib=None):
     """நூலகர் படிவத்தில் காட்ட: இந்த நூலகத்தின் காப்புத் தொகை கட்டணம் + புரவலர் கட்டணங்கள்."""
@@ -1134,6 +1178,33 @@ def fee_rules_save():
     return jsonify(success=True, message='சேமிக்கப்பட்டது.' if notes else 'மாற்றம் எதுவும் இல்லை.')
 
 
+
+@receipts.get('/receipts/admin/violations')
+def multiples_violations():
+    """இதுவரை ஏற்றப்பட்ட / பதிவான எல்லா ஆண்டுப் பதிவுகளிலும் மடங்கு விதி மீறியவை (Admin ஏற்றுக்கொண்டவை தவிர)."""
+    if not _admin(): return jsonify(success=False, message='Admin உள்நுழைவு தேவை'), 401
+    r = _rates()
+    rows = db.fetch_all(
+        "SELECT r.*, COALESCE(b.fee,0) fee, COALESCE(json_agg(json_build_object('upi',t.upi_number,'amount',t.amount,'date',t.transaction_date)) "
+        "FILTER(WHERE t.id IS NOT NULL),'[]') transactions FROM library_receipts r "
+        "LEFT JOIN library_stats_base b ON b.library_name=r.library_name "
+        "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id "
+        "WHERE r.mode='income' AND NOT r.multiples_ok AND ("
+        " (COALESCE(b.fee,0)>0 AND r.security_amount>0 AND r.security_amount %% b.fee <> 0)"
+        " OR (r.patron>0 AND r.patron %% %s <> 0) OR (r.chief_patron>0 AND r.chief_patron %% %s <> 0) OR (r.donor>0 AND r.donor %% %s <> 0)) "
+        "GROUP BY r.id, b.fee ORDER BY substr(r.month_year,4,4), substr(r.month_year,1,2), r.library_name",
+        (r['patron'], r['chief_patron'], r['donor']))
+    out = []
+    for x in rows:
+        x = dict(x); bad = []
+        fee = Decimal(str(x['fee']))
+        if fee > 0 and Decimal(str(x['security_amount'])) > 0 and Decimal(str(x['security_amount'])) % fee != 0: bad.append('security_amount')
+        for k in ('patron', 'chief_patron', 'donor'):
+            if Decimal(str(x[k])) > 0 and Decimal(str(x[k])) % r[k] != 0: bad.append(k)
+        x['bad'] = bad; x['fee'] = float(fee)
+        out.append(x)
+    return jsonify(success=True, rows=out, rates={k: float(v) for k, v in r.items()})
+
 EDIT_FIELDS = (('security_amount', 'காப்புத்தொகை'), ('annual_amount', 'சந்தாத் தொகை'), ('late_fee', 'காலதாமதக் கட்டணம்'),
                ('book_fine', 'நூல் விலைப் பிடித்தம்'), ('newspaper_amount', 'பழைய பத்திரிக்கை விற்பனை'),
                ('old_book_sale', 'பழைய நூல்கள் விற்பனை'), ('patron', 'புரவலர்'), ('chief_patron', 'பெரும்புரவலர்'),
@@ -1164,7 +1235,6 @@ def approved_edit(rid):
             row = c.fetchone()
             if not row: raise ValueError('பதிவு கிடைக்கவில்லை.')
             lib, month, status, mode = row[0], row[1], row[2], row[3]
-            if status != 'approved': raise ValueError('இது ஒப்புதல் பெற்ற பதிவு அல்ல.')
             if mode == 'usage':
                 money_nz = [k for k, v in money.items() if v]
                 if money_nz: raise ValueError('இது “பயன்பாடு மட்டும்” பதிவு; வரவுத் தொகை உள்ளிட முடியாது.')
@@ -1177,15 +1247,17 @@ def approved_edit(rid):
                         raise ValueError(f'மொத்தம் ₹{_fmt(total)} — வங்கி UPI மொத்தம் ₹{_fmt(bank)} உடன் பொருந்தவில்லை. தொகையைச் சரிசெய்யவும்; வேண்டுமென்றே மாற்றினால் “எச்சரிக்கையை மீறி சேமி” என்பதைத் தேர்ந்து சேமிக்கவும்.')
                     merr = _multiples_error(lib, money['security_amount'], money['patron'], money['chief_patron'], money['donor'])
                     if merr: raise ValueError(merr + ' (வேண்டுமென்றே மாற்றினால் “எச்சரிக்கையை மீறி சேமி” என்பதைத் தேர்க.)')
+            viol = _violating_keys(lib, money['security_amount'], money['patron'], money['chief_patron'], money['donor']) if mode != 'usage' else []
+            stat = _stat_counts(j.get('stat_counts'), viol)
             changes = []
             for k, label in EDIT_FIELDS + EDIT_INTS:
                 new = money.get(k, ints.get(k)); o = Decimal(str(old[k] or 0))
                 if Decimal(str(new)) != o: changes.append(f'{label} {_fmt(o)}→{_fmt(new)}')
-            if not changes: raise ValueError('மாற்றம் எதுவும் இல்லை.')
+            if not changes and not any(v is not None for v in stat.values()): raise ValueError('மாற்றம் எதுவும் இல்லை.')
             sets = ','.join(f'{k}=%s' for k, _ in EDIT_FIELDS + EDIT_INTS)
-            c.execute(f'UPDATE library_receipts SET {sets}, total_amount=%s WHERE id=%s',
-                      tuple(money[k] for k, _ in EDIT_FIELDS) + tuple(ints[k] for k, _ in EDIT_INTS) + (total, rid))
-            _audit(c, 'edit_approved', f'{lib} / {month}: ' + '; '.join(changes) + f'; மொத்தம் {_fmt(row[4])}→{_fmt(total)}; காரணம்: {reason}' + (' [force]' if force else ''))
+            c.execute(f'UPDATE library_receipts SET {sets}, total_amount=%s, multiples_ok=%s, stat_members=%s, stat_patrons=%s, stat_chief_patrons=%s, stat_donors=%s WHERE id=%s',
+                      tuple(money[k] for k, _ in EDIT_FIELDS) + tuple(ints[k] for k, _ in EDIT_INTS) + (total, force, stat['security_amount'], stat['patron'], stat['chief_patron'], stat['donor'], rid))
+            _audit(c, 'edit_approved', f'{lib} / {month}: ' + '; '.join(changes) + f'; மொத்தம் {_fmt(row[4])}→{_fmt(total)}; காரணம்: {reason}' + ''.join(f'; புள்ளி விவரம் {STAT_LABELS[k]} = {_fmt(v)}' for k, v in stat.items() if v is not None) + (' [force]' if force else ''))
             return lib, month
     try: lib, month = db.run(work)
     except ValueError as e: return jsonify(success=False, message=str(e)), 400

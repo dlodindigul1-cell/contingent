@@ -376,3 +376,12 @@ CREATE TABLE IF NOT EXISTS receipt_fee_rules (
   value NUMERIC(10,2) NOT NULL CHECK (value > 0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Admin வேண்டுமென்றே ஏற்ற (மடங்கல்லாத) தொகை — மடங்குப் பிழைப் பட்டியலில் இனி வராது
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS multiples_ok BOOLEAN NOT NULL DEFAULT false;
+
+-- மடங்கல்லாத தொகைக்கு Admin நிர்ணயித்த புள்ளி விவர எண்ணிக்கை (NULL = தொகையை கட்டணத்தால் வகுத்துக் கணக்கிடும்)
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_members NUMERIC(10,2);
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_patrons NUMERIC(10,2);
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_chief_patrons NUMERIC(10,2);
+ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_donors NUMERIC(10,2);
