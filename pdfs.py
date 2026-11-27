@@ -108,18 +108,39 @@ def receipt_ack_pdf(st):
     return bytes(pdf.output())
 
 
-def _year_table(pdf, d, with_sno, size_head, size_body):
+def _year_table(pdf, d, with_sno, size_head, size_body, first_w=None, line_h=5.2, pad=0.9, weighted=False):
     """மாதம் × இனங்கள் அட்டவணை (வரவுச் சுருக்கம் / தணிக்கைப் படிவம்)."""
     W = pdf.w - pdf.l_margin - pdf.r_margin
     n = len(d["cols"]) + 1
-    first = [9, 20] if with_sno else [24]
-    rest = (W - sum(first)) / n
-    widths = tuple(first + [rest] * n)
+    first = first_w or ([9, 20] if with_sno else [24])
+    if weighted:
+        # எழுத்துருவின் உண்மை அகலத்தை அளந்து: தலைப்பின் நீளமான சொல் / மிக நீளமான எண் உடையாமல் பொருந்தும் குறைந்த அகலம்;
+        # மீதமுள்ள இடம் சமமாகப் பகிரப்படும்.
+        heads = [str(c["title"]) for c in d["cols"]] + ["மொத்தம்"]
+        cols_vals = [[r["vals"][i] for r in d["rows"]] + [d["totals"]["vals"][i]] for i in range(len(d["cols"]))]
+        cols_vals.append([r["total"] for r in d["rows"]] + [d["totals"]["total"]])
+        need = []
+        for h, vs in zip(heads, cols_vals):
+            pdf.set_font("Tamil", "B", size_head)
+            wh = max(pdf.get_string_width(w) for w in h.split())
+            pdf.set_font("Tamil", "B", size_body)
+            wn = max(pdf.get_string_width(_money(v)) for v in vs)
+            need.append(max(wh, wn) + 2 * pad + 1.6)
+        avail = W - sum(first)
+        if sum(need) > avail:                       # இடம் போதாது எனில் விகிதப்படி சுருக்கு
+            need = [x * avail / sum(need) for x in need]
+        else:
+            extra = (avail - sum(need)) / len(need)
+            need = [x + extra for x in need]
+        widths = tuple(first + need)
+    else:
+        rest = (W - sum(first)) / n
+        widths = tuple(first + [rest] * n)
     head = FontFace(emphasis="BOLD", size_pt=size_head, fill_color=(223, 241, 253))
     bold = FontFace(emphasis="BOLD", size_pt=size_body, fill_color=(244, 244, 244))
     pdf.set_font("Tamil", "", size_body)
     with pdf.table(col_widths=widths, text_align=tuple(["CENTER"] * len(widths)), headings_style=head,
-                   line_height=5.2, padding=0.9, borders_layout="ALL") as t:
+                   line_height=line_h, padding=pad, borders_layout="ALL") as t:
         h = t.row()
         if with_sno:
             h.cell("வ.எண்")
@@ -145,10 +166,11 @@ def _year_table(pdf, d, with_sno, size_head, size_body):
         row.cell(_money(d["totals"]["total"]), style=bold)
 
 
-def _year_pdf_new(d):
-    pdf = FPDF(orientation="L" if len(d["cols"]) > 7 else "P", unit="mm", format="A4")
-    pdf.set_margins(12, 14, 12)
-    pdf.set_auto_page_break(auto=True, margin=12)
+def _year_pdf_new(d, orientation=None, margin=12):
+    """orientation: None = நெடுவரிசை >7 எனில் landscape; 'P' / 'L' = கட்டாயம்."""
+    pdf = FPDF(orientation=orientation or ("L" if len(d["cols"]) > 7 else "P"), unit="mm", format="A4")
+    pdf.set_margins(margin, 12, margin)
+    pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_font("Tamil", "", os.path.join(_FONTS, "NotoSansTamil-Regular.ttf"))
     pdf.add_font("Tamil", "B", os.path.join(_FONTS, "NotoSansTamil-Bold.ttf"))
     pdf.set_text_shaping(True)
@@ -168,7 +190,7 @@ def yearly_receipt_pdf(d):
 
 def audit_receipt_pdf(d, f):
     """getLibraryReceiptYearly(audit=True) + நூலகர் உள்ளிட்ட f={ob,exp,bo,ba,bw} -> தணிக்கைப் படிவம்."""
-    pdf = _year_pdf_new(d)
+    pdf = _year_pdf_new(d, "P", 8)          # எப்போதும் A4 portrait (நெடுவரிசை எத்தனை இருந்தாலும்)
     total = f["ob"] + d["officeReceipts"] + d["totals"]["total"]
     closing = total - f["exp"]
     book_end = f["bo"] + f["ba"] - f["bw"]
@@ -176,8 +198,8 @@ def audit_receipt_pdf(d, f):
     _c(pdf, 8, "தணிக்கை படிவம்", 13)
     _c(pdf, 7, "நூலக வரவினங்கள் - " + str(d["fyLabel"]), 11.5)
     _c(pdf, 7, "நூலகம் பெயர் : " + str(d["library"]), 11.5, gap=3)
-    _year_table(pdf, d, False, 7, 8)
-    pdf.ln(8)
+    _year_table(pdf, d, False, 5.6, 7, first_w=[19], line_h=4.6, pad=0.45, weighted=True)
+    pdf.ln(6)
     W = pdf.w - pdf.l_margin - pdf.r_margin
     gap = 8
     cw = (W - gap) / 2
@@ -190,10 +212,15 @@ def audit_receipt_pdf(d, f):
         pdf.cell(cw, 7, title, align="C", new_x="LEFT", new_y="NEXT")
         pdf.set_x(x)
         pdf.set_font("Tamil", "", 9.5)
+        old_l = pdf.l_margin
+        pdf.set_left_margin(x)
+        pdf.set_x(x)
         with pdf.table(col_widths=(cw - 26, 26), text_align=("LEFT", "CENTER"), line_height=5.8,
-                       padding=1.4, borders_layout="ALL", first_row_as_headings=False, width=cw) as t:
+                       padding=1.4, borders_layout="ALL", first_row_as_headings=False, width=cw,
+                       align="LEFT") as t:
             for k, v in pairs:
                 r = t.row(); r.cell(str(k)); r.cell(str(v))
+        pdf.set_left_margin(old_l)
         return pdf.get_y()
 
     fy = str(d["fyLabel"])
@@ -204,7 +231,7 @@ def audit_receipt_pdf(d, f):
     y2 = kv_table(pdf.l_margin + cw + gap, "நூல் இருப்பு விவரம்",
                   [(fy + " ஆரம்ப இருப்பு", f["bo"]), (fy + " சேர்க்கை", f["ba"]),
                    (fy + " விலகல்", f["bw"]), (fy + " இறுதி இருப்பு", book_end)])
-    pdf.set_y(max(y1, y2) + 14)
+    pdf.set_y(max(y1, y2) + 10)
     pdf.set_font("Tamil", "B", 10)
     pdf.cell(0, 5.5, "VERIFIED WITH OFFICE ACCOUNTS", align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 5.5, "AND FOUND CORRECT", align="R", new_x="LMARGIN", new_y="NEXT")
