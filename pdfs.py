@@ -108,62 +108,92 @@ def receipt_ack_pdf(st):
     return bytes(pdf.output())
 
 
-def _year_table(pdf, d, with_sno, size_head, size_body, first_w=None, line_h=5.2, pad=0.9, weighted=False):
-    """மாதம் × இனங்கள் அட்டவணை (வரவுச் சுருக்கம் / தணிக்கைப் படிவம்)."""
-    W = pdf.w - pdf.l_margin - pdf.r_margin
-    n = len(d["cols"]) + 1
-    first = first_w or ([9, 20] if with_sno else [24])
-    if weighted:
-        # எழுத்துருவின் உண்மை அகலத்தை அளந்து: தலைப்பின் நீளமான சொல் / மிக நீளமான எண் உடையாமல் பொருந்தும் குறைந்த அகலம்;
-        # மீதமுள்ள இடம் சமமாகப் பகிரப்படும்.
-        heads = [str(c["title"]) for c in d["cols"]] + ["மொத்தம்"]
-        cols_vals = [[r["vals"][i] for r in d["rows"]] + [d["totals"]["vals"][i]] for i in range(len(d["cols"]))]
-        cols_vals.append([r["total"] for r in d["rows"]] + [d["totals"]["total"]])
-        need = []
-        for h, vs in zip(heads, cols_vals):
-            pdf.set_font("Tamil", "B", size_head)
-            wh = max(pdf.get_string_width(w) for w in h.split())
-            pdf.set_font("Tamil", "B", size_body)
-            wn = max(pdf.get_string_width(_money(v)) for v in vs)
-            need.append(max(wh, wn) + 2 * pad + 1.6)
-        avail = W - sum(first)
-        if sum(need) > avail:                       # இடம் போதாது எனில் விகிதப்படி சுருக்கு
-            need = [x * avail / sum(need) for x in need]
+def _wrap_lines(pdf, text, width):
+    """சொல் எல்லையில் மட்டும் உடைத்தால் தேவைப்படும் வரிகள் (தற்போதைய font-ல்)."""
+    sp, lines, cur = pdf.get_string_width(" "), 1, 0.0
+    for w in str(text).split():
+        ww = pdf.get_string_width(w)
+        if cur and cur + sp + ww > width:
+            lines += 1
+            cur = ww
         else:
-            extra = (avail - sum(need)) / len(need)
-            need = [x + extra for x in need]
-        widths = tuple(first + need)
-    else:
-        rest = (W - sum(first)) / n
-        widths = tuple(first + [rest] * n)
-    head = FontFace(emphasis="BOLD", size_pt=size_head, fill_color=(223, 241, 253))
-    bold = FontFace(emphasis="BOLD", size_pt=size_body, fill_color=(244, 244, 244))
-    pdf.set_font("Tamil", "", size_body)
-    with pdf.table(col_widths=widths, text_align=tuple(["CENTER"] * len(widths)), headings_style=head,
-                   line_height=line_h, padding=pad, borders_layout="ALL") as t:
+            cur += (sp if cur else 0) + ww
+    return lines
+
+
+def _adaptive_table(pdf, cols, nbody, foot_label, foot_span, reserve_h=0, max_pt=11.0, min_pt=5.5, num_align="CENTER"):
+    """நெடுவரிசை எண்ணிக்கைக்கு ஏற்ப தானாக அளவு பொருத்தும் அட்டவணை.
+    cols: [{"head": str, "cells": [str]*nbody, "foot": str|None (முதல் foot_span நெடுவரிசைகளுக்கு None)}]
+    - தலைப்புகள் குறைவு -> எழுத்து பெரிது (max_pt வரை); அதிகம் -> தேவையான அளவுக்கு மட்டும் சிறிது.
+    - தலைப்புச் சொல்லும் எண்ணும் உடையாத குறைந்த அகலம்; மீதி இடம் மிதமாகப் பகிரப்பட்டு அட்டவணை நடுவில் அமையும்.
+    - பக்கத்தின் உயரத்துக்குள் (reserve_h தவிர) ஒரே பக்கத்தில் அடங்கும் மிகப்பெரிய எழுத்தளவு தேர்வாகும்."""
+    avail_w = pdf.w - pdf.l_margin - pdf.r_margin
+    avail_h = pdf.h - pdf.get_y() - 10 - reserve_h          # கீழ் ஓரம் 10 மிமீ
+    if foot_span == 1:                                     # 'மொத்தம்' ஒற்றை நெடுவரிசையில் வருவதால் அதன் அகலமும் கணக்கில்
+        cols[0]["foot"] = foot_label
+    size = max_pt
+    chosen = None
+    while size >= min_pt - 1e-9:
+        hs = max(round(size * 0.8, 1), 5.2)
+        pad = 0.7 + (size - 6) * 0.1
+        lh = size * 0.3528 * 1.3
+        needs = []
+        for c in cols:
+            pdf.set_font("Tamil", "B", hs)
+            wh = max(pdf.get_string_width(w) for w in (str(c["head"]).split() or [" "]))
+            pdf.set_font("Tamil", "B", size)
+            texts = list(c["cells"]) + ([c["foot"]] if c.get("foot") is not None else [])
+            wb = max([pdf.get_string_width(x) for x in texts] + [0])
+            needs.append(max(wh, wb) * 1.08 + 2 * pad + 1.0)
+        if sum(needs) <= avail_w:
+            extra = avail_w - sum(needs)
+            adds = [min(extra / len(cols), 0.3 * n) for n in needs]
+            widths = [n + a for n, a in zip(needs, adds)]
+            pdf.set_font("Tamil", "B", hs)
+            hl = max(_wrap_lines(pdf, c["head"], w - 2 * pad - 0.8) for c, w in zip(cols, widths))
+            height = hl * lh + 2 * pad + (nbody + 1) * (lh + 2 * pad)
+            chosen = (size, hs, pad, lh, widths)
+            if height <= avail_h:
+                break
+        size -= 0.5
+    if chosen is None or size < min_pt - 1e-9:                 # எதுவும் பொருந்தவில்லை -> குறைந்த அளவு
+        size = min_pt
+        hs, pad, lh = round(size * 0.9, 1), 0.7, size * 0.3528 * 1.3
+        w0 = avail_w / len(cols)
+        chosen = (size, hs, pad, lh, [w0] * len(cols))
+    size, hs, pad, lh, widths = chosen
+    head = FontFace(emphasis="BOLD", size_pt=hs, fill_color=(223, 241, 253))
+    bold = FontFace(emphasis="BOLD", size_pt=size, fill_color=(244, 244, 244))
+    pdf.set_font("Tamil", "", size)
+    aligns = tuple(["CENTER"] * foot_span + [num_align] * (len(cols) - foot_span))
+    with pdf.table(col_widths=tuple(widths), width=sum(widths), align="CENTER", text_align=aligns,
+                   headings_style=head, line_height=lh, padding=pad, borders_layout="ALL") as t:
         h = t.row()
-        if with_sno:
-            h.cell("வ.எண்")
-        h.cell("மாதம்")
-        for c in d["cols"]:
-            h.cell(str(c["title"]))
-        h.cell("மொத்தம்")
-        for i, r in enumerate(d["rows"], 1):
+        for c in cols:
+            h.cell(str(c["head"]), align="C")
+        for r in range(nbody):
             row = t.row()
-            if with_sno:
-                row.cell(str(i))
-            row.cell(str(r["label"]))
-            for v in r["vals"]:
-                row.cell(_money(v))
-            row.cell(_money(r["total"]))
+            for c in cols:
+                row.cell(str(c["cells"][r]))
         row = t.row()
-        if with_sno:
-            row.cell("மொத்தம்", style=bold, colspan=2)
-        else:
-            row.cell("மொத்தம்", style=bold)
-        for v in d["totals"]["vals"]:
-            row.cell(_money(v), style=bold)
-        row.cell(_money(d["totals"]["total"]), style=bold)
+        row.cell(foot_label, style=bold, colspan=foot_span, align="C")
+        for c in cols[foot_span:]:
+            row.cell(str(c["foot"]), style=bold)
+    return size
+
+
+def _year_table(pdf, d, with_sno, reserve_h=0, max_pt=11.0):
+    """மாதம் × இனங்கள் அட்டவணை (வரவுச் சுருக்கம் / தணிக்கைப் படிவம்) — தானாக அளவு பொருந்தும்."""
+    rows, nb = d["rows"], len(d["rows"])
+    cols = []
+    if with_sno:
+        cols.append({"head": "வ.எண்", "cells": [str(i) for i in range(1, nb + 1)], "foot": None})
+    cols.append({"head": "மாதம்", "cells": [str(r["label"]) for r in rows], "foot": None})
+    for i, c in enumerate(d["cols"]):
+        cols.append({"head": str(c["title"]), "cells": [_money(r["vals"][i]) for r in rows],
+                     "foot": _money(d["totals"]["vals"][i])})
+    cols.append({"head": "மொத்தம்", "cells": [_money(r["total"]) for r in rows], "foot": _money(d["totals"]["total"])})
+    return _adaptive_table(pdf, cols, nb, "மொத்தம்", 2 if with_sno else 1, reserve_h, max_pt)
 
 
 def _year_pdf_new(d, orientation=None, margin=12):
@@ -184,7 +214,7 @@ def yearly_receipt_pdf(d):
     _c(pdf, 8, "திண்டுக்கல் மாவட்ட நூலக ஆணைக்குழு", 15)
     _c(pdf, 7, str(d["library"]), 12, gap=1)
     _c(pdf, 7, "நூலக வரவு சுருக்கம் " + str(d["fyLabel"]), 12, gap=4)
-    _year_table(pdf, d, True, 7, 8)
+    _year_table(pdf, d, True)
     return bytes(pdf.output())
 
 
@@ -198,7 +228,7 @@ def audit_receipt_pdf(d, f):
     _c(pdf, 8, "தணிக்கை படிவம்", 13)
     _c(pdf, 7, "நூலக வரவினங்கள் - " + str(d["fyLabel"]), 11.5)
     _c(pdf, 7, "நூலகம் பெயர் : " + str(d["library"]), 11.5, gap=3)
-    _year_table(pdf, d, False, 5.6, 7, first_w=[19], line_h=4.6, pad=0.45, weighted=True)
+    _year_table(pdf, d, False, reserve_h=92, max_pt=10)
     pdf.ln(6)
     W = pdf.w - pdf.l_margin - pdf.r_margin
     gap = 8
@@ -208,14 +238,14 @@ def audit_receipt_pdf(d, f):
 
     def kv_table(x, title, pairs):
         pdf.set_xy(x, y0)
-        pdf.set_font("Tamil", "B", 10.5)
-        pdf.cell(cw, 7, title, align="C", new_x="LEFT", new_y="NEXT")
+        pdf.set_font("Tamil", "B", 12)
+        pdf.cell(cw, 8, title, align="C", new_x="LEFT", new_y="NEXT")
         pdf.set_x(x)
-        pdf.set_font("Tamil", "", 9.5)
+        pdf.set_font("Tamil", "", 11)
         old_l = pdf.l_margin
         pdf.set_left_margin(x)
         pdf.set_x(x)
-        with pdf.table(col_widths=(cw - 26, 26), text_align=("LEFT", "CENTER"), line_height=5.8,
+        with pdf.table(col_widths=(cw - 30, 30), text_align=("LEFT", "CENTER"), line_height=5.2,
                        padding=1.4, borders_layout="ALL", first_row_as_headings=False, width=cw,
                        align="LEFT") as t:
             for k, v in pairs:
@@ -232,9 +262,9 @@ def audit_receipt_pdf(d, f):
                   [(fy + " ஆரம்ப இருப்பு", f["bo"]), (fy + " சேர்க்கை", f["ba"]),
                    (fy + " விலகல்", f["bw"]), (fy + " இறுதி இருப்பு", book_end)])
     pdf.set_y(max(y1, y2) + 10)
-    pdf.set_font("Tamil", "B", 10)
-    pdf.cell(0, 5.5, "VERIFIED WITH OFFICE ACCOUNTS", align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 5.5, "AND FOUND CORRECT", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Tamil", "B", 11)
+    pdf.cell(0, 6, "VERIFIED WITH OFFICE ACCOUNTS", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, "AND FOUND CORRECT", align="R", new_x="LMARGIN", new_y="NEXT")
     return bytes(pdf.output())
 
 
@@ -257,35 +287,21 @@ def yearly_expense_pdf(d):
     _c(pdf, 7, str(d["library"]), 12)
     _c(pdf, 7, "நூலக ஆண்டு செலவின சுருக்கம் " + fy_txt, 11.5, gap=3)
     t_ = d["totals"]
+    rows, nb = d["rows"], len(d["rows"])
     heads = [str(c["title"]) for c in d["cols"]] + ["மொத்த செலவினம் (நாளிதழ் / வாடகை தவிர்த்து)", "மொத்த செலவினம்"]
     sums = list(t_["vals"]) + [t_["net"], t_["total"]]
-    # நெடுவரிசை அகலம்: தலைப்பின் நீளமான சொல் அல்லது மொத்தத் தொகையின் நீளத்துக்கு ஏற்ப
-    weights = []
-    for h, s in zip(heads, sums):
-        longest = max([len(w) for w in h.split()] + [1])
-        weights.append(max(longest * 0.9 + 1.5, len(_money(s)) * 1.3 + 1.5, 6))
-    fixed = (8, 12)
-    scale = (W - sum(fixed)) / sum(weights)
-    widths = tuple(list(fixed) + [w * scale for w in weights])
-    head = FontFace(emphasis="BOLD", size_pt=6, fill_color=(223, 241, 253))
-    bold = FontFace(emphasis="BOLD", size_pt=6.5, fill_color=(244, 244, 244))
-    pdf.set_font("Tamil", "", 6.5)
-    with pdf.table(col_widths=widths, text_align=tuple(["CENTER", "CENTER"] + ["RIGHT"] * len(heads)),
-                   headings_style=head, line_height=4.4, padding=0.7, borders_layout="ALL") as t:
-        h = t.row()
-        h.cell("வ.எண்"); h.cell("மாதம்")
-        for x in heads:
-            h.cell(x, align="C")
-        for i, r in enumerate(d["rows"], 1):
-            row = t.row()
-            row.cell(str(i), align="C"); row.cell(str(r["label"]), align="C")
-            for v in r["vals"]:
-                row.cell(_blank_if_zero(v))
-            row.cell(_money(r["net"])); row.cell(_money(r["total"]))
-        row = t.row()
-        row.cell(str(t_["label"]), style=bold, colspan=2, align="C")
-        for s in sums:
-            row.cell(_money(s), style=bold)
+    cols = [{"head": "வ.எண்", "cells": [str(i) for i in range(1, nb + 1)], "foot": None},
+            {"head": "மாதம்", "cells": [str(r["label"]) for r in rows], "foot": None}]
+    for i, h in enumerate(heads):
+        if i < len(d["cols"]):
+            cells = [_blank_if_zero(r["vals"][i]) for r in rows]
+        elif i == len(d["cols"]):
+            cells = [_money(r["net"]) for r in rows]
+        else:
+            cells = [_money(r["total"]) for r in rows]
+        cols.append({"head": h, "cells": cells, "foot": _money(sums[i])})
+    # தலைப்புகள் குறைவு -> எழுத்து பெரிது; அதிகம் -> தேவைக்கேற்பச் சிறிது (landscape ஒரே பக்கத்தில்)
+    _adaptive_table(pdf, cols, nb, str(t_["label"]), 2, max_pt=11, num_align="RIGHT")
     return bytes(pdf.output())
 
 
