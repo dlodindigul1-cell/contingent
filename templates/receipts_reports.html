@@ -24,6 +24,30 @@ table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{border:1px solid #c9d3e3;padding:6px 8px;vertical-align:top}
 th{background:#e8eff9;text-align:center}
 td.num{text-align:right}tr.b td{font-weight:700;background:#f3f6fb}
+
+html,body{max-width:100%;overflow-x:hidden}
+*,*::before,*::after{box-sizing:border-box}
+img{max-width:100%;height:auto}
+input,select,textarea{max-width:100%;font-size:16px;font-family:inherit}
+.tw,.card{-webkit-overflow-scrolling:touch}
+@media(max-width:700px){
+  .wrap{margin:10px auto!important;padding:10px!important}
+  .card{padding:14px 12px!important;overflow-x:auto}
+  h1{font-size:21px;line-height:1.35}
+  h2{font-size:18px}
+  button,.btn{min-height:44px;font-size:16px}
+  .toolbar>*,.pick>*{flex:1 1 100%}
+  .toolbar .btn,.toolbar button{flex:1 1 auto}
+  .topnav{font-size:14px}
+  .tabs button{flex:1 1 100%;text-align:left;min-height:44px}
+  .dg{grid-template-columns:1fr!important}
+  .dc .rl{max-height:320px}
+  .dc .rh b{font-size:22px}
+  table{font-size:13px}
+  th,td{padding:6px 6px}
+  .tw table,.card>table,.card>div>table{min-width:520px}
+  input[style*="width"],select[style*="width"]{max-width:100%}
+}
 </style></head><body>
 <div class="wrap">
 <div class="topnav"><a href="/admin">← Admin முகப்பு</a><a href="/receipts">₹ நூலக வரவின மேலாண்மை</a><a href="/logout">வெளியேறு</a></div>

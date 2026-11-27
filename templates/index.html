@@ -589,6 +589,41 @@ button:not(.back-btn):hover{filter:brightness(1.12)}
 .voucher-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;padding:14px 16px;background:#fff8e6;border:1px solid #f0d58a;border-left:5px solid var(--tn-gold);border-radius:8px}
 .voucher-strip span{font-size:13px;color:#64748b}.voucher-strip .btn-voucher{width:auto;padding:10px 18px;margin:0}
 @media(max-width:560px){.container,#stage5{margin:10px 8px!important}}
+
+/* ===== கைபேசி / சிறிய திரை சீரமைப்பு ===== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,video,canvas{max-width:100%;height:auto}
+select,input,textarea{max-width:100%;box-sizing:border-box;font-size:16px}
+table{max-width:100%}
+.premium-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.container,#stage5{box-sizing:border-box;width:auto}
+@media(max-width:600px){
+  body{padding-top:38px!important}
+  .container,#stage5{padding:16px 14px!important;margin:8px 8px 16px!important;width:auto!important;max-width:100%!important}
+  .stage0-header{margin:-16px -14px 14px!important;padding:12px 8px!important}
+  #stage0 h2,.header-title h2{font-size:18px!important;line-height:1.35}
+  #stage0 h3,.header-title h3{font-size:15px!important}
+  .header-logo{width:46px!important;max-height:56px}
+  button{min-height:44px;font-size:16px}
+  .back-btn{min-height:44px}
+  .add-grid{grid-template-columns:1fr!important}
+  .sum-row{padding:10px!important}
+  .sum-act{justify-content:stretch}
+  .sum-act .btn-sm{flex:1}
+  .voucher-strip{flex-direction:column;align-items:stretch}
+  .voucher-strip .btn-voucher{width:100%}
+  .premium-table{font-size:13px}
+  .premium-table td{padding:8px 6px}
+  .mqLine{font-size:13px!important}
+  input[style*="width:"],select[style*="width:"]{max-width:100%!important}
+  [style*="min-width:260px"]{min-width:0!important}
+  [style*="min-width:280px"]{min-width:0!important}
+  #stage0 select,#stage0 input{width:100%!important}
+}
+@media(max-width:380px){
+  .container,#stage5{margin:6px 4px 14px!important;padding:12px 10px!important}
+}
 </style>
 
 
@@ -4778,6 +4813,5 @@ window.addEventListener('load', function () {
   }).getReceiptWindow();
 });
 </script>
-<a href="/receipts" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#174a78;color:#fff;padding:12px 16px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px #0003">₹ நூலக வரவினங்கள்</a>
 </body>
 </html>
