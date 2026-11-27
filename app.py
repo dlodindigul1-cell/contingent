@@ -634,6 +634,74 @@ def getApprovedExpenseStatement(libraryName, monthYear):
             "totalExcl": jnum(total_ex), "total": jnum(total), "inWords": amount_in_words(total_ex)}
 
 
+_TA_MONTHS_HOME = ["ஜனவரி", "பிப்ரவரி", "மார்ச்", "ஏப்ரல்", "மே", "ஜூன்", "ஜூலை", "ஆகஸ்ட்",
+                   "செப்டம்பர்", "அக்டோபர்", "நவம்பர்", "டிசம்பர்"]
+
+
+def _ta_month_label(my):
+    try:
+        m, y = str(my).split("/")
+        return _TA_MONTHS_HOME[int(m) - 1] + " " + y
+    except (ValueError, IndexError):
+        return str(my or "")
+
+
+@rpc
+def getHomeHighlights(libraryName):
+    """முகப்புப் பக்கத் தகவல் பலகைகள்: கடந்த மாத வரவினம் + புள்ளி விவரம் (இடது), அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் (வலது)."""
+    name = str(libraryName or "").strip()
+    out = {"success": True, "library": name, "receipt": None, "expense": None}
+    if not name:
+        return out
+    now = dt.datetime.now(IST)
+    prev = now.replace(day=1) - dt.timedelta(days=1)
+    prev_my = "%02d/%d" % (prev.month, prev.year)
+    order = "ORDER BY substr(month_year, 4, 4) DESC, substr(month_year, 1, 2) DESC"
+    f = lambda v: float(v or 0)
+
+    # ---- இடது: வரவினம் (கடந்த மாதம்; இல்லையெனில் கடைசிப் பதிவு) ----
+    try:
+        r = db.fetch_one("SELECT * FROM library_receipts WHERE library_name = %s AND month_year = %s", (name, prev_my))
+        if not r:
+            r = db.fetch_one("SELECT * FROM library_receipts WHERE library_name = %s " + order + " LIMIT 1", (name,))
+        if r:
+            heads = [("காப்புத் தொகை", "security_amount"), ("ஆண்டுச் சந்தா", "annual_amount"),
+                     ("நாளிதழ் விற்பனை", "newspaper_amount"), ("காலதாமதக் கட்டணம்", "late_fee"),
+                     ("நூல் அபராதம்", "book_fine"), ("பழைய நூல் விற்பனை", "old_book_sale"),
+                     ("புரவலர்", "patron"), ("பெரும்புரவலர்", "chief_patron"),
+                     ("கொடையாளர்", "donor"), ("இதர வரவு", "other_income")]
+            items = [{"label": t, "amount": f(r.get(c))} for t, c in heads if f(r.get(c)) != 0]
+            stats = []
+            for t, c in [("உறுப்பினர்", "stat_members"), ("புரவலர்", "stat_patrons"),
+                         ("பெரும்புரவலர்", "stat_chief_patrons"), ("கொடையாளர்", "stat_donors"),
+                         ("வாசகர் வருகை", "visitors"), ("நூலிரவல்", "issues"),
+                         ("நூல் பயன்பாடு", "book_usage"), ("நூல் இருப்பு", "book_stock")]:
+                v = r.get(c)
+                if v is not None:
+                    stats.append({"label": t, "value": int(round(f(v)))})
+            out["receipt"] = {"month": r["month_year"], "monthLabel": _ta_month_label(r["month_year"]),
+                              "isPrev": r["month_year"] == prev_my, "status": r.get("status") or "",
+                              "total": f(r.get("total_amount")), "items": items, "stats": stats}
+    except Exception:
+        app.logger.exception("getHomeHighlights: வரவினம் படிக்க முடியவில்லை")
+
+    # ---- வலது: அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் (கடந்த மாதம்; இல்லையெனில் கடைசி அனுமதி) ----
+    try:
+        c = db.fetch_one("SELECT month_year FROM claims WHERE library_name = %s AND month_year = %s AND approved",
+                         (name, prev_my))
+        if not c:
+            c = db.fetch_one("SELECT month_year FROM claims WHERE library_name = %s AND approved " + order + " LIMIT 1", (name,))
+        if c:
+            st = getApprovedExpenseStatement(name, c["month_year"])
+            if st.get("success"):
+                out["expense"] = {"month": c["month_year"], "monthLabel": _ta_month_label(c["month_year"]),
+                                  "isPrev": c["month_year"] == prev_my, "total": f(st.get("total")),
+                                  "items": [{"label": i["desc"], "amount": f(i["amount"])} for i in st.get("items", [])]}
+    except Exception:
+        app.logger.exception("getHomeHighlights: செலவினம் படிக்க முடியவில்லை")
+    return out
+
+
 @rpc
 def getClaimsForApproval(monthYear=None):
     m = _month_or_now(monthYear)
