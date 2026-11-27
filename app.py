@@ -19,6 +19,8 @@ from psycopg2.extras import execute_values
 import db
 from common import multi_worker_type, in_active_fy
 import importer
+import mailer
+import pdfs
 from common import (CLAIM_NUM, CLAIM_TEXT, NEWSPAPER_KEYS, TOTAL_SLOTS, WAGE_MAP, jnum,
                     make_unique_key, snake, to_num, upsert_claim)
 
@@ -97,7 +99,7 @@ def _ensure_schema():
 
 
 # admin மட்டும் சேமிக்கக்கூடியவை
-ADMIN_ONLY = {"getHomeHighlights", "getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
+ADMIN_ONLY = {"getHomeHighlights", "getApprovedExpenseStatement", "getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",
@@ -633,6 +635,59 @@ def getApprovedExpenseStatement(libraryName, monthYear):
     total_ex = total - paper_total - rent
     return {"success": True, "library": row["library_name"], "month": row["month_year"], "items": items,
             "totalExcl": jnum(total_ex), "total": jnum(total), "inWords": amount_in_words(total_ex)}
+
+
+EMAIL_LIMIT_PER_HOUR = 5      # ஒரு நூலகத்துக்கு மணிக்கு அதிகபட்சம் (வேறொருவர் அஞ்சல் பெட்டியை நிரப்புவதைத் தடுக்க)
+
+
+def _email_report(libraryName, kind, monthYear, subject, build_pdf, filename, intro):
+    """அறிக்கையை PDF ஆக்கி, நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு மட்டும் அனுப்பும்.
+    பெறுநர் எப்போதும் database-ல் உள்ள முகவரிகள்; கேட்பவர் மாற்ற முடியாது. தரவு திரைக்கு ஒருபோதும் திரும்பாது."""
+    name = str(libraryName or "").strip()
+    row = db.fetch_one("SELECT name, emails FROM libraries WHERE name = %s", (name,))
+    if not row:
+        return {"success": False, "message": "நூலகம் கிடைக்கவில்லை."}
+    to = mailer.valid_emails(row["emails"])
+    if not to:
+        return {"success": False, "message": "இந்த நூலகத்துக்கு மின்னஞ்சல் பதிவு இல்லை. மாவட்ட நூலக அலுவலகத்தைத் தொடர்பு கொள்ளவும்."}
+    if not mailer.configured():
+        return {"success": False, "message": "மின்னஞ்சல் வசதி இன்னும் அமைக்கப்படவில்லை. நிர்வாகியைத் தொடர்பு கொள்ளவும்."}
+    used = db.fetch_one("SELECT COUNT(*) AS n FROM report_email_log WHERE library_name = %s AND sent_at > now() - interval '1 hour'", (name,))["n"]
+    if used >= EMAIL_LIMIT_PER_HOUR:
+        return {"success": False, "message": "ஒரு மணி நேரத்தில் அனுப்பக்கூடிய எண்ணிக்கை முடிந்தது. சிறிது நேரம் கழித்து முயலவும்."}
+    data = build_pdf()
+    if isinstance(data, dict):            # பிழைச் செய்தி
+        return data
+    html = ('<div style="font-family:Arial,sans-serif;font-size:15px;color:#1f2937">'
+            '<p>வணக்கம்,</p><p>%s</p><p>அறிக்கை PDF ஆக இணைக்கப்பட்டுள்ளது.</p>'
+            '<p style="color:#64748b;font-size:12.5px">இந்த மின்னஞ்சல் நூலகத்தின் பதிவு செய்த முகவரிக்கு மட்டும் அனுப்பப்பட்டது. '
+            'நீங்கள் இதைக் கோரவில்லை எனில் புறக்கணிக்கவும்.</p>'
+            '<p>மாவட்ட நூலக அலுவலகம், திண்டுக்கல்</p></div>') % escape(intro)
+    try:
+        mailer.send_email(to, subject, html, [(filename, data)])
+    except RuntimeError as e:
+        app.logger.error("report mail: %s", e)
+        return {"success": False, "message": "மின்னஞ்சல் அனுப்ப முடியவில்லை. சிறிது நேரம் கழித்து முயலவும்."}
+    db.execute("INSERT INTO report_email_log (library_name, kind, month_year, sent_to) VALUES (%s,%s,%s,%s)",
+               (name, kind, monthYear or "", ",".join(to)))
+    return {"success": True, "sentTo": [mailer.mask_email(e) for e in to],
+            "message": "அறிக்கை %s க்கு அனுப்பப்பட்டது." % ", ".join(mailer.mask_email(e) for e in to)}
+
+
+@rpc
+def emailApprovedExpenseStatement(libraryName, monthYear):
+    """அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் PDF -> நூலகத்தின் பதிவு மின்னஞ்சலுக்கு."""
+    name, my = str(libraryName or "").strip(), str(monthYear or "").strip()
+
+    def build():
+        st = getApprovedExpenseStatement(name, my)
+        return st if not st.get("success") else pdfs.approved_expense_pdf(st)
+    lib = db.fetch_one("SELECT code FROM libraries WHERE name = %s", (name,))
+    code = re.sub(r"[^A-Za-z0-9]+", "", (lib or {}).get("code") or "") or "Library"      # கோப்புப் பெயர் ஆங்கிலத்தில்
+    fname = "Approved_Expense_%s_%s.pdf" % (code, my.replace("/", "-"))
+    return _email_report(name, "approved_expense", my,
+                         "அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் — %s — %s" % (name, _ta_month_label(my)),
+                         build, fname, "%s நூலகத்தின் %s மாத அனுமதிக்கப்பட்ட சில்லறைச் செலவின அறிக்கை." % (name, _ta_month_label(my)))
 
 
 _TA_MONTHS_HOME = ["ஜனவரி", "பிப்ரவரி", "மார்ச்", "ஏப்ரல்", "மே", "ஜூன்", "ஜூலை", "ஆகஸ்ட்",

@@ -414,3 +414,14 @@ INSERT INTO library_stats_base (library_name, fee, members, patrons, chief_patro
 INSERT INTO library_newspaper_map (library_id, slot, active)
   SELECT l.id, n.slot, TRUE FROM libraries l, newspapers n WHERE l.name = 'சோதனை நூலகம்' AND n.name <> ''
   ON CONFLICT (library_id, slot) DO NOTHING;
+
+-- அறிக்கை மின்னஞ்சல்கள் அனுப்பிய பதிவு (ஒரு நூலகத்துக்கு மணிக்கு எண்ணிக்கை வரம்புக்கு)
+CREATE TABLE IF NOT EXISTS report_email_log (
+  id           BIGSERIAL PRIMARY KEY,
+  library_name TEXT NOT NULL,
+  kind         TEXT NOT NULL,
+  month_year   TEXT NOT NULL DEFAULT '',
+  sent_to      TEXT NOT NULL DEFAULT '',
+  sent_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_report_email_log ON report_email_log(library_name, sent_at);

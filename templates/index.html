@@ -2239,7 +2239,7 @@ function showApprovedMonthPicker(libraryName, months) {
       </select>
       <div style="margin-top:18px;text-align:right;">
         <button id="closeMonthBtn" style="margin-right:8px;padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f3f4f6;color:#111;font-weight:600;">மூடு</button>
-        <button id="confirmMonthBtn" style="background:#ff9800;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📥 PDF பதிவிறக்கு</button>
+        <button id="confirmMonthBtn" style="background:#ff9800;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📧 மின்னஞ்சலில் அனுப்பு</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -2247,16 +2247,18 @@ function showApprovedMonthPicker(libraryName, months) {
   document.getElementById("confirmMonthBtn").onclick = async function () {
     const my = document.getElementById("monthPickSelect").value;
     const btn = this, old = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = "⏳ தயாராகிறது…";
-    const st = await new Promise(res => google.script.run.withSuccessHandler(res)
+    btn.disabled = true; btn.innerHTML = "⏳ அனுப்பப்படுகிறது…";
+    // அறிக்கை திரையில் காட்டப்படாது — நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு மட்டும் PDF அனுப்பப்படும்
+    const r = await new Promise(res => google.script.run.withSuccessHandler(res)
       .withFailureHandler(e => res({ success: false, message: "Server பிழை: " + e.message }))
-      .getApprovedExpenseStatement(libraryName, my));
-    if (!st || !st.success) {
-      alert((st && st.message) || "அறிக்கை உருவாக்க முடியவில்லை");
-      btn.disabled = false; btn.innerHTML = old; return;
+      .emailApprovedExpenseStatement(libraryName, my));
+    if (r && r.success) {
+      modal.remove();
+      alert("✅ " + r.message + "\nஅஞ்சல் பெட்டியைச் சரிபார்க்கவும் (Spam / Junk கோப்புறையையும்).");
+    } else {
+      alert((r && r.message) || "அனுப்ப முடியவில்லை");
+      btn.disabled = false; btn.innerHTML = old;
     }
-    try { await makeApprovedExpensePdf(st); modal.remove(); }
-    catch (e) { alert("PDF உருவாக்க முடியவில்லை: " + (e && e.message ? e.message : e)); btn.disabled = false; btn.innerHTML = old; }
   };
 }
 
