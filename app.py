@@ -97,7 +97,7 @@ def _ensure_schema():
 
 
 # admin மட்டும் சேமிக்கக்கூடியவை
-ADMIN_ONLY = {"getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
+ADMIN_ONLY = {"getHomeHighlights", "getInactiveLibraries", "setLibrariesInactive", "saveNewspaperMasterList", "saveLibraryNewspaperMap", "assignNewspapersToLibraries",
               "saveWageRates", "saveHoliday", "deleteHoliday", "saveDailyWagePermissions",
               "getRegistrationStatus", "getClaimsForApproval", "getClaimForEdit", "adminSaveClaim",
               "approveClaims", "revokeClaimApproval", "deleteClaim",

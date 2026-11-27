@@ -741,20 +741,6 @@ table{max-width:100%}
         style="color:#7c3aed; font-size:22px; font-weight:800;">
   </span>
 </p>
-    <div class="hl-grid" id="hlGrid">
-      <section class="hl-card exp" aria-labelledby="hlETitle">
-        <div class="hl-head"><h4 id="hlETitle">🧾 கடந்த மாத சில்லறைச் செலவின அனுமதி</h4><span class="hl-badge" id="hlEBadge"></span></div>
-        <div class="hl-total" id="hlETotal"></div>
-        <div class="hl-view" id="hlEView" tabindex="0" aria-label="அனுமதிக்கப்பட்ட செலவினப் பட்டியல்"><div class="hl-track"><div class="hl-empty">ஏற்றப்படுகிறது…</div></div></div>
-        <div class="hl-foot">விரலால் / சுட்டியால் தொட்டால் ஓட்டம் நிற்கும்</div>
-      </section>
-      <section class="hl-card" aria-labelledby="hlRTitle">
-        <div class="hl-head"><h4 id="hlRTitle">💰 கடந்த மாத வரவினம் மற்றும் புள்ளி விவரம்</h4><span class="hl-badge" id="hlRBadge"></span></div>
-        <div class="hl-total" id="hlRTotal"></div>
-        <div class="hl-view" id="hlRView" tabindex="0" aria-label="வரவினம் மற்றும் புள்ளி விவரப் பட்டியல்"><div class="hl-track"><div class="hl-empty">ஏற்றப்படுகிறது…</div></div></div>
-        <div class="hl-foot">விரலால் / சுட்டியால் தொட்டால் ஓட்டம் நிற்கும்</div>
-      </section>
-    </div>
     <hr>
     <!-- 🔷 Section Headings -->
 <div class="section-title entry">பதிவு செய்தல்</div>
@@ -4877,51 +4863,15 @@ function hlSet(viewId, html) {
   var view = document.getElementById(viewId), track = view.querySelector('.hl-track');
   view.classList.remove('run'); view.style.removeProperty('--hl-dist'); view.style.removeProperty('--hl-dur');
   track.innerHTML = html;
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var h = track.scrollHeight;
-  if (h > view.clientHeight + 4) {
-    track.innerHTML = html + '<div class="hl-gap"></div><div aria-hidden="true">' + html + '</div>';
-    view.style.setProperty('--hl-dist', '-' + (h + 18) + 'px');
-    view.style.setProperty('--hl-dur', Math.max(14, Math.round(h / 24)) + 's');
-    view.classList.add('run');
-  }
+  // தானாக ஓடும் (auto-scroll) இயக்கம் நீக்கப்பட்டது — நீளமாக இருந்தால் கையால் உருட்டலாம்
 }
 function hlBadge(id, d) {
   var b = document.getElementById(id);
   b.textContent = d ? d.monthLabel + (d.isPrev ? '' : ' (கடைசிப் பதிவு)') : '';
   b.style.display = d ? '' : 'none';
 }
-function loadHomeHighlights() {
-  var lib = (document.getElementById('finalLib').textContent || '').trim();
-  if (!lib) {
-    hlSet('hlRView', '<div class="hl-empty">நூலகம் தேர்ந்தெடுக்கப்படவில்லை.</div>');
-    hlSet('hlEView', '<div class="hl-empty">நூலகம் தேர்ந்தெடுக்கப்படவில்லை.</div>');
-    return;
-  }
-  if (lib === __hlLib && Date.now() - __hlAt < 60000) return;   // 1 நிமிடத்துக்குள் மீண்டும் கேட்க வேண்டாம்
-  google.script.run.withSuccessHandler(function (r) {
-    __hlLib = lib; __hlAt = Date.now();
-    var rc = r && r.receipt, ex = r && r.expense;
-    hlBadge('hlRBadge', rc); hlBadge('hlEBadge', ex);
-    document.getElementById('hlRTotal').innerHTML = rc ? 'மொத்த வரவினம்: <b>' + hlRupee(rc.total) + '</b>' + (rc.status === 'pending' ? ' <small class="hl-pend">ஒப்புதல் நிலுவை</small>' : '') : '';
-    document.getElementById('hlETotal').innerHTML = ex ? 'அனுமதிக்கப்பட்ட தொகை: <b>' + hlRupee(ex.total) + '</b>' : '';
-    if (rc) {
-      var html = hlRows(rc.items);
-      if (rc.stats && rc.stats.length) {
-        html += '<div class="hl-sub">📊 புள்ளி விவரம்</div>' + rc.stats.map(function (s) {
-          return '<div class="hl-row"><span>' + aeEsc(s.label) + '</span><b>' + Number(s.value).toLocaleString('en-IN') + '</b></div>';
-        }).join('');
-      }
-      hlSet('hlRView', html || '<div class="hl-empty">தொகை விவரம் இல்லை.</div>');
-    } else {
-      hlSet('hlRView', '<div class="hl-empty">வரவினப் பதிவு எதுவும் இல்லை.</div>');
-    }
-    hlSet('hlEView', ex ? hlRows(ex.items) : '<div class="hl-empty">அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் இன்னும் இல்லை.</div>');
-  }).withFailureHandler(function () {
-    hlSet('hlRView', '<div class="hl-empty">தகவலை ஏற்ற முடியவில்லை.</div>');
-    hlSet('hlEView', '<div class="hl-empty">தகவலை ஏற்ற முடியவில்லை.</div>');
-  }).getHomeHighlights(lib);
-}
+// முகப்பில் கடந்த மாத விவரங்கள் காட்டப்படாது (கடவுச்சொல் இல்லாததால்) — எதுவும் ஏற்றப்படாது
+function loadHomeHighlights() {}
 
 /* ===== நூலக வரவினப் பதிவுக் காலம் (Admin அமைப்பது) ===== */
 function handleReceiptClick() {
