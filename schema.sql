@@ -425,3 +425,10 @@ CREATE TABLE IF NOT EXISTS report_email_log (
   sent_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_report_email_log ON report_email_log(library_name, sent_at);
+
+-- Admin தேர்ந்தெடுத்த நூலகங்களுக்கு அறிக்கை PDF மின்னஞ்சல் இல்லாமல் நூலகர் திரையிலேயே கிடைக்கும் (நேரடி PDF)
+CREATE TABLE IF NOT EXISTS library_direct_pdf (
+  library_name TEXT PRIMARY KEY,
+  enabled_by   TEXT NOT NULL DEFAULT '',
+  enabled_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);

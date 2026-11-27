@@ -3,6 +3,7 @@
 பழைய Google Apps Script function-கள் இங்கே அதே பெயரில், அதே return வடிவில் உள்ளன.
 HTML-ல் உள்ள google.script.run அழைப்புகள் (shim மூலம்) /rpc/<பெயர்> க்கு வரும்.
 """
+import base64
 import calendar
 import datetime as dt
 import hmac
@@ -107,7 +108,8 @@ ADMIN_ONLY = {"getHomeHighlights", "getApprovedExpenseStatement", "getInactiveLi
               "getLateRegistrationLog", "grantVoucherPermission", "revokeVoucherPermission",
               "getLibrarianReport", "getPayCenterExpenseReport", "getYearlySummaryReport",
               "getPaperVendorExpenseReport", "getPaperVendorPaymentReport", "getRentPaymentReport",
-              "getLeaveMonth", "saveLeaveEntry", "deleteLeaveEntry"}
+              "getLeaveMonth", "saveLeaveEntry", "deleteLeaveEntry",
+              "getDirectPdfLibraries", "setDirectPdf"}
 
 # அடுத்த கட்டங்களில் வரும் (இப்போது நட்பான செய்தி மட்டும்)
 LATER = {
@@ -637,7 +639,7 @@ def getApprovedExpenseStatement(libraryName, monthYear):
             "totalExcl": jnum(total_ex), "total": jnum(total), "inWords": amount_in_words(total_ex)}
 
 
-EMAIL_LIMIT_PER_HOUR = 5      # ஒரு நூலகத்துக்கு மணிக்கு அதிகபட்சம் (வேறொருவர் அஞ்சல் பெட்டியை நிரப்புவதைத் தடுக்க)
+EMAIL_LIMIT_PER_HOUR = 10     # ஒரு நூலகத்துக்கு மணிக்கு அதிகபட்சம் (வேறொருவர் அஞ்சல் பெட்டியை நிரப்புவதைத் தடுக்க)
 
 
 def _email_report(libraryName, kind, monthYear, subject, build_pdf, filename, intro):
@@ -647,6 +649,17 @@ def _email_report(libraryName, kind, monthYear, subject, build_pdf, filename, in
     row = db.fetch_one("SELECT name, emails FROM libraries WHERE name = %s", (name,))
     if not row:
         return {"success": False, "message": "நூலகம் கிடைக்கவில்லை."}
+    if _is_direct_pdf(name):
+        # Admin "நேரடி PDF" அமைத்த நூலகம் — மின்னஞ்சல் இல்லாமல் நூலகர் திரையிலேயே PDF பெறும்
+        if not (session.get("librarian") or session.get("admin")):
+            return {"success": False, "message": "உள்நுழைவு தேவை."}
+        data = build_pdf()
+        if isinstance(data, dict):
+            return data
+        db.execute("INSERT INTO report_email_log (library_name, kind, month_year, sent_to) VALUES (%s,%s,%s,%s)",
+                   (name, kind, monthYear or "", "(நேரடி PDF)"))
+        return {"success": True, "direct": True, "filename": filename,
+                "pdf": base64.b64encode(data).decode("ascii"), "message": "PDF தயார்."}
     to = mailer.valid_emails(row["emails"])
     if not to:
         return {"success": False, "message": "இந்த நூலகத்துக்கு மின்னஞ்சல் பதிவு இல்லை. மாவட்ட நூலக அலுவலகத்தைத் தொடர்பு கொள்ளவும்."}
@@ -688,6 +701,202 @@ def emailApprovedExpenseStatement(libraryName, monthYear):
     return _email_report(name, "approved_expense", my,
                          "அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் — %s — %s" % (name, _ta_month_label(my)),
                          build, fname, "%s நூலகத்தின் %s மாத அனுமதிக்கப்பட்ட சில்லறைச் செலவின அறிக்கை." % (name, _ta_month_label(my)))
+
+
+def _is_direct_pdf(name):
+    try:
+        return bool(db.fetch_one("SELECT 1 FROM library_direct_pdf WHERE library_name = %s", (name,)))
+    except Exception:
+        app.logger.exception("library_direct_pdf படிக்க முடியவில்லை")
+        return False
+
+
+def _file_name(prefix, name, tail):
+    lib = db.fetch_one("SELECT code FROM libraries WHERE name = %s", (name,))
+    code = re.sub(r"[^A-Za-z0-9]+", "", (lib or {}).get("code") or "") or "Library"      # கோப்புப் பெயர் ஆங்கிலத்தில்
+    return "%s_%s_%s.pdf" % (prefix, code, re.sub(r"[^A-Za-z0-9\-]+", "", str(tail)))
+
+
+@rpc
+def emailReceiptAcknowledgement(libraryName, monthYear):
+    """2. நூலக வரவுத் தொகைக்கு ஒப்புதல் — ஒப்புகை ரசீது PDF -> நூலகத்தின் பதிவு மின்னஞ்சலுக்கு (அல்லது நேரடி PDF)."""
+    import receipts_module as rm
+    name, my = str(libraryName or "").strip(), str(monthYear or "").strip()
+
+    def build():
+        st = rm.getReceiptAcknowledgement(name, my)
+        return st if not st.get("success") else pdfs.receipt_ack_pdf(st)
+    lab = _ta_month_label(my)
+    return _email_report(name, "receipt_ack", my, "நூலக வரவுகள் ஒப்புகை ரசீது — %s — %s" % (name, lab), build,
+                         _file_name("Acknowledgement", name, my.replace("/", "-")),
+                         "%s நூலகத்தின் %s மாத நூலக வரவுகள் ஒப்புகை ரசீது." % (name, lab))
+
+
+@rpc
+def emailYearlyReceiptAbstract(libraryName):
+    """3. நடப்பு ஆண்டு சுருக்கம் – நூலக வரவுகள்."""
+    name = str(libraryName or "").strip()
+
+    def build():
+        d = getLibraryReceiptYearly(name)
+        return d if not d.get("success") else pdfs.yearly_receipt_pdf(d)
+    fy = _fy_months(None)[0]
+    return _email_report(name, "yearly_receipt", fy, "நடப்பு ஆண்டு சுருக்கம் – நூலக வரவுகள் — %s — %s" % (name, fy), build,
+                         _file_name("Yearly_Receipt", name, fy), "%s நூலகத்தின் நடப்பு நிதியாண்டு (%s) நூலக வரவுச் சுருக்கம்." % (name, fy))
+
+
+@rpc
+def emailYearlyExpenseAbstract(libraryName):
+    """4. நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள்."""
+    name = str(libraryName or "").strip()
+
+    def build():
+        d = getLibraryYearlyExpense(name)
+        return d if not d.get("success") else pdfs.yearly_expense_pdf(d)
+    fy = _fy_months(None)[0]
+    return _email_report(name, "yearly_expense", fy, "நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள் — %s — %s" % (name, fy), build,
+                         _file_name("Yearly_Expense", name, fy), "%s நூலகத்தின் நடப்பு நிதியாண்டு (%s) நூலகச் செலவினச் சுருக்கம்." % (name, fy))
+
+
+@rpc
+def emailAuditForm(libraryName, fy, vals, which):
+    """5. கடந்த ஆண்டு வரவு-செலவு (தணிக்கைப் படிவம்) — which = 'receipt' (படிவம்) அல்லது 'expense' (செலவினச் சுருக்கம்)."""
+    name, fy = str(libraryName or "").strip(), str(fy or "").strip()
+    which = "expense" if which == "expense" else "receipt"
+    d = getLibraryReceiptYearly(name, fy, True)           # முடிவுற்ற ஆண்டு சரிபார்ப்பு
+    if not d.get("success"):
+        return d
+    if which == "receipt":
+        saved = saveAuditReceiptForm(name, fy, vals)       # மதிப்புகளைச் சரிபார்த்துச் சேமித்த பின்னரே PDF
+        if not saved.get("success"):
+            return saved
+        v = vals or {}
+        f = {"ob": float(v.get("ob") or 0), "exp": float(v.get("exp") or 0), "bo": int(float(v.get("bo") or 0)),
+             "ba": int(float(v.get("ba") or 0)), "bw": int(float(v.get("bw") or 0))}
+
+        def build():
+            return pdfs.audit_receipt_pdf(d, f)
+        return _email_report(name, "audit_receipt", d["fy"], "தணிக்கைப் படிவம் (வரவு) — %s — %s" % (name, d["fyLabel"]), build,
+                             _file_name("Audit_Receipt", name, d["fy"]), "%s நூலகத்தின் %s ஆண்டு தணிக்கைப் படிவம் (வரவு - செலவு சுருக்கம்)." % (name, d["fyLabel"]))
+
+    def build_exp():
+        ex = getLibraryYearlyExpense(name, fy[:4] + "-" + fy[7:])
+        if not ex.get("success"):
+            return {"success": False, "message": "இந்த ஆண்டில் அனுமதிக்கப்பட்ட செலவினப் பதிவுகள் இல்லை."}
+        return pdfs.yearly_expense_pdf(ex)
+    return _email_report(name, "audit_expense", d["fy"], "கடந்த ஆண்டு செலவினச் சுருக்கம் — %s — %s" % (name, d["fyLabel"]), build_exp,
+                         _file_name("Audit_Expense", name, d["fy"]), "%s நூலகத்தின் %s ஆண்டு செலவினச் சுருக்கம்." % (name, d["fyLabel"]))
+
+
+def _voucher_logo_bytes():
+    import urllib.request
+    if "img" not in _LOGO_CACHE:
+        try:
+            url = "https://drive.google.com/thumbnail?id=1AwZy-uxszelJlyda0Kfvv4_CVgEUBayX&sz=w200"
+            with urllib.request.urlopen(url, timeout=6) as r:
+                _LOGO_CACHE["img"] = (r.read(), r.headers.get_content_type() or "image/png")
+        except Exception:
+            return None
+    return _LOGO_CACHE["img"][0]
+
+
+def _voucher_dmy(v):
+    q = str(v or "").split("-")
+    return "%s/%s/%s" % (q[2], q[1], q[0]) if len(q) == 3 else str(v or "")
+
+
+def _voucher_data(name, my):
+    """சேமித்த பதிவிலிருந்து வவுச்சர் வரிகள் (தொகை உள்ளவை மட்டும்)."""
+    row = db.fetch_one("SELECT c.*, COALESCE(l.lib_type, c.library_type, '') AS ltype FROM claims c "
+                       "LEFT JOIN libraries l ON l.name = c.library_name WHERE c.library_name = %s AND c.month_year = %s", (name, my))
+    if not row:
+        return None, {"success": False, "message": "இந்த மாதத்துக்குப் பதிவு இல்லை. முதலில் சில்லறைச் செலவினத்தைப் பதிவு செய்யவும்."}
+    d = lambda v: Decimal(str(v or 0))
+    rates = getWageRates()
+    items = []
+
+    def add(text, amt, subs=None):
+        if d(amt) > 0:
+            items.append({"text": text, "amt": float(d(amt)), "subs": subs or []})
+    papers = db.fetch_all("SELECT COALESCE(NULLIF(n.name, ''), 'நாளிதழ் ' || cn.slot) AS nm, cn.amount FROM claim_newspapers cn "
+                          "LEFT JOIN newspapers n ON n.slot = cn.slot WHERE cn.claim_id = %s AND cn.amount > 0 ORDER BY cn.slot", (row["id"],))
+    p_total = sum((d(p["amount"]) for p in papers), Decimal(0)) + d(row["newspaper_total_amount"])
+    add("நாளிதழ்கள்", p_total, ["%s - Rs.%.2f" % (p["nm"], float(d(p["amount"]))) for p in papers])
+
+    def wage(amount_col, days_col, rate_key):
+        v = d(row.get(amount_col))
+        return v if v > 0 else d(row.get(days_col)) * d(rates.get(rate_key))
+    t = lambda k: str(row.get(k) or "").strip()
+    nd = lambda k: ("%g" % float(d(row.get(k))))
+    add("தினக்கூலி கூட்டுநர் - %s - பணிநாள் %s" % (t("partner_name_tamil"), nd("partner_days")), wage("partner_amount", "partner_days", "partner"))
+    add("தினக்கூலி நூலகப் பணியாளர் - %s - பணிநாள் %s" % (t("staff_name_tamil"), nd("staff_days")), wage("staff_amount", "staff_days", "staff"))
+    add("பகுதி நேர நூலகத் தினக்கூலிப் பணியாளர் - %s - பணிநாள் %s" % (t("part_time_staff_name"), nd("part_time_staff_days")),
+        wage("part_time_amount", "part_time_staff_days", "partTime"))
+    add("மின் கட்டணம்", row["electricity_bill"])
+    add("கட்டட வாடகை - " + t("rent_owner_name"), row["rent_amount"])
+    add("வைஃபை / தொலைபேசி கட்டணம்", row["phone_wifi_amount"])
+    add("குடிநீர் வரி", row["water_tax"])
+    add("நகல் எடுத்த செலவினம்", row["photocopy_amount"])
+    add("பேருந்து கட்டணம் - %s அன்று - %s" % (_voucher_dmy(t("bus_date")), t("bus_purpose")), row["bus_amount"])
+    add("போக்குவரத்துக் கட்டணம் - %s அன்று - %s" % (_voucher_dmy(t("travel_date")), t("travel_purpose")), row["travel_amount"])
+    add("அஞ்சல் செலவினம்", row["postal_amount"])
+    add("தினக்கூலி காவலர்", row["daily_guard_amount"])
+    add("வாங்கிய பதிவேடு - " + t("register_item"), row["register_amount"])
+    add("வாங்கிய எழுதுபொருள் - " + t("stationery_item"), row["stationery_amount"])
+    add("வாங்கிய மின்சாதனம் - " + t("electrical_item"), row["electrical_amount"])
+    add("வாங்கிய நுகர்பொருள் - " + t("consumer_item"), row["consumer_amount"])
+    add(t("other_expense1_desc") or "பிற செலவினம் 1", row["other_expense1_amount"])
+    add(t("other_expense2_desc") or "பிற செலவினம் 2", row["other_expense2_amount"])
+    add("கழிவறை சுத்தம்", row["toilet_cleaning_amount"])
+    if not items:
+        return None, {"success": False, "message": "இந்த மாதத்தில் தொகை உள்ள செலவினப் பதிவு இல்லை."}
+    mm, yy = my.split("/")
+    return {"library": name, "type": row["ltype"], "monthTxt": "%s-%s" % (_TA_MONTHS_HOME[int(mm) - 1], yy),
+            "mm": mm, "yy": yy, "items": items, "approved": bool(row["approved"])}, None
+
+
+@rpc
+def emailVoucher(libraryName, monthYear):
+    """6. சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) நகல் -> நூலகத்தின் பதிவு மின்னஞ்சலுக்கு (அல்லது நேரடி PDF)."""
+    name, my = str(libraryName or "").strip(), str(monthYear or "").strip()
+    acc = getVoucherAccess(name, my)                        # மாதம் 16–23 அல்லது Admin அனுமதி
+    if not acc.get("allowed"):
+        return {"success": False, "message": acc.get("message") or "வவுச்சர் அனுப்ப அனுமதி இல்லை."}
+
+    def build():
+        v, err = _voucher_data(name, my)
+        if err:
+            return err
+        if v["approved"] and not session.get("admin"):
+            return {"success": False, "message": "இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது; வவுச்சர் அனுப்ப இயலாது."}
+        return pdfs.voucher_pdf(v, _voucher_logo_bytes())
+    lab = _ta_month_label(my)
+    return _email_report(name, "voucher", my, "சில்லறைச் செலவினப் பட்டியல் — %s — %s" % (name, lab), build,
+                         _file_name("Voucher", name, my.replace("/", "-")), "%s நூலகத்தின் %s மாத சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) நகல்." % (name, lab))
+
+
+# ---- Admin: நேரடி PDF (மின்னஞ்சல் இல்லாமல் நூலகர் திரையிலேயே PDF) அமைப்பு ----
+@rpc
+def getDirectPdfLibraries():
+    rows = db.fetch_all("SELECT l.name, l.lib_type, l.pay_center, (d.library_name IS NOT NULL) AS direct FROM libraries l "
+                        "LEFT JOIN library_direct_pdf d ON d.library_name = l.name WHERE NOT COALESCE(l.is_test, FALSE) ORDER BY l.id")
+    return {"success": True, "rows": [{"name": r["name"], "type": r["lib_type"] or "", "payCenter": r["pay_center"] or "",
+                                        "direct": bool(r["direct"])} for r in rows]}
+
+
+@rpc
+def setDirectPdf(names, enabled):
+    names = [str(n).strip() for n in (names or []) if str(n).strip()]
+    if not names:
+        return {"success": False, "message": "நூலகத்தைத் தேர்ந்தெடுக்கவும்."}
+    valid = [r["name"] for r in db.fetch_all("SELECT name FROM libraries WHERE name = ANY(%s)", (names,))]
+    if enabled:
+        for n in valid:
+            db.execute("INSERT INTO library_direct_pdf (library_name, enabled_by) VALUES (%s,%s) ON CONFLICT (library_name) DO NOTHING",
+                       (n, str(session.get("admin_user") or "Admin")))
+        return {"success": True, "message": "%d நூலகங்களுக்கு நேரடி PDF இயக்கப்பட்டது." % len(valid)}
+    db.execute("DELETE FROM library_direct_pdf WHERE library_name = ANY(%s)", (valid,))
+    return {"success": True, "message": "%d நூலகங்களுக்கு நேரடி PDF நிறுத்தப்பட்டது (இனி மின்னஞ்சலுக்கு மட்டும்)." % len(valid)}
 
 
 _TA_MONTHS_HOME = ["ஜனவரி", "பிப்ரவரி", "மார்ச்", "ஏப்ரல்", "மே", "ஜூன்", "ஜூலை", "ஆகஸ்ட்",

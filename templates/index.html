@@ -782,7 +782,7 @@ table{max-width:100%}
       <option value="">-- ஆண்டைத் தேர்வு செய்யவும் --</option>
     </select>
     <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="prevYearConfirmBtn" onclick="confirmPrevYearReceiptExpense(this)" style="background:#7c3aed; color:white; border:none; padding:10px 18px; border-radius:8px; font-weight:700;">பெறு</button>
+      <button id="prevYearConfirmBtn" onclick="confirmPrevYearReceiptExpense(this)" style="background:#7c3aed; color:white; border:none; padding:10px 18px; border-radius:8px; font-weight:700;">தொடரவும்</button>
       <button onclick="closePrevYearModal()" style="background:#e2e8f0; color:#334155; border:none; padding:10px 18px; border-radius:8px; font-weight:700;">ரத்து செய்</button>
     </div>
   </div>
@@ -1097,8 +1097,8 @@ table{max-width:100%}
     <div id="contingentMsg" class="success" style="display:none;"></div>
     <div id="contingentError" class="error" style="display:none;"></div>
     <div id="voucherBox4G" style="display:none;">
-      <p class="exp-note">அனைத்து பதிவுகளும் முடிந்தன. நீங்கள் பதிவு செய்த விவரங்கள் மட்டும் அடங்கிய சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) PDF-ஐ இப்போது உருவாக்கலாம்.</p>
-      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">📄 வவுச்சர் தயார் செய்</button>
+      <p class="exp-note">அனைத்து பதிவுகளும் முடிந்தன. நீங்கள் பதிவு செய்த விவரங்கள் மட்டும் அடங்கிய சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) நகலை இப்போது மின்னஞ்சலில் பெறலாம்.</p>
+      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">📧 வவுச்சர் – மின்னஞ்சல் அனுப்பு</button>
     </div>
     <button type="button" onclick="show(3)" class="back-btn" style="margin-top:20px;">
         மெனுவுக்கு திரும்பு
@@ -1125,7 +1125,7 @@ table{max-width:100%}
     <div id="sumAddBox" style="display:none;"></div>
     <div class="voucher-strip" id="sumVoucherStrip">
       <div>📄 <b>சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்)</b><br><span>பதிவு செய்த விவரங்கள் அடங்கிய A4 PDF</span></div>
-      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">⬇️ வவுச்சர் PDF பதிவிறக்கு</button>
+      <button type="button" class="btn-voucher" onclick="makeVoucherPdf(this)">📧 வவுச்சர் – மின்னஞ்சல் அனுப்பு</button>
     </div>
 </div>
 
@@ -2205,7 +2205,37 @@ function openClaimPdf(btn) {
     })
     .shareContingentBill(loginEmail, libraryName);
 }
-// ==================== அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் — அனுமதித்த செலவினங்கள் மட்டும் (PDF பதிவிறக்கம்) ====================
+// ==================== அறிக்கைகள் — மின்னஞ்சல் (அல்லது Admin அமைத்த நேரடி PDF) ====================
+function saveBase64Pdf(b64, name) {
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([arr], { type: "application/pdf" }));
+  a.download = name || "report.pdf";
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function reportCall(method, args) {
+  return new Promise(res => google.script.run.withSuccessHandler(res)
+    .withFailureHandler(e => res({ success: false, message: "Server பிழை: " + (e && e.message ? e.message : e) }))[method].apply(null, args));
+}
+// முடிவைக் காட்டும்: வெற்றி = true. நேரடி PDF அமைத்த நூலகங்களுக்கு PDF நேரடியாகப் பதிவிறங்கும்; மற்றவை மின்னஞ்சலுக்கு மட்டும்.
+function showReportResult(r) {
+  if (r && r.success) {
+    if (r.direct && r.pdf) { saveBase64Pdf(r.pdf, r.filename); alert("✅ PDF பதிவிறக்கப்பட்டது."); }
+    else alert("✅ " + r.message + "\nஅஞ்சல் பெட்டியைச் சரிபார்க்கவும் (Spam / Junk கோப்புறையையும்).");
+    return true;
+  }
+  alert((r && r.message) || "அனுப்ப முடியவில்லை");
+  return false;
+}
+async function sendReport(btn, method, args) {
+  startLoading(btn);
+  const r = await reportCall(method, args);
+  stopLoading(btn);
+  return showReportResult(r);
+}
+// ==================== அனுமதிக்கப்பட்ட சில்லறைச் செலவினம் — அனுமதித்த செலவினங்கள் மட்டும் (மின்னஞ்சல்) ====================
 function openApprovedExpenseMail(btn) {
   const libraryName = document.getElementById("finalLib").innerText.trim();
   if (!libraryName) { alert("நூலக பெயர் கிடைக்கவில்லை"); return; }
@@ -2249,16 +2279,9 @@ function showApprovedMonthPicker(libraryName, months) {
     const btn = this, old = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = "⏳ அனுப்பப்படுகிறது…";
     // அறிக்கை திரையில் காட்டப்படாது — நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு மட்டும் PDF அனுப்பப்படும்
-    const r = await new Promise(res => google.script.run.withSuccessHandler(res)
-      .withFailureHandler(e => res({ success: false, message: "Server பிழை: " + e.message }))
-      .emailApprovedExpenseStatement(libraryName, my));
-    if (r && r.success) {
-      modal.remove();
-      alert("✅ " + r.message + "\nஅஞ்சல் பெட்டியைச் சரிபார்க்கவும் (Spam / Junk கோப்புறையையும்).");
-    } else {
-      alert((r && r.message) || "அனுப்ப முடியவில்லை");
-      btn.disabled = false; btn.innerHTML = old;
-    }
+    const r = await reportCall("emailApprovedExpenseStatement", [libraryName, my]);
+    if (showReportResult(r)) modal.remove();
+    else { btn.disabled = false; btn.innerHTML = old; }
   };
 }
 
@@ -2848,7 +2871,7 @@ function showReceiptAckPicker(libraryName, months) {
       </select>
       <div style="margin-top:18px;text-align:right;">
         <button id="closeMonthBtn" style="margin-right:8px;padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f3f4f6;color:#111;font-weight:600;">மூடு</button>
-        <button id="confirmMonthBtn" style="background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📥 PDF பதிவிறக்கு</button>
+        <button id="confirmMonthBtn" style="background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;">📧 மின்னஞ்சல் அனுப்பு</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -2856,16 +2879,10 @@ function showReceiptAckPicker(libraryName, months) {
   document.getElementById("confirmMonthBtn").onclick = async function () {
     const my = document.getElementById("monthPickSelect").value;
     const btn = this, old = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = "⏳ தயாராகிறது…";
-    const st = await new Promise(res => google.script.run.withSuccessHandler(res)
-      .withFailureHandler(e => res({ success: false, message: "Server பிழை: " + e.message }))
-      .getReceiptAcknowledgement(libraryName, my));
-    if (!st || !st.success) {
-      alert((st && st.message) || "ஒப்புகை ரசீது உருவாக்க முடியவில்லை");
-      btn.disabled = false; btn.innerHTML = old; return;
-    }
-    try { await makeReceiptAckPdf(st); modal.remove(); }
-    catch (e) { alert("PDF உருவாக்க முடியவில்லை: " + (e && e.message ? e.message : e)); btn.disabled = false; btn.innerHTML = old; }
+    btn.disabled = true; btn.innerHTML = "⏳ அனுப்பப்படுகிறது…";
+    const r = await reportCall("emailReceiptAcknowledgement", [libraryName, my]);
+    if (showReportResult(r)) modal.remove();
+    else { btn.disabled = false; btn.innerHTML = old; }
   };
 }
 
@@ -3365,21 +3382,8 @@ function ryFile(prefix, d) { return prefix + "_" + String(d.library).replace(/[\
 function openYearlyReceiptAbstract(btn) {
   const libraryName = document.getElementById("finalLib").innerText.trim();
   if (!libraryName) { alert("நூலக பெயர் கிடைக்கவில்லை"); return; }
-  startLoading(btn);
-  google.script.run
-    .withSuccessHandler(res => {
-      stopLoading(btn);
-      if (!res || !res.success) {
-        const card = document.getElementById("mailSuccessCard");
-        card.innerHTML = "❌ " + ((res && res.message) || "ஆண்டு வரவுச் சுருக்கம் கிடைக்கவில்லை");
-        card.style.display = "block";
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-      showYearlyReceiptModal(res);
-    })
-    .withFailureHandler(err => { stopLoading(btn); alert("❌ Server பிழை: " + err.message); })
-    .getLibraryReceiptYearly(libraryName);
+  if (!confirm("நடப்பு ஆண்டு சுருக்கம் – நூலக வரவுகள் PDF-ஐ நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு அனுப்பவா?")) return;
+  sendReport(btn, "emailYearlyReceiptAbstract", [libraryName]);
 }
 function showYearlyReceiptModal(d) {
   const old = document.getElementById("yearlyReceiptModal");
@@ -3406,21 +3410,8 @@ function showYearlyReceiptModal(d) {
 function openYearlyExpenseAbstract(btn) {
   const libraryName = document.getElementById("finalLib").innerText.trim();
   if (!libraryName) { alert("நூலக பெயர் கிடைக்கவில்லை"); return; }
-  startLoading(btn);
-  google.script.run
-    .withSuccessHandler(res => {
-      stopLoading(btn);
-      if (!res || !res.success) {
-        const card = document.getElementById("mailSuccessCard");
-        card.innerHTML = "❌ " + ((res && res.message) || "ஆண்டு செலவினச் சுருக்கம் கிடைக்கவில்லை");
-        card.style.display = "block";
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-      showYearlyExpenseModal(res);
-    })
-    .withFailureHandler(err => { stopLoading(btn); alert("❌ Server பிழை: " + err.message); })
-    .getLibraryYearlyExpense(libraryName);
+  if (!confirm("நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள் PDF-ஐ நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு அனுப்பவா?")) return;
+  sendReport(btn, "emailYearlyExpenseAbstract", [libraryName]);
 }
 
 /* ---- நடப்பு ஆண்டு சுருக்கம் – நூலக செலவுகள்: திரையில் அட்டவணை (+ PDF) ---- */
@@ -4030,62 +4021,15 @@ const VC_CSS = '#vcPage{width:794px;box-sizing:border-box;padding:30px 48px;back
 function openVoucherDirect(btn){
   if (!selectedLib){ alert('நூலகம் தேர்ந்தெடுக்கப்படவில்லை.'); return; }
   const my = claimMonthYearNow();
-  startLoading(btn);
-  google.script.run.withSuccessHandler(function(acc){
-    stopLoading(btn);
-    if (!acc || !acc.allowed){ alert('⚠️ ' + ((acc && acc.message) || 'வவுச்சர் பதிவிறக்க அனுமதி இல்லை.')); return; }
-    window.__monthOverride = my; window.__autoVoucher = true;
-    go(4, 'சில்லறை செலவினப் பட்டியல்');
-  }).withFailureHandler(function(err){
-    stopLoading(btn);
-    alert('சர்வர் பிழை: ' + (err && err.message ? err.message : err));
-  }).getVoucherAccess(selectedLib, my);
+  if (!confirm('சில்லறைச் செலவினப் பட்டியல் (வவுச்சர்) நகலை நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு அனுப்பவா?')) return;
+  sendReport(btn, 'emailVoucher', [selectedLib, my]);     // மாதம் 16–23 / Admin அனுமதி, அனுமதித்த மாதம் ஆகிய சோதனைகள் சர்வரில்
 }
 async function makeVoucherPdf(btn){
-  if (typeof html2canvas === 'undefined' || !window.jspdf){ alert('PDF நூலகம் ஏற்றப்படவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.'); return; }
-  // வவுச்சர் பதிவிறக்கக் காலம் (மாதம் 16–23) / Admin அனுமதி — சர்வர் தேதியில் சரிபார்
-  const acc = await new Promise(res => google.script.run.withSuccessHandler(res).withFailureHandler(() => res(null))
-    .getVoucherAccess(selectedLib, document.getElementById('monthYear').value));
-  if (!acc || !acc.allowed){ alert('⚠️ ' + ((acc && acc.message) || 'வவுச்சர் பதிவிறக்க அனுமதியைச் சரிபார்க்க இயலவில்லை. மீண்டும் முயலவும்.')); return; }
-  // அனுமதிக்கப்பட்ட மாதத்துக்கு வவுச்சர் இல்லை — சர்வரில் புதிய நிலையைச் சரிபார்
-  const fresh = await new Promise(res => google.script.run.withSuccessHandler(res).withFailureHandler(() => res(null))
-    .getExistingContingentData(selectedLib, document.getElementById('monthYear').value));
-  if (fresh && fresh.success){
-    window.__toiletAmt = Number(fresh.toiletCleaning) || 0;
-    if (fresh.approved && !isAdminMode){
-      window.__claimApproved = true; window.__sumLocked = true; sumApplyLock();
-      const vb = document.getElementById('voucherBox4G'); if (vb) vb.style.display = 'none';
-      alert('இந்த மாதம் அனுமதிக்கப்பட்டுவிட்டது; வவுச்சர் பதிவிறக்க இயலாது.');
-      return;
-    }
-  }
-  const old = btn.innerHTML, scrollY0 = window.scrollY; btn.disabled = true; btn.innerHTML = '⏳ வவுச்சர் தயாராகிறது…';
-  window.scrollTo(0, 0);
-  const host = document.createElement('div');
-  host.style.cssText = 'position:absolute;left:0;top:0;width:794px;z-index:-1;pointer-events:none;background:#fff;';
-  host.innerHTML = vcBuildHtml();
-  document.body.appendChild(host);
-  try{
-    try { await document.fonts.load('14px "Noto Sans Tamil"'); await document.fonts.ready; } catch(e){}
-    await Promise.all([...host.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
-    const page = host.querySelector('#vcPage');
-    const canvas = await html2canvas(page, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0,
-      width: 794, height: page.scrollHeight, windowWidth: 794
-    });
-    // A4 portrait — உள்ளடக்கம் எவ்வளவு இருந்தாலும் ஒரே பக்கத்தில் பொருந்தும்படி அளவு சரிசெய்யப்படும்
-    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4', orientation: 'portrait'});
-    const PW = 210, PH = 297;
-    let w = PW, h = canvas.height * PW / canvas.width;
-    if (h > PH){ w = canvas.width * PH / canvas.height; h = PH; }
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', (PW - w) / 2, 0, w, h);
-    const my = (document.getElementById('monthYear').value || '').replace('/', '-');
-    pdf.save('Voucher_' + String(selectedLib).replace(/[\\/:*?"<>|\s]+/g, '_') + '_' + my + '.pdf');
-  } catch(e){
-    alert('வவுச்சர் உருவாக்க முடியவில்லை: ' + (e && e.message ? e.message : e));
-  } finally {
-    host.remove(); btn.disabled = false; btn.innerHTML = old; window.scrollTo(0, scrollY0);
-  }
+  // வவுச்சர் இனி PDF-ஆகப் பதிவிறங்காது — நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு (அல்லது Admin அமைத்த நேரடி PDF) சர்வரிலிருந்து செல்லும்
+  const my = document.getElementById('monthYear').value;
+  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ அனுப்பப்படுகிறது…';
+  try { showReportResult(await reportCall('emailVoucher', [selectedLib, my])); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
 function showContingentPreview() {
@@ -4253,8 +4197,8 @@ function showAuditFormModal(d, ex) {
     '<div id="afMsg" style="margin-top:10px;text-align:center;font-weight:600;font-size:13px;min-height:18px;"></div>' +
     '<div style="margin-top:8px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">' +
       '<button id="afSave" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">💾 சேமி</button>' +
-      '<button id="afRcpt" style="background:#2563eb;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">🧾 Receipt PDF</button>' +
-      '<button id="afExpBtn" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">💸 Expense PDF</button>' +
+      '<button id="afRcpt" style="background:#2563eb;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">📧 வரவுப் படிவம் – மின்னஞ்சல் அனுப்பு</button>' +
+      '<button id="afExpBtn" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">📧 செலவினம் – மின்னஞ்சல் அனுப்பு</button>' +
       '<button id="afCloseBtn" style="background:#e2e8f0;color:#334155;border:none;padding:9px 16px;border-radius:8px;font-weight:700;">மூடு</button></div></div>';
   document.body.appendChild(modal);
   const el = id => document.getElementById(id);
@@ -4282,7 +4226,7 @@ function showAuditFormModal(d, ex) {
   el("afExp").addEventListener("input", () => { expTouched = true; refresh(); check(); });
   refresh();
   el("afCloseBtn").onclick = () => modal.remove();
-  const busy = async (b, fn) => { const o = b.innerHTML; b.disabled = true; b.innerHTML = "⏳ தயாராகிறது…";
+  const busy = async (b, fn) => { const o = b.innerHTML; b.disabled = true; b.innerHTML = "⏳ அனுப்பப்படுகிறது…";
     try { await fn(); } catch (e) { alert("செயல் தோல்வி: " + (e && e.message ? e.message : e)); }
     b.disabled = false; b.innerHTML = o; };
   el("afSave").onclick = function () {
@@ -4292,10 +4236,10 @@ function showAuditFormModal(d, ex) {
       .withFailureHandler(e => { msg("Server பிழை: " + e.message, false); res(); })
       .saveAuditReceiptForm(d.library, d.fyLabel, vals())));
   };
-  el("afRcpt").onclick = function () { if (!check()) return; busy(this, () => makePortraitPdf(ryAuditHtml(d, vals()), ryFile("Audit_Receipt", d))); };
+  el("afRcpt").onclick = function () { if (!check()) return; busy(this, async () => showReportResult(await reportCall("emailAuditForm", [d.library, d.fyLabel, vals(), "receipt"]))); };
   el("afExpBtn").onclick = function () {
     if (!ex) { alert("இந்த ஆண்டில் அனுமதிக்கப்பட்ட செலவினப் பதிவுகள் இல்லை."); return; }
-    busy(this, () => makeYearlyExpensePdf(ex));
+    busy(this, async () => showReportResult(await reportCall("emailAuditForm", [d.library, d.fyLabel, {}, "expense"])));
   };
 }
 

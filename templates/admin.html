@@ -477,6 +477,13 @@ img{max-width:100%}
 <nav class="side" id="nav" aria-label="நிர்வாக மெனு">
   <h2>நிர்வாக மெனு</h2>
   <a href="#home" data-v="home"><span class="n">⌂</span><span>முகப்பு</span></a>
+  <button type="button" class="grp" aria-expanded="false">நூலக மேலாண்மை</button>
+  <div class="sub">
+  <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
+  <a href="#vendors" data-v="vendors"><span class="n">12</span><span>Vendor விவரம்<small>நாளிதழ் · வாடகை · வங்கி விவரம்</small></span></a>
+  <a href="#feerules" data-v="feerules"><span class="n">12A</span><span>வரவினக் கட்டண விதிகள்<small>காப்புத் தொகை · புரவலர் · கொடையாளர் மடங்கு</small></span></a>
+  <a href="#directpdf" data-v="directpdf"><span class="n">12B</span><span>வரவு / செலவு PDF — நேரடியாகக் காட்டு<small>தேர்ந்த நூலகங்களுக்கு மின்னஞ்சல் இல்லாமல் நூலகர் திரையிலேயே</small></span></a>
+  </div>
   <button type="button" class="grp" aria-expanded="false">தரவு ஏற்றம் (Excel)</button>
   <div class="sub">
   <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலக விவரம் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
@@ -522,12 +529,6 @@ img{max-width:100%}
   <a href="#rptvpay" data-v="rptvpay"><span class="n">17</span><span>நாளிதழ் Vendor-க்குத் தொகை செலுத்துதல்<small>vendor வாரியாக</small></span></a>
   <a href="#rptrent" data-v="rptrent"><span class="n">18</span><span>வாடகை செலுத்துதல்<small>நூலகம் · vendor · தொகை</small></span></a>
   </div>
-  </div>
-  <button type="button" class="grp" aria-expanded="false">நூலக மேலாண்மை</button>
-  <div class="sub">
-  <a href="#manage" data-v="manage"><span class="n">11</span><span>நூலகம் · வகை · ஊதிய மையம்<small>சேர்க்க / திருத்த / நீக்க</small></span></a>
-  <a href="#vendors" data-v="vendors"><span class="n">12</span><span>Vendor விவரம்<small>நாளிதழ் · வாடகை · வங்கி விவரம்</small></span></a>
-  <a href="#feerules" data-v="feerules"><span class="n">12A</span><span>வரவினக் கட்டண விதிகள்<small>காப்புத் தொகை · புரவலர் · கொடையாளர் மடங்கு</small></span></a>
   </div>
 </nav>
 
@@ -651,6 +652,25 @@ img{max-width:100%}
     <button class="btn go" id="lf_save" type="button">சேமி</button>
   </div>
 </div></div>
+
+<!-- ================= 12B. வரவு / செலவு PDF — நேரடியாகக் காட்டு ================= -->
+<section class="view" id="v-directpdf">
+  <p class="crumb">நிர்வாகம் › நூலக மேலாண்மை › நேரடி PDF</p>
+  <h2 class="pt">12B. வரவு / செலவு PDF — நேரடியாகக் காட்டு</h2>
+  <p class="lead">இயல்பாக நூலகர் திரையின் அறிக்கைப் பொத்தான்கள் (அனுமதிக்கப்பட்ட சில்லறைச் செலவினம், வரவுத் தொகை ஒப்புகை, ஆண்டு சுருக்கங்கள், தணிக்கைப் படிவம், வவுச்சர்) PDF-ஐ <b>நூலகத்தின் பதிவு செய்த மின்னஞ்சலுக்கு மட்டும்</b> அனுப்பும். மின்னஞ்சல் கடவுச்சொல் மறந்த நூலகங்களுக்கு, கீழே தேர்ந்தெடுத்து <b>நேரடி PDF இயக்கு</b> அழுத்தினால் அவர்கள் நூலகர் உள்நுழைவிலேயே PDF-ஐப் பதிவிறக்கிக் கொள்ளலாம். ஒன்று அல்லது பல நூலகங்களைத் தேர்ந்தெடுக்கலாம்.</p>
+  <div id="dpMsg"></div>
+  <div class="panel"><h3>நூலகங்கள் <span id="dpCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
+    <div class="toolbar">
+      <input type="search" id="dpSearch" placeholder="நூலகப் பெயர் தேடு…" style="max-width:260px" aria-label="நூலகம் தேடுக">
+      <select id="dpType" style="width:auto"><option value="">எல்லா வகைகள்</option></select>
+      <select id="dpFilter" style="width:auto"><option value="">எல்லா நிலைகள்</option><option value="d">நேரடி PDF உள்ளவை</option><option value="m">மின்னஞ்சல் மட்டும்</option></select>
+      <button class="btn go sm" id="dpOn" type="button">✅ நேரடி PDF இயக்கு</button>
+      <button class="btn alt sm" id="dpOff" type="button">↩ மின்னஞ்சலுக்கு மட்டும் (நிறுத்து)</button>
+    </div>
+    <div class="tw"><table><thead><tr><th style="width:36px"><input type="checkbox" id="dpAll" aria-label="எல்லாவற்றையும் தேர்ந்தெடு"></th><th style="width:50px">வ.எ.</th><th>நூலகப் பெயர்</th><th>வகை</th><th>ஊதிய மையம்</th><th>நிலை</th></tr></thead>
+    <tbody id="dpBody"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+  </div></div>
+</section>
 
 <!-- ================= 12A. வரவினக் கட்டண விதிகள் ================= -->
 <section class="view" id="v-feerules">
@@ -1814,6 +1834,44 @@ function navRevealActive(){
 }
 
 
+/* ===================== 12B. நேரடி PDF ===================== */
+let dpRows = [];
+function dpVisible(){
+  const q = $('#dpSearch').value.trim().toLowerCase(), t = $('#dpType').value, st = $('#dpFilter').value;
+  return dpRows.filter(r => (!q || r.name.toLowerCase().includes(q)) && (!t || r.type === t) && (!st || (st === 'd') === r.direct));
+}
+function dpRender(){
+  const rows = dpVisible();
+  $('#dpCount').textContent = '(' + rows.length + ' / ' + dpRows.length + ' · நேரடி PDF: ' + dpRows.filter(r => r.direct).length + ')';
+  $('#dpBody').innerHTML = rows.map((r, i) => '<tr><td><input type="checkbox" class="dpChk" data-name="' + esc(r.name) + '"></td><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.payCenter) + '</td><td>' +
+    (r.direct ? '<span class="tag ok">நேரடி PDF</span>' : '<span class="tag">மின்னஞ்சல் மட்டும்</span>') + '</td></tr>').join('') || '<tr><td colspan="6">நூலகங்கள் இல்லை</td></tr>';
+  $('#dpAll').checked = false;
+}
+async function loadDirectPdf(){
+  try{
+    const d = await rpc('getDirectPdfLibraries', []); if (!d.success) throw new Error(d.message || 'பிழை');
+    dpRows = d.rows;
+    const cur = $('#dpType').value, types = [...new Set(dpRows.map(r => r.type).filter(Boolean))];
+    $('#dpType').innerHTML = '<option value="">எல்லா வகைகள்</option>' + types.map(t => '<option>' + esc(t) + '</option>').join('');
+    $('#dpType').value = cur; dpRender();
+  }catch(e){ note($('#dpMsg'), 'bad', e.message); }
+}
+async function dpSet(enabled){
+  const names = [...document.querySelectorAll('.dpChk:checked')].map(c => c.dataset.name);
+  if (!names.length){ note($('#dpMsg'), 'bad', 'முதலில் ஒன்று அல்லது பல நூலகங்களைத் தேர்ந்தெடுக்கவும்.'); return; }
+  if (!confirm(names.length + ' நூலகங்களுக்கு ' + (enabled ? 'நேரடி PDF-ஐ இயக்கவா? (மின்னஞ்சல் இல்லாமல் நூலகர் திரையிலேயே PDF கிடைக்கும்)' : 'நேரடி PDF-ஐ நிறுத்தவா? (மீண்டும் மின்னஞ்சலுக்கு மட்டும் செல்லும்)'))) return;
+  try{
+    const r = await rpc('setDirectPdf', [names, enabled]); if (!r.success) throw new Error(r.message || 'பிழை');
+    await loadDirectPdf(); note($('#dpMsg'), 'ok', r.message);
+  }catch(e){ note($('#dpMsg'), 'bad', e.message); }
+}
+$('#dpSearch').addEventListener('input', dpRender);
+$('#dpType').addEventListener('change', dpRender);
+$('#dpFilter').addEventListener('change', dpRender);
+$('#dpOn').addEventListener('click', () => dpSet(true));
+$('#dpOff').addEventListener('click', () => dpSet(false));
+$('#dpAll').addEventListener('change', e => document.querySelectorAll('.dpChk').forEach(c => { c.checked = e.target.checked; }));
+
 /* ===================== செயல்படாத நூலகங்கள் ===================== */
 let iaRows = [];
 function iaFmt(iso){ return iso ? iso.split('-').reverse().join('/') : ''; }
@@ -1883,6 +1941,7 @@ function route(){
   if (v === 'home') loadSummary();
   if (v === 'libraries') loadLibraries();
   if (v === 'manage') loadManage();
+  if (v === 'directpdf') loadDirectPdf();
   if (v === 'newspapers') loadNews();
   if (v === 'newsmap'){ loadMapLibs(); loadAssign(); }
   if (v === 'wages' || v === 'cleaner') loadWages();
