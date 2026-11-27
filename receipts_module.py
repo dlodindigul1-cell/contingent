@@ -159,7 +159,7 @@ def dashboard():
     months=[r['month_year'] for r in db.fetch_all("SELECT DISTINCT month_year FROM (SELECT month_year FROM receipt_bank_transactions UNION SELECT month_year FROM library_receipts) x")]
     months.sort(key=_month_key,reverse=True)
     month=(request.args.get('month') or '').strip() or (months[0] if months else '')
-    libs=db.fetch_all("SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id",(month or '01/2000',))
+    libs=db.fetch_all("SELECT name,lib_type FROM libraries WHERE NOT is_test AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id",(month or '01/2000',))
     done={r['library_name'] for r in db.fetch_all("SELECT library_name FROM library_receipts WHERE month_year=%s",(month,))}
     not_reg=[dict(l) for l in libs if l['name'] not in done]
     upis=db.fetch_all("SELECT id,to_char(transaction_date,'DD/MM/YYYY') transaction_date,upi_number,payer_name,amount FROM receipt_bank_transactions WHERE month_year=%s AND status='available' ORDER BY transaction_date,id",(month,))
@@ -174,7 +174,7 @@ def dashboard():
 @receipts.get('/receipts/libraries')
 def receipt_libraries():
     if not (_admin() or _librarian()): return jsonify(success=False),403
-    rows=db.fetch_all('SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id')
+    rows=db.fetch_all('SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) ORDER BY id',(bool(session.get('tester')),))
     return jsonify(rows=[dict(r) for r in rows])
 
 @receipts.get('/receipts/available')
@@ -513,7 +513,7 @@ def _report_rows(month, include_pending):
         + ", ".join('r.' + c for _, c in REPORT_HEADS) + ", "
         "COALESCE(json_agg(json_build_object('upi',t.upi_number,'date',to_char(t.transaction_date,'YYYY-MM-DD')) "
         "ORDER BY t.transaction_date,t.id) FILTER (WHERE t.id IS NOT NULL),'[]') txs "
-        "FROM library_receipts r JOIN libraries l ON l.name=r.library_name AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || r.month_year, 'DD/MM/YYYY')) "
+        "FROM library_receipts r JOIN libraries l ON l.name=r.library_name AND NOT l.is_test AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || r.month_year, 'DD/MM/YYYY')) "
         "LEFT JOIN receipt_bank_transactions t ON t.receipt_id=r.id "
         "WHERE " + where + " GROUP BY r.id, l.id ORDER BY l.id", (month,))
     return [dict(r) for r in rows]
@@ -553,7 +553,7 @@ def build_receipt_report(kind, month, include_pending=False):
     income = [r for r in all_rows if r['mode'] == 'income' and Decimal(str(r['total_amount'] or 0)) > 0]
     pending_skipped = 0
     if not include_pending:
-        pending_skipped = db.fetch_one("SELECT count(*) c FROM library_receipts WHERE month_year=%s AND status='pending'", (month,))['c']
+        pending_skipped = db.fetch_one("SELECT count(*) c FROM library_receipts WHERE month_year=%s AND status='pending' AND library_name NOT IN (SELECT name FROM libraries WHERE is_test)", (month,))['c']
 
     def amounts(r): return [Decimal(str(r[c] or 0)) for _, c in REPORT_HEADS] + [Decimal(str(r['total_amount'] or 0))]
 
@@ -619,7 +619,7 @@ def build_receipt_report(kind, month, include_pending=False):
             if not buckets[t]: continue
             out.append(['', t, '', ''] + pick(sums(buckets[t])) + stats(buckets[t]))
         totals = ['', 'பெரு மொத்தம்', '', ''] + pick(sums(all_rows)) + stats(all_rows)
-        total_libs = db.fetch_one("SELECT count(*) c FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY'))", (month,))['c']
+        total_libs = db.fetch_one("SELECT count(*) c FROM libraries WHERE NOT is_test AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY'))", (month,))['c']
         notes.append(f'மொத்த நூலகங்கள் {total_libs} — இம்மாதம் பதிவு செய்தவை {len(all_rows)}.')
     return {'success': True, 'kind': kind, 'month': month, 'title': REPORT_TITLES[kind], 'columns': cols,
             'rows': out, 'totals': totals, 'notes': notes, 'includePending': bool(include_pending)}
@@ -679,11 +679,11 @@ def _stats_period(mode, month, fy, scope, what):
 
 
 def _libs_active(start_my):
-    return db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (start_my,))
+    return db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE NOT is_test AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (start_my,))
 
 
 def _pending_count(start_key, end_key):
-    return db.fetch_one("SELECT count(*) c FROM library_receipts WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s AND status='pending'", (start_key, end_key))['c']
+    return db.fetch_one("SELECT count(*) c FROM library_receipts WHERE (substr(month_year,4,4) || substr(month_year,1,2)) BETWEEN %s AND %s AND status='pending' AND library_name NOT IN (SELECT name FROM libraries WHERE is_test)", (start_key, end_key))['c']
 
 
 def build_stats_report(mode, month, fy, include_pending=False, scope=None):

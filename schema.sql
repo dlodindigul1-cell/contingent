@@ -385,3 +385,32 @@ ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_members NUMERIC(10,2)
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_patrons NUMERIC(10,2);
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_chief_patrons NUMERIC(10,2);
 ALTER TABLE library_receipts ADD COLUMN IF NOT EXISTS stat_donors NUMERIC(10,2);
+
+
+-- ============================================================
+--  சோதனை நூலகம் (Admin சோதனைக்கு மட்டும்) — அறிக்கைகள் / புள்ளி விவரங்கள் / மொத்தங்களில் ஒருபோதும் சேராது
+--  is_test = TRUE நூலகம்: பொது நூலகர் பட்டியலில் தெரியாது; /test-login வழியாக மட்டும் தெரியும்.
+-- ============================================================
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE;
+
+INSERT INTO libraries (name, code, emails, lib_type, pay_center, is_test)
+  VALUES ('சோதனை நூலகம்', 'TNDPLTEST', 'test.library@example.com', 'முழு நேர கிளை நூலகம்', '', TRUE)
+  ON CONFLICT (name) DO NOTHING;
+UPDATE libraries SET is_test = TRUE WHERE name = 'சோதனை நூலகம்';
+
+-- விதிகள் பொருந்த: வாடகை, தினக்கூலி அனுமதி (2 பணியாளர்), விடுப்பு நாட்கள், புள்ளி விவர அடிப்படை, எல்லா நாளிதழ்களும்
+INSERT INTO rent (library_id, owner_name, amount)
+  SELECT id, 'சோதனை உரிமையாளர்', 5000 FROM libraries WHERE name = 'சோதனை நூலகம்'
+  ON CONFLICT (library_id) DO NOTHING;
+INSERT INTO daily_wage_permission (library_id, workers)
+  SELECT id, 2 FROM libraries WHERE name = 'சோதனை நூலகம்'
+  ON CONFLICT (library_id) DO NOTHING;
+INSERT INTO staff_leave_days (library_id, leave_days)
+  SELECT id, 1 FROM libraries WHERE name = 'சோதனை நூலகம்'
+  ON CONFLICT (library_id) DO NOTHING;
+INSERT INTO library_stats_base (library_name, fee, members, patrons, chief_patrons, donors)
+  VALUES ('சோதனை நூலகம்', 100, 100, 5, 1, 1)
+  ON CONFLICT (library_name) DO NOTHING;
+INSERT INTO library_newspaper_map (library_id, slot, active)
+  SELECT l.id, n.slot, TRUE FROM libraries l, newspapers n WHERE l.name = 'சோதனை நூலகம்' AND n.name <> ''
+  ON CONFLICT (library_id, slot) DO NOTHING;

@@ -664,8 +664,6 @@ table{max-width:100%}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-<a href="/logout" title="வெளியேறு / பயனர் மாற்று" style="position:fixed;top:8px;right:10px;z-index:9999;background:#fff;border:1.5px solid #cbd5e1;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:#334155;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.15);">🚪 வெளியேறு</a>
-
 <div class="container">
 
     <div id="stage0" class="stage" style="display:block;">
@@ -697,6 +695,7 @@ table{max-width:100%}
     <select id="typeSelect" onchange="loadLibraries();handleLibraryTypeUI();"></select>
  
     <div id="librariesDiv" style="margin-top:20px;"></div>
+    <a href="/logout" id="logoutBtn0" style="display:block;box-sizing:border-box;width:100%;margin-top:12px;padding:12px;background:#f44336;color:#fff;border-radius:8px;text-align:center;font-size:16px;font-weight:600;text-decoration:none;">🚪 வெளியேறு</a>
     <div id="msg0" class="error" style="margin-top:12px;"></div>
     </div>
 
@@ -743,16 +742,16 @@ table{max-width:100%}
   </span>
 </p>
     <div class="hl-grid" id="hlGrid">
-      <section class="hl-card" aria-labelledby="hlRTitle">
-        <div class="hl-head"><h4 id="hlRTitle">💰 கடந்த மாத வரவினம் மற்றும் புள்ளி விவரம்</h4><span class="hl-badge" id="hlRBadge"></span></div>
-        <div class="hl-total" id="hlRTotal"></div>
-        <div class="hl-view" id="hlRView" tabindex="0" aria-label="வரவினம் மற்றும் புள்ளி விவரப் பட்டியல்"><div class="hl-track"><div class="hl-empty">ஏற்றப்படுகிறது…</div></div></div>
-        <div class="hl-foot">விரலால் / சுட்டியால் தொட்டால் ஓட்டம் நிற்கும்</div>
-      </section>
       <section class="hl-card exp" aria-labelledby="hlETitle">
         <div class="hl-head"><h4 id="hlETitle">🧾 கடந்த மாத சில்லறைச் செலவின அனுமதி</h4><span class="hl-badge" id="hlEBadge"></span></div>
         <div class="hl-total" id="hlETotal"></div>
         <div class="hl-view" id="hlEView" tabindex="0" aria-label="அனுமதிக்கப்பட்ட செலவினப் பட்டியல்"><div class="hl-track"><div class="hl-empty">ஏற்றப்படுகிறது…</div></div></div>
+        <div class="hl-foot">விரலால் / சுட்டியால் தொட்டால் ஓட்டம் நிற்கும்</div>
+      </section>
+      <section class="hl-card" aria-labelledby="hlRTitle">
+        <div class="hl-head"><h4 id="hlRTitle">💰 கடந்த மாத வரவினம் மற்றும் புள்ளி விவரம்</h4><span class="hl-badge" id="hlRBadge"></span></div>
+        <div class="hl-total" id="hlRTotal"></div>
+        <div class="hl-view" id="hlRView" tabindex="0" aria-label="வரவினம் மற்றும் புள்ளி விவரப் பட்டியல்"><div class="hl-track"><div class="hl-empty">ஏற்றப்படுகிறது…</div></div></div>
         <div class="hl-foot">விரலால் / சுட்டியால் தொட்டால் ஓட்டம் நிற்கும்</div>
       </section>
     </div>

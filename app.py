@@ -151,7 +151,8 @@ def getLibraryTypes():
     வழக்கமான வகைகள் முதலில், புதிய வகைகள் பின்னால். Database காலி / பிழை எனில் இயல்பு வகைகள்."""
     try:
         rows = db.fetch_all("SELECT btrim(lib_type) AS t, MIN(id) AS first_id FROM libraries "
-                            "WHERE btrim(lib_type) <> '' AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) GROUP BY 1 ORDER BY 2")
+                            "WHERE btrim(lib_type) <> '' AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) GROUP BY 1 ORDER BY 2",
+                            (bool(session.get("tester")),))
     except Exception:
         app.logger.exception("getLibraryTypes")
         rows = []
@@ -163,8 +164,8 @@ def getLibraryTypes():
 
 @rpc
 def getLibrariesByType(type):
-    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id",
-                        (str(type).strip(),))
+    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) ORDER BY id",
+                        (str(type).strip(), bool(session.get("tester"))))
     return [r["name"] for r in rows]
 
 
@@ -509,7 +510,7 @@ def _claim_total(row, paper_sum, rates):
 def getRegistrationStatus(monthYear=None):
     """நடப்பு (அல்லது தேர்ந்த) மாதம்: பதிவு செய்தவர்கள் / செய்யாதவர்கள்"""
     m = _month_or_now(monthYear)
-    libs = db.fetch_all("SELECT name, lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (m,))
+    libs = db.fetch_all("SELECT name, lib_type FROM libraries WHERE NOT is_test AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (m,))
     done = {r["library_name"] for r in
             db.fetch_all("SELECT DISTINCT library_name FROM claims WHERE month_year = %s", (m,))}
     reg = [{"name": l["name"], "type": l["lib_type"]} for l in libs if l["name"] in done]
@@ -706,7 +707,7 @@ def getHomeHighlights(libraryName):
 def getClaimsForApproval(monthYear=None):
     m = _month_or_now(monthYear)
     rates = getWageRates()
-    rows = db.fetch_all("SELECT c.*, l.id AS lib_id FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
+    rows = db.fetch_all("SELECT c.*, l.id AS lib_id, COALESCE(l.is_test, FALSE) AS is_test FROM claims c LEFT JOIN libraries l ON l.name = c.library_name "
                         "WHERE c.month_year = %s AND (l.inactive_from IS NULL OR l.inactive_from > to_date('01/' || c.month_year, 'DD/MM/YYYY')) "
                         "ORDER BY l.id NULLS LAST, c.library_name", (m,))
     papers = {}
@@ -719,10 +720,12 @@ def getClaimsForApproval(monthYear=None):
         out.append({"id": r["id"], "name": r["library_name"], "type": r["library_type"],
                     "total": float(tot), "approved": bool(r["approved"]),
                     "approvedAmount": float(r["approved_amount"]) if r["approved_amount"] is not None else None,
-                    "approvedAt": r["approved_at"].astimezone(IST).strftime("%d/%m/%Y %H:%M") if r["approved_at"] else ""})
+                    "approvedAt": r["approved_at"].astimezone(IST).strftime("%d/%m/%Y %H:%M") if r["approved_at"] else "",
+                    "test": bool(r["is_test"])})
+    real = [x for x in out if not x["test"]]          # சோதனை நூலகம் மொத்தங்களில் சேராது
     return {"success": True, "month": m, "rows": out,
-            "approvedTotal": sum(x["approvedAmount"] or 0 for x in out if x["approved"]),
-            "grandTotal": sum(x["total"] for x in out)}
+            "approvedTotal": sum(x["approvedAmount"] or 0 for x in real if x["approved"]),
+            "grandTotal": sum(x["total"] for x in real)}
 
 
 @rpc
@@ -1352,6 +1355,8 @@ def _approved_claims(month_years, library_name=None):
     if library_name:
         sql += " AND c.library_name = %s"
         args.append(library_name)
+    else:
+        sql += " AND NOT COALESCE(l.is_test, FALSE)"      # சோதனை நூலகம் எந்த அறிக்கையிலும் வராது
     rows = db.fetch_all(sql, tuple(args))
     ids = [r["id"] for r in rows]
     papers = {}
@@ -1410,9 +1415,9 @@ def getLibrarianReport(payCenter, monthYear):
     if not my:
         return {"success": False, "message": "மாதத்தைத் தேர்ந்தெடுக்கவும்."}
     if pc == NO_PAYCENTER:
-        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = '' AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (my,))
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE NOT is_test AND btrim(pay_center) = '' AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (my,))
     else:
-        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE btrim(pay_center) = %s AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (pc, my))
+        libs = db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE NOT is_test AND btrim(pay_center) = %s AND (inactive_from IS NULL OR inactive_from > to_date('01/' || %s, 'DD/MM/YYYY')) ORDER BY id", (pc, my))
     net = {}
     for r, parts, total in _approved_claims([my]):
         net[r["library_name"]] = net.get(r["library_name"], Decimal(0)) + total - parts["papers"] - parts["rent"]
@@ -1988,6 +1993,33 @@ def login():
     return redirect("/")
 
 
+TEST_LOGIN_HTML = """<!doctype html><html lang="ta"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>சோதனை நூலக உள்நுழைவு</title><body style="font-family:Arial,'Noto Sans Tamil',sans-serif;background:#f4f6fa;display:flex;justify-content:center;padding:30px 12px">
+<form method="post" style="background:#fff;border-radius:10px;padding:24px;max-width:380px;width:100%;box-shadow:0 2px 10px rgba(0,0,0,.12)">
+<h2 style="margin-top:0;color:#0b3a6e">🧪 சோதனை நூலகம்</h2>
+<p style="color:#475569;font-size:14px">நூலகரைப் போலவே (அனைத்து விதிகளுடன்) சோதிக்க. இங்கு உள்ளிடும் பதிவுகள் எந்த அறிக்கையிலும் சேராது. Admin கடவுச்சொல் தேவை.</p>
+__ERR__
+<input type="password" name="password" placeholder="Admin கடவுச்சொல்" required style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin:8px 0 14px">
+<button style="width:100%;padding:12px;border:0;border-radius:6px;background:#1b7a4b;color:#fff;font-size:16px;font-weight:700">சோதனை நூலகராக உள்நுழை</button>
+</form></body></html>"""
+
+
+@app.route("/test-login", methods=["GET", "POST"])
+def test_login():
+    """சோதனை நூலகத்தைக் காட்டும் நூலகர் உள்நுழைவு (Admin கடவுச்சொல்); Admin விதிவிலக்குகள் பொருந்தாது."""
+    if request.method == "GET":
+        return Response(TEST_LOGIN_HTML.replace("__ERR__", ""), mimetype="text/html")
+    expected = os.environ.get("ADMIN_PASSWORD") or DEFAULT_ADMIN_PASSWORD
+    if hmac.compare_digest(request.form.get("password", "").encode(), expected.encode()):
+        session.clear()
+        session.permanent = True
+        session["librarian"] = True
+        session["tester"] = True
+        return redirect("/")
+    time.sleep(1)
+    return Response(TEST_LOGIN_HTML.replace("__ERR__", '<p style="color:#b91c1c;font-weight:700">கடவுச்சொல் தவறு</p>'), mimetype="text/html")
+
+
 @app.get("/logout")
 def logout():
     session.clear()
@@ -2110,7 +2142,7 @@ def _template_rows(kind):
         if kind == "stats_base":
             from receipts_module import _group_of, LIB_GROUPS
             libs = db.fetch_all("SELECT l.id, l.name, l.lib_type, b.fee, b.members, b.patrons, b.chief_patrons, b.donors "
-                                "FROM libraries l LEFT JOIN library_stats_base b ON b.library_name = l.name ORDER BY l.id")
+                                "FROM libraries l LEFT JOIN library_stats_base b ON b.library_name = l.name WHERE NOT l.is_test ORDER BY l.id")
             order = [t for _, t in LIB_GROUPS] + ["பிற நூலகங்கள்"]
             libs.sort(key=lambda r: (order.index(_group_of(r["lib_type"])), r["id"]))
             out = []
@@ -2121,23 +2153,23 @@ def _template_rows(kind):
             return out
         if kind == "libraries":
             return [[r["name"], r["code"] or "", r["emails"], r["lib_type"], r["pay_center"]] for r in
-                    db.fetch_all("SELECT name, code, emails, lib_type, pay_center FROM libraries ORDER BY id")]
+                    db.fetch_all("SELECT name, code, emails, lib_type, pay_center FROM libraries WHERE NOT is_test ORDER BY id")]
         if kind == "holidays":
             return [[r["holiday_date"].strftime("%d/%m/%Y"), r["name"]] for r in
                     db.fetch_all("SELECT holiday_date, name FROM holidays ORDER BY holiday_date")]
         if kind == "leave":
             return [[r["name"], jnum(r["leave_days"])] for r in
                     db.fetch_all("SELECT l.name, s.leave_days FROM staff_leave_days s "
-                                 "JOIN libraries l ON l.id = s.library_id ORDER BY l.id")]
+                                 "JOIN libraries l ON l.id = s.library_id WHERE NOT l.is_test ORDER BY l.id")]
         if kind == "dailywage":
             return [[r["name"], int(r["workers"])] for r in
                     db.fetch_all("SELECT l.name, d.workers FROM daily_wage_permission d "
-                                 "JOIN libraries l ON l.id = d.library_id ORDER BY l.id")]
+                                 "JOIN libraries l ON l.id = d.library_id WHERE NOT l.is_test ORDER BY l.id")]
         if kind in ("vendors_paper", "vendors_rent"):
             k = "paper" if kind == "vendors_paper" else "rent"
             out = []
             for r in db.fetch_all("SELECT l.code AS lib_code, l.name AS lib_name, v.* FROM vendors v JOIN libraries l ON l.id = v.library_id "
-                                  "WHERE v.kind = %s ORDER BY l.id, v.id", (k,)):
+                                  "WHERE v.kind = %s AND NOT l.is_test ORDER BY l.id, v.id", (k,)):
                 row = [r["lib_code"] or "", r["lib_name"] or "", r["vendor_code"], r["name"], r["pan_no"], r["bank_name"], r["branch"], r["ifsc"], r["account_no"]]
                 out.append(row)
             return out
@@ -2210,9 +2242,9 @@ def admin_summary():
         return denied
     try:
         types = db.fetch_all("SELECT COALESCE(NULLIF(btrim(lib_type), ''), '(வகை இல்லை)') AS t, COUNT(*) AS n "
-                             "FROM libraries GROUP BY 1 ORDER BY MIN(id)")
+                             "FROM libraries WHERE NOT is_test GROUP BY 1 ORDER BY MIN(id)")
         tot = db.fetch_one("SELECT COUNT(*) AS n, COUNT(*) FILTER (WHERE emails <> '') AS with_email, "
-                           "COUNT(*) FILTER (WHERE code IS NOT NULL) AS with_code FROM libraries")
+                           "COUNT(*) FILTER (WHERE code IS NOT NULL) AS with_code FROM libraries WHERE NOT is_test")
         papers = db.fetch_one("SELECT COUNT(*) FILTER (WHERE name <> '') AS n FROM newspapers")
         return jsonify({"success": True, "libraries": tot["n"], "withEmail": tot["with_email"],
                         "withCode": tot["with_code"], "newspapers": papers["n"] if papers else 0,
@@ -2256,15 +2288,17 @@ def admin_import_coverage(kind):
         return denied
     if kind == "claims":
         sql = ("SELECT month_year, COUNT(*) AS n, COUNT(*) FILTER (WHERE approved) AS ok, "
-               "COALESCE(SUM(approved_amount) FILTER (WHERE approved), 0) AS amt FROM claims GROUP BY 1")
+               "COALESCE(SUM(approved_amount) FILTER (WHERE approved), 0) AS amt FROM claims c "
+               "WHERE NOT EXISTS (SELECT 1 FROM libraries l WHERE l.name = c.library_name AND l.is_test) GROUP BY 1")
     elif kind == "receipts":
         sql = ("SELECT month_year, COUNT(*) AS n, COUNT(*) FILTER (WHERE status = 'approved') AS ok, "
-               "COALESCE(SUM(total_amount) FILTER (WHERE status = 'approved'), 0) AS amt FROM library_receipts GROUP BY 1")
+               "COALESCE(SUM(total_amount) FILTER (WHERE status = 'approved'), 0) AS amt FROM library_receipts c "
+               "WHERE NOT EXISTS (SELECT 1 FROM libraries l WHERE l.name = c.library_name AND l.is_test) GROUP BY 1")
     else:
         return _bad("தெரியாத வகை")
     try:
         rows = db.fetch_all(sql)
-        libs = db.fetch_one("SELECT COUNT(*) AS n FROM libraries")["n"]
+        libs = db.fetch_one("SELECT COUNT(*) AS n FROM libraries WHERE NOT is_test")["n"]
     except Exception:
         app.logger.exception("coverage %s", kind)
         return _bad("தரவைப் படிக்க முடியவில்லை (அட்டவணைகள் உருவாக்கப்படவில்லையா?)")
@@ -2297,10 +2331,11 @@ def admin_missing():
     prev = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
     cur_fy = now.year if now.month >= 4 else now.year - 1
     try:
-        have = db.fetch_all("SELECT month_year FROM claims UNION SELECT month_year FROM library_receipts")
+        have = db.fetch_all("SELECT month_year FROM claims c WHERE NOT EXISTS (SELECT 1 FROM libraries l WHERE l.name = c.library_name AND l.is_test) "
+                            "UNION SELECT month_year FROM library_receipts c WHERE NOT EXISTS (SELECT 1 FROM libraries l WHERE l.name = c.library_name AND l.is_test)")
         have = [r["month_year"] for r in have if len(r["month_year"] or "") == 7]
         first_fy = min([_fy_start_year(m) for m in have] + [cur_fy])
-        libs = db.fetch_all("SELECT name, lib_type, pay_center, inactive_from FROM libraries ORDER BY id")
+        libs = db.fetch_all("SELECT name, lib_type, pay_center, inactive_from FROM libraries WHERE NOT is_test ORDER BY id")
         fys = ["%d-%02d" % (y, (y + 1) % 100) for y in range(first_fy, cur_fy + 2)]    # இனி வரும் ஆண்டு உட்பட
         if fy == "all":
             start = min([_mkey(m) for m in have] + [(cur_fy, 4)]) if have else (cur_fy, 4)
