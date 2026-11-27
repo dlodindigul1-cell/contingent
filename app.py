@@ -1494,6 +1494,30 @@ def saveWageRates(rates):
 
 
 @rpc
+def getNameSuggestions(libraryName):
+    """இந்த நூலகத்தின் முந்தைய மாதப் பதிவுகளில் உள்ள பெயர்கள் (புதியவை முதலில்) — டைப் செய்யும்போது suggestion ஆகக் காட்ட."""
+    lib = str(libraryName or "").strip()
+    cols = {"partnerNameTamil": "partner_name_tamil", "staffNameTamil": "staff_name_tamil",
+            "partTimeStaffName": "part_time_staff_name", "rentOwnerName": "rent_owner_name"}
+    out = {k: [] for k in cols}
+    if not lib:
+        return {"success": True, "names": out}
+    rows = db.fetch_all(
+        "SELECT partner_name_tamil, staff_name_tamil, part_time_staff_name, rent_owner_name "
+        "FROM claims WHERE library_name = %s ORDER BY id DESC LIMIT 60", (lib,))
+    for r in rows:
+        for k, c in cols.items():
+            v = (r[c] or "").strip()
+            if v and v not in out[k]:
+                out[k].append(v)
+    rent = db.fetch_one(
+        "SELECT r.owner_name FROM rent r JOIN libraries l ON l.id = r.library_id WHERE l.name = %s", (lib,))
+    if rent and (rent["owner_name"] or "").strip() and rent["owner_name"].strip() not in out["rentOwnerName"]:
+        out["rentOwnerName"].append(rent["owner_name"].strip())
+    return {"success": True, "names": out}
+
+
+@rpc
 def getRentDetailsForLibrary(libraryName):
     row = db.fetch_one(
         "SELECT r.owner_name, r.amount FROM rent r JOIN libraries l ON l.id = r.library_id "

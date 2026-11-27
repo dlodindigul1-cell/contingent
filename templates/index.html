@@ -2736,6 +2736,24 @@ data.otherIncome = 0;
   showReceiptPreview(data);
 }
 // go() செயல்பாட்டில் stage5-ஐ கையாள
+/* முந்தைய மாதங்களில் டைப் செய்த பெயர்கள் — அடுத்த மாதம் suggestion ஆகக் காட்டும் */
+const NAME_SUGG_FIELDS = ['partnerNameTamil', 'staffNameTamil', 'partTimeStaffName', 'rentOwnerName'];
+function loadNameSuggestions() {
+  if (!selectedLib) return;
+  google.script.run.withSuccessHandler(r => {
+    if (!r || !r.success) return;
+    NAME_SUGG_FIELDS.forEach(id => {
+      const inp = document.getElementById(id); if (!inp) return;
+      let dl = document.getElementById('dl_' + id);
+      if (!dl) { dl = document.createElement('datalist'); dl.id = 'dl_' + id; document.body.appendChild(dl); }
+      dl.innerHTML = '';
+      (r.names[id] || []).forEach(n => { const o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+      inp.setAttribute('list', dl.id);
+      inp.setAttribute('autocomplete', 'off');
+    });
+  }).getNameSuggestions(selectedLib);
+}
+
 function go(n, title){
   show(n);
 
@@ -2758,6 +2776,7 @@ function go(n, title){
    
 
   if(n === 4){
+    loadNameSuggestions();
 
     loadWageRates();   // Admin உள்ளிட்ட நாள் கூலி விகிதங்கள்
 
