@@ -26,7 +26,7 @@ def staff_list():
     if d: return d
     try:
         rows = db.fetch_all(
-            "SELECT s.id, s.staff_name, s.staff_no, s.is_daily_wage, s.seq, s.active, l.name AS lib, l.lib_type, l.is_test, "
+            "SELECT s.id, s.staff_name, s.staff_no, s.is_daily_wage, s.seq, s.active, l.name AS lib, l.lib_type, l.is_test, l.is_office, "
             "(SELECT COUNT(*) FROM staff_leave_records r WHERE r.staff_id = s.id) AS recs "
             "FROM library_staff s JOIN libraries l ON l.id = s.library_id "
             "ORDER BY l.is_test, l.id, s.is_daily_wage, s.id")
@@ -35,7 +35,7 @@ def staff_list():
         return jsonify(success=False, message=hint)
     return jsonify(success=True, rows=[{
         'id': r['id'], 'library': r['lib'], 'type': r['lib_type'], 'name': r['staff_name'], 'no': r['staff_no'],
-        'daily': r['is_daily_wage'], 'active': r['active'], 'records': r['recs'], 'test': bool(r['is_test']),
+        'daily': r['is_daily_wage'], 'active': r['active'], 'records': r['recs'], 'test': bool(r['is_test']) and not r['is_office'], 'office': bool(r['is_office']),
         'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib'])} for r in rows])
 
 
@@ -117,6 +117,7 @@ from flask import render_template
 from receipts_module import _group_of, LIB_GROUPS
 
 IST = ZoneInfo('Asia/Kolkata')
+OFFICE_NAME = 'மாவட்ட நூலக அலுவலகம்'
 RL_YEARLY = 3                       # மத (வரையறுக்கப்பட்ட) விடுப்பு — ஆண்டுக்கு அதிகபட்சம் 3 நாட்கள் (ஜனவரி–டிசம்பர்)
 CL_YEARLY = 12                      # தற்செயல் விடுப்பு — ஆண்டுக்கு (ஜனவரி–டிசம்பர்)
 PERMISSION_MAX_PER_MONTH = 2
@@ -137,10 +138,13 @@ SLOTS = {
           'end': ['மாலை 5.00 மணி முதல் 6.00 மணி வரை', 'மாலை 6.00 மணி முதல் 7.00 மணி வரை']},
     'C': {'start': ['காலை 9.00 மணி முதல் 10.00 மணி வரை'],
           'end': ['மாலை 5.30 மணி முதல் 6.30 மணி வரை']},
+    'O': {'start': ['காலை 10.00 மணி முதல் 11.00 மணி வரை'],        # மாவட்ட நூலக அலுவலகம்
+          'end': ['மாலை 4.45 மணி முதல் 5.45 மணி வரை']},
 }
 
 
 def category_of(lib_type):
+    if OFFICE_NAME in str(lib_type or ''): return 'O'
     g = _group_of(lib_type)
     if g in ('மாவட்ட மைய நூலகம்', 'முழு நேர நூலகங்கள்'): return 'A'
     if g == 'கிளை நூலகங்கள்': return 'B'
@@ -444,14 +448,16 @@ def leave_meta():
 @leave.get('/leave/api/libraries')
 def leave_libraries():
     rows = db.fetch_all(
-        "SELECT l.id, l.name, l.lib_type FROM libraries l WHERE (NOT l.is_test OR %s) "
+        "SELECT l.id, l.name, l.lib_type, l.is_office FROM libraries l WHERE (NOT l.is_test OR l.is_office OR %s) "
         "AND (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) "
         "AND EXISTS (SELECT 1 FROM library_staff s WHERE s.library_id = l.id AND s.active) ORDER BY l.id",
         (bool(session.get('tester') or session.get('admin')),))
     order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
+    OFFICE = OFFICE_NAME          # மாவட்ட நூலக அலுவலகப் பணியாளர்கள் — முதல் குழு
+    order = [OFFICE] + order
     groups = {t: [] for t in order}
     for r in rows:
-        groups[_group_of(r['lib_type'])].append({'id': r['id'], 'name': r['name']})
+        groups[OFFICE if r['is_office'] else _group_of(r['lib_type'])].append({'id': r['id'], 'name': r['name']})
     return jsonify(success=True, groups=[{'title': t, 'libraries': groups[t]} for t in order if groups[t]])
 
 
@@ -542,7 +548,7 @@ def leave_today():
     rows = db.fetch_all(
         "SELECT r.*, s.staff_name, s.staff_no, s.is_daily_wage, l.name AS lib FROM staff_leave_records r "
         "JOIN library_staff s ON s.id = r.staff_id JOIN libraries l ON l.id = s.library_id "
-        "WHERE NOT l.is_test AND r.start_date <= %s AND r.end_date >= %s ORDER BY l.id, r.id", (today, today))
+        "WHERE (NOT l.is_test OR l.is_office) AND r.start_date <= %s AND r.end_date >= %s ORDER BY l.is_office DESC, l.id, r.id", (today, today))
     return jsonify(success=True, date=today.isoformat(), count=len(rows), rows=[{
         'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib']), 'library': r['lib'],
         'type': r['leave_type'], 'typeLabel': LEAVE_TYPES[r['leave_type']], 'detail': describe(r)} for r in rows])

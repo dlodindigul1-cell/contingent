@@ -398,6 +398,20 @@ INSERT INTO libraries (name, code, emails, lib_type, pay_center, is_test)
   ON CONFLICT (name) DO NOTHING;
 UPDATE libraries SET is_test = TRUE WHERE name = 'சோதனை நூலகம்';
 
+-- ============================================================
+--  அலுவலகம் — மாவட்ட நூலக அலுவலகப் பணியாளர்களின் விடுப்புப் பதிவுக்கு மட்டும்.
+--  is_test = TRUE என்பதால் வரவு-செலவு, புள்ளி விவரம், அறிக்கை, மொத்தங்கள் எதிலும் சேராது;
+--  is_office = TRUE என்பதால் விடுப்புப் பதிவு / விடுப்பு அறிக்கைகளில் மட்டும் வரும்.
+-- ============================================================
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS is_office BOOLEAN NOT NULL DEFAULT FALSE;
+-- முன்பு 'அலுவலகம்' என உருவாக்கியிருந்தால் பெயர் மாறும் (பணியாளர் / விடுப்புப் பதிவுகள் அப்படியே இருக்கும்)
+UPDATE libraries SET name = 'மாவட்ட நூலக அலுவலகம்', lib_type = 'மாவட்ட நூலக அலுவலகம்'
+  WHERE name = 'அலுவலகம்' AND is_office AND NOT EXISTS (SELECT 1 FROM libraries WHERE name = 'மாவட்ட நூலக அலுவலகம்');
+INSERT INTO libraries (name, code, emails, lib_type, pay_center, is_test, is_office)
+  VALUES ('மாவட்ட நூலக அலுவலகம்', NULL, '', 'மாவட்ட நூலக அலுவலகம்', '', TRUE, TRUE)
+  ON CONFLICT (name) DO NOTHING;
+UPDATE libraries SET is_test = TRUE, is_office = TRUE WHERE name = 'மாவட்ட நூலக அலுவலகம்';
+
 -- விதிகள் பொருந்த: வாடகை, தினக்கூலி அனுமதி (2 பணியாளர்), விடுப்பு நாட்கள், புள்ளி விவர அடிப்படை, எல்லா நாளிதழ்களும்
 INSERT INTO rent (library_id, owner_name, amount)
   SELECT id, 'சோதனை உரிமையாளர்', 5000 FROM libraries WHERE name = 'சோதனை நூலகம்'

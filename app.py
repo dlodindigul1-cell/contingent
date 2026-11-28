@@ -155,7 +155,7 @@ def getLibraryTypes():
     வழக்கமான வகைகள் முதலில், புதிய வகைகள் பின்னால். Database காலி / பிழை எனில் இயல்பு வகைகள்."""
     try:
         rows = db.fetch_all("SELECT btrim(lib_type) AS t, MIN(id) AS first_id FROM libraries "
-                            "WHERE btrim(lib_type) <> '' AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) GROUP BY 1 ORDER BY 2",
+                            "WHERE btrim(lib_type) <> '' AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND NOT is_office AND (NOT is_test OR %s) GROUP BY 1 ORDER BY 2",
                             (bool(session.get("tester")),))
     except Exception:
         app.logger.exception("getLibraryTypes")
@@ -168,7 +168,7 @@ def getLibraryTypes():
 
 @rpc
 def getLibrariesByType(type):
-    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) ORDER BY id",
+    rows = db.fetch_all("SELECT name FROM libraries WHERE btrim(lib_type) = %s AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND NOT is_office AND (NOT is_test OR %s) ORDER BY id",
                         (str(type).strip(), bool(session.get("tester"))))
     return [r["name"] for r in rows]
 
@@ -186,7 +186,7 @@ def getEmailsForLibrary(libraryName):
 
 @rpc
 def getAllLibraryNamesForAdmin():
-    return [r["name"] for r in db.fetch_all("SELECT name FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id")]
+    return [r["name"] for r in db.fetch_all("SELECT name FROM libraries WHERE NOT is_office AND (inactive_from IS NULL OR inactive_from > CURRENT_DATE) ORDER BY id")]
 
 
 # ------------------------------------------------------------------
@@ -464,7 +464,7 @@ def _inactive_date_text(name):
 @rpc
 def getInactiveLibraries():
     """வகை வாரியாக எல்லா நூலகங்கள் (+ செயல்படாத நாள்)."""
-    rows = db.fetch_all("SELECT name, btrim(lib_type) AS lib_type, inactive_from FROM libraries ORDER BY id")
+    rows = db.fetch_all("SELECT name, btrim(lib_type) AS lib_type, inactive_from FROM libraries WHERE NOT is_office ORDER BY id")
     return {"success": True, "rows": [{"name": r["name"], "type": r["lib_type"],
                                        "from": r["inactive_from"].isoformat() if r["inactive_from"] else ""} for r in rows]}
 
@@ -1542,7 +1542,7 @@ def getDailyWagePermissionsAdmin():
     """Admin: எல்லா நூலகங்களும் + அனுமதி உள்ளதா + அனுமதிக்கப்பட்ட பணியாளர் எண்ணிக்கை"""
     rows = db.fetch_all(
         "SELECT l.name, l.lib_type, d.workers FROM libraries l "
-        "LEFT JOIN daily_wage_permission d ON d.library_id = l.id ORDER BY l.id")
+        "LEFT JOIN daily_wage_permission d ON d.library_id = l.id WHERE NOT l.is_office ORDER BY l.id")
     return [{"name": r["name"], "type": r["lib_type"], "allowed": r["workers"] is not None,
              "multi": multi_worker_type(r["lib_type"]),
              "workers": int(r["workers"]) if r["workers"] is not None and multi_worker_type(r["lib_type"]) else 1}
@@ -1552,7 +1552,7 @@ def getDailyWagePermissionsAdmin():
 @rpc
 def saveDailyWagePermissions(rows):
     libs = {r["name"]: (r["id"], multi_worker_type(r["lib_type"]))
-            for r in db.fetch_all("SELECT id, name, lib_type FROM libraries")}
+            for r in db.fetch_all("SELECT id, name, lib_type FROM libraries WHERE NOT is_office")}
     allow, deny = [], []
     for r in rows or []:
         found = libs.get(str(r.get("name") or "").strip())
@@ -2462,7 +2462,7 @@ def _template_rows(kind):
             out = []
             for n, r in enumerate(db.fetch_all(
                     "SELECT l.name AS lib, s.staff_name, s.staff_no, s.is_daily_wage FROM library_staff s "
-                    "JOIN libraries l ON l.id = s.library_id WHERE NOT l.is_test ORDER BY l.id, s.is_daily_wage, s.id"), 1):
+                    "JOIN libraries l ON l.id = s.library_id WHERE (NOT l.is_test OR l.is_office) ORDER BY l.is_office, l.id, s.is_daily_wage, s.id"), 1):
                 out.append([n, r["lib"], r["lib"] if r["is_daily_wage"] else r["staff_name"], r["staff_no"]])
             return out
         if kind == "religious":
@@ -2571,7 +2571,7 @@ def admin_libraries():
     if denied:
         return denied
     try:
-        rows = db.fetch_all("SELECT id, name, code, emails, lib_type, pay_center FROM libraries ORDER BY id")
+        rows = db.fetch_all("SELECT id, name, code, emails, lib_type, pay_center FROM libraries WHERE NOT is_office ORDER BY id")
     except Exception:
         return jsonify({"success": False, "message": "நூலகப் பட்டியலைப் படிக்க முடியவில்லை"})
     return jsonify({"success": True, "rows": [

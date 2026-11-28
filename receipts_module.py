@@ -174,7 +174,7 @@ def dashboard():
 @receipts.get('/receipts/libraries')
 def receipt_libraries():
     if not (_admin() or _librarian()): return jsonify(success=False),403
-    rows=db.fetch_all('SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND (NOT is_test OR %s) ORDER BY id',(bool(session.get('tester')),))
+    rows=db.fetch_all('SELECT name,lib_type FROM libraries WHERE (inactive_from IS NULL OR inactive_from > CURRENT_DATE) AND NOT is_office AND (NOT is_test OR %s) ORDER BY id',(bool(session.get('tester')),))
     return jsonify(rows=[dict(r) for r in rows])
 
 @receipts.get('/receipts/available')
@@ -1119,7 +1119,7 @@ def fee_rules_get():
     rates = _rates()
     rows = db.fetch_all("SELECT l.id, l.name, COALESCE(l.lib_type,'') lib_type, COALESCE(b.fee,0) fee FROM libraries l "
                         "LEFT JOIN library_stats_base b ON b.library_name=l.name "
-                        "WHERE (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) ORDER BY l.lib_type, l.id")
+                        "WHERE NOT l.is_office AND (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) ORDER BY l.lib_type, l.id")
     return jsonify(success=True, rates={k: float(v) for k, v in rates.items()},
                    libraries=[{'id': r['id'], 'name': r['name'], 'type': r['lib_type'] or 'வகை குறிப்பிடப்படவில்லை', 'fee': float(r['fee'])} for r in rows])
 
