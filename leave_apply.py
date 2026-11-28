@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request, Response
 import db
 import mailer
 from leave_module import (_staff_row, casual_used, _fmt, _today, CL_YEARLY, RL_YEARLY, religious_used, DAY_PARTS,
-                          holiday_map, trim_trailing, attached_days, religious_name)
+                          holiday_map, trim_trailing, attached_days, counted_days, off_label, religious_name)
 from pdfs import _new_pdf
 
 leave_apply = Blueprint('leave_apply', __name__)
@@ -68,8 +68,11 @@ def _period_text(r, hmap=None):
         end = r['end_date']
     if r['start_date'] == end:
         return f"{_fmt(r['start_date'])} (1 நாள்)"
-    n = (end - r['start_date']).days + 1
-    return f"{_fmt(r['start_date'])} முதல் {_fmt(end)} வரை ({n} நாட்கள்)"
+    if r['leave_type'] == 'casual':        # இடையில் வரும் வார / அரசு விடுமுறை நாட்கள் கணக்கில் இல்லை
+        n = counted_days(r['start_date'], end, hmap if hmap is not None else _hmap(r))
+    else:
+        n = (end - r['start_date']).days + 1
+    return f"{_fmt(r['start_date'])} முதல் {_fmt(end)} வரை ({n:g} நாட்கள்)"
 
 
 def _form(r, staff, f):
@@ -106,6 +109,12 @@ def _form(r, staff, f):
             u = religious_used(staff['id'], yr, r['id'])
             tot, used_s, rem = f'{RL_YEARLY} (மத விடுப்பு — {yr})', f'{u:g}', f'{RL_YEARLY - u:g}'
         att = attached_days(r['start_date'], r['end_date'], hmap)
+        if lt == 'casual':          # விடுப்புக்கு இடையில் வரும் வார / அரசு விடுமுறையும் இணைப்பாகக் காட்டப்படும்
+            d = r['start_date']
+            while d <= r['end_date']:
+                if off_label(d, hmap): att.append((d, off_label(d, hmap)))
+                d += dt.timedelta(days=1)
+            att = sorted(set(att))
         rows = [('1. பணியாளர் பெயர்', name), ('2. பதவி', desig), ('3. பணியாற்றும் இடம்', work),
                 ('4. மொத்த விடுப்பு நாட்கள்', tot), ('5. இதுவரை எடுத்த விடுப்பு நாட்கள்', used_s),
                 ('6. மீதமுள்ள விடுப்பு நாட்கள்', rem), ('7. தற்போது தேவைப்படும் விடுப்பு நாட்கள்', period),

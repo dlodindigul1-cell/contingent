@@ -247,6 +247,15 @@ def attached_days(start, end, hmap, trimmed=()):
     return sorted(set(out))
 
 
+def counted_days(start, end, hmap):
+    """start–end இடையே வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை நீங்கலாகக் கணக்கில் வரும் நாட்கள்."""
+    n, d = 0, start
+    while d <= end:
+        if not off_label(d, hmap): n += 1
+        d += dt.timedelta(days=1)
+    return n
+
+
 def religious_name(d):
     r = db.fetch_one('SELECT name FROM religious_holidays WHERE holiday_date = %s', (d,))
     return (r['name'] or '') if r else ''
@@ -291,7 +300,10 @@ def validate(p, exclude_id=None):
         if part == 'FULL':
             if end < start: raise ValueError('முடிவு தேதி தொடக்க தேதிக்கு முன் இருக்க முடியாது.')
             if end.year != start.year: raise ValueError('ஆண்டு மாறும் தற்செயல் விடுப்பை இரண்டு பதிவுகளாகச் செய்யவும்.')
-            days = (end - start).days + 1
+            # இடையில் வரும் வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை நாட்கள் தற்செயல் விடுப்புக் கணக்கில் சேராது
+            days = counted_days(start, end, holiday_map(start, end))
+            if days == 0:
+                raise ValueError('தேர்ந்தெடுத்த நாட்கள் அனைத்தும் வார விடுமுறை / அரசு விடுமுறை; விடுப்பு எடுக்கத் தேவையில்லை.')
         else:
             end, days = start, 0.5
         used = casual_used(sid, start.year, exclude_id)
