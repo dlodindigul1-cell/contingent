@@ -3045,6 +3045,8 @@ _register_receipt_rpc(RPC)
 # பணியாளர் விடுப்பு மேலாண்மை (தனித்த Module)
 from leave_module import leave as leave_blueprint
 app.register_blueprint(leave_blueprint)
+from leave_apply import leave_apply as leave_apply_blueprint      # நிரந்தரப் பணியாளர் விடுப்பு விண்ணப்பம் (PDF / Brevo மின்னஞ்சல்)
+app.register_blueprint(leave_apply_blueprint)
 
 
 @app.get("/healthz")

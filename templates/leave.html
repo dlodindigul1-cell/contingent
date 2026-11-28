@@ -48,6 +48,11 @@ th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertic
 th{background:var(--sky);color:var(--navy)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips span{background:#efe3fb;color:#5b1f94;border-radius:12px;padding:2px 10px;font-size:.85rem}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.ovl{position:fixed;inset:0;background:rgba(15,42,92,.55);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px;z-index:50}
+.ovl.on{display:flex}.ovl .box{width:100%;max-width:520px;margin:auto}
+textarea,input[type=text],input[type=email]{width:100%;font:inherit;font-size:1rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.btn.alt{background:var(--blue)}.btn.gray{background:#6b7280}
+.mini{margin-left:6px;background:#1f5fae;color:#fff;border:0;border-radius:6px;padding:2px 8px;font:inherit;font-size:.85rem;cursor:pointer}
 .stats div{background:#f2f7ff;border-radius:10px;padding:8px 10px}.stats b{display:block;font-size:1.2rem;color:var(--navy)}
 </style>
 </head>
@@ -101,6 +106,32 @@ th{background:var(--sky);color:var(--navy)}
   </div>
 </section>
 
+<!-- விடுப்பு விண்ணப்பம் (நிரந்தரப் பணியாளர்; தற்செயல் / ஈட்டிய / மருத்துவ) -->
+<div class="ovl" id="applyModal"><div class="box">
+  <h2 style="margin:0 0 4px" id="apTitle">📄 விடுப்பு விண்ணப்பம்</h2>
+  <div class="info" id="apSummary"></div>
+  <label for="apDesig">பதவி *</label><select id="apDesig"><option value="">-- பதவியைத் தேர்வு செய்யவும் --</option></select>
+  <div id="apElml" class="hide">
+    <label for="apSalary">ஊதியம் (ரூ.)</label><input type="text" id="apSalary" inputmode="numeric" placeholder="எ.கா. 35400">
+    <div id="apMedWrap"><label>மருத்துவ சான்று இணைக்கப்பட்டுள்ளதா?</label>
+      <label class="opt"><input type="radio" name="apmed" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="apmed" value="இல்லை" checked> இல்லை</label></div>
+    <label>வார விடுமுறை / அரசு விடுமுறை இணைப்பு உத்தேசிக்கப்பட்டுள்ளதா?</label>
+    <label class="opt"><input type="radio" name="apgov" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="apgov" value="இல்லை" checked> இல்லை</label>
+    <input type="text" id="apGovDate" class="hide" placeholder="விடுமுறை தேதி / விவரம்">
+    <label for="apPrev">இதற்கு முன் எடுத்த விடுப்பு (விட்டால் பதிவுகளிலிருந்து தானாக நிரப்பப்படும்)</label><input type="text" id="apPrev">
+    <label>விதி 5 கீழ் விதிமுறை 4-ன்படி உறுதிமொழி இணைக்கப்பட்டுள்ளதா?</label>
+    <label class="opt"><input type="radio" name="aprule" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="aprule" value="இல்லை" checked> இல்லை</label>
+  </div>
+  <label for="apReason">விடுப்பிற்கான காரணம் *</label><textarea id="apReason" rows="2"></textarea>
+  <label for="apAddr">விடுப்பின் போது முகவரி *</label><textarea id="apAddr" rows="2"></textarea>
+  <label for="apDate">விண்ணப்ப நாள்</label><input type="date" id="apDate">
+  <button class="btn" id="apPdf" type="button">⬇️ PDF பதிவிறக்கு</button>
+  <label for="apEmail" style="margin-top:16px">அல்லது மின்னஞ்சலில் பெற (விருப்பம்)</label><input type="email" id="apEmail" placeholder="உங்கள் மின்னஞ்சல்">
+  <button class="btn alt" id="apMail" type="button">✉️ மின்னஞ்சலில் அனுப்பு</button>
+  <button class="btn gray" id="apClose" type="button">மூடு</button>
+  <div id="apMsg"></div>
+</div></div>
+
 <!-- விவரங்கள் -->
 <section class="page" id="p-history">
   <button class="back" data-go="home">🏠 முகப்புக்கு திரும்புக</button>
@@ -153,7 +184,7 @@ async function loadLibs(){
   $('#rLib').insertAdjacentHTML('beforeend', html); $('#hLib').insertAdjacentHTML('beforeend', html);
   libsLoaded = true;
 }
-let libInfo = null, curStaff = null;
+let libInfo = null, curStaff = null, hInfo = null;
 async function loadStaff(libSel, staffSel){
   staffSel.innerHTML = '<option value="">-- பணியாளரைத் தேர்வு செய்யவும் --</option>'; staffSel.disabled = true;
   if (!libSel.value) return null;
@@ -239,16 +270,27 @@ $('#rSubmit').addEventListener('click', async () => {
   const btn = $('#rSubmit'); btn.disabled = true;
   const j = await api('/leave/api/register', body);
   btn.disabled = false;
-  if (j.success){ out.innerHTML = '<div class="msg ok">✅ ' + esc(j.message) + '</div>'; showBalance(); }
+  if (j.success){
+    out.innerHTML = '<div class="msg ok">✅ ' + esc(j.message) + '</div>'; showBalance();
+    if (curStaff && !curStaff.daily && ['casual', 'earned', 'medical'].includes(t)){
+      out.insertAdjacentHTML('beforeend', '<button class="btn alt" type="button" id="apOpen">📄 விடுப்பு விண்ணப்பம் தயாரிக்க</button>');
+      $('#apOpen').addEventListener('click', () => openApply(j.id));
+    }
+  }
   else { out.innerHTML = '<div class="msg ' + (/ஏற்கனவே இம்மாதத்திற்கு/.test(j.message) ? 'warn' : 'bad') + '">⚠️ ' + esc(j.message) + '</div>'; }
 });
 
 /* ---- விவரப் பக்கம் ---- */
 const hLib = $('#hLib'), hStaff = $('#hStaff'), hYear = $('#hYear');
 (function(){ const y = new Date().getFullYear(); for (let i = y; i >= y - 3; i--) hYear.insertAdjacentHTML('beforeend', '<option>' + i + '</option>'); })();
-hLib.addEventListener('change', async () => { $('#hOut').innerHTML = ''; await loadStaff(hLib, hStaff); });
+hLib.addEventListener('change', async () => { $('#hOut').innerHTML = ''; hInfo = await loadStaff(hLib, hStaff); });
 hStaff.addEventListener('change', loadHistory); hYear.addEventListener('change', loadHistory);
 const MON = ['', 'ஜன', 'பிப்', 'மார்', 'ஏப்', 'மே', 'ஜூன்', 'ஜூலை', 'ஆக', 'செப்', 'அக்', 'நவ', 'டிச'];
+function canApply(r){
+  const st = hInfo && hInfo.staff.find(x => String(x.id) === hStaff.value);
+  return !!st && !st.daily && ['casual', 'earned', 'medical'].includes(r.type);
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-apply]'); if (b) openApply(b.dataset.apply); });
 async function loadHistory(){
   if (!hStaff.value){ $('#hOut').innerHTML = ''; return; }
   const j = await api('/leave/api/history?staff_id=' + hStaff.value + '&year=' + hYear.value);
@@ -261,9 +303,51 @@ async function loadHistory(){
     '<div>ஈட்டிய (நாட்கள்)<b>' + s.earned + '</b></div><div>மருத்துவ (நாட்கள்)<b>' + s.medical + '</b></div></div>' +
     (perm ? '<div class="info">அனுமதி விடுப்பு மாதவாரி: ' + esc(perm) + '</div>' : '') +
     '<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>தேதி</th><th>வகை</th><th>விவரம்</th><th>நாட்கள்</th></tr></thead><tbody>' +
-    (j.records.length ? j.records.map(r => '<tr><td>' + esc(fmt(r.start)) + (r.start === r.end ? '' : '<br>– ' + esc(fmt(r.end))) + '</td><td>' + esc(r.typeLabel) + '</td><td>' + esc(r.detail) + '</td><td>' + (r.type === 'permission' ? '–' : r.days) + '</td></tr>').join('')
+    (j.records.length ? j.records.map(r => '<tr><td>' + esc(fmt(r.start)) + (r.start === r.end ? '' : '<br>– ' + esc(fmt(r.end))) + '</td><td>' + esc(r.typeLabel) + (canApply(r) ? '<br><button class="mini" type="button" data-apply="' + r.id + '">📄 விண்ணப்பம்</button>' : '') + '</td><td>' + esc(r.detail) + '</td><td>' + (r.type === 'permission' ? '–' : r.days) + '</td></tr>').join('')
       : '<tr><td colspan="4">இந்த ஆண்டில் விடுப்புப் பதிவுகள் இல்லை.</td></tr>') + '</tbody></table></div>';
 }
+
+/* ---- விடுப்பு விண்ணப்பம் ---- */
+let apRec = null;
+async function openApply(id){
+  const j = await api('/leave/api/apply-info?record_id=' + id);
+  if (!j.success){ alert(j.message); return; }
+  apRec = id;
+  $('#apTitle').textContent = '📄 ' + j.title;
+  $('#apSummary').textContent = j.name + ' · ' + j.library + ' · ' + j.period;
+  $('#apDesig').innerHTML = '<option value="">-- பதவியைத் தேர்வு செய்யவும் --</option>' + j.designations.map(d => '<option>' + esc(d) + '</option>').join('');
+  $('#apElml').classList.toggle('hide', j.leaveType === 'casual');
+  $('#apMedWrap').classList.toggle('hide', j.leaveType !== 'medical');
+  $('#apDate').value = j.today; $('#apMsg').innerHTML = '';
+  $('#apDate').dataset.t = j.leaveType;
+  $('#applyModal').classList.add('on');
+}
+function apBody(){
+  const b = {record_id: apRec, designation: $('#apDesig').value, reason: $('#apReason').value, address: $('#apAddr').value, apply_date: $('#apDate').value};
+  if ($('#apDate').dataset.t !== 'casual'){
+    Object.assign(b, {salary: $('#apSalary').value, med_cert: chosen('apmed'), gov_holiday: chosen('apgov'), gov_holiday_date: $('#apGovDate').value,
+      prev_leave: $('#apPrev').value, tamil_rule: chosen('aprule')});
+  }
+  return b;
+}
+document.querySelectorAll('input[name=apgov]').forEach(x => x.addEventListener('change', () => $('#apGovDate').classList.toggle('hide', chosen('apgov') !== 'ஆம்')));
+$('#apClose').addEventListener('click', () => $('#applyModal').classList.remove('on'));
+$('#apPdf').addEventListener('click', async () => {
+  const btn = $('#apPdf'), out = $('#apMsg'); btn.disabled = true;
+  try {
+    const r = await fetch('/leave/api/apply/pdf', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(apBody())});
+    if (!r.ok){ const j = await r.json().catch(() => ({})); out.innerHTML = '<div class="msg bad">⚠️ ' + esc(j.message || 'PDF உருவாக்க இயலவில்லை') + '</div>'; return; }
+    const blob = await r.blob(), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'leave_application.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    out.innerHTML = '<div class="msg ok">✅ PDF பதிவிறக்கப்பட்டது.</div>';
+  } finally { btn.disabled = false; }
+});
+$('#apMail').addEventListener('click', async () => {
+  const btn = $('#apMail'), out = $('#apMsg'); btn.disabled = true;
+  const j = await api('/leave/api/apply/email', Object.assign(apBody(), {email: $('#apEmail').value}));
+  btn.disabled = false;
+  out.innerHTML = '<div class="msg ' + (j.success ? 'ok' : 'bad') + '">' + (j.success ? '✅ ' : '⚠️ ') + esc(j.message) + '</div>';
+});
 
 loadLibs();
 const first = (location.hash || '').slice(1);
