@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ta">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>நூலகர் விடுப்பு மேலாண்மை</title>
+<style>
+:root{--navy:#0f2a5c;--blue:#1f5fae;--sky:#e8eff9;--paper:#f3f5f9;--line:#d3dae6;--ink:#1b2433;--muted:#56627a;--ok:#1e7d46;--bad:#b3261e;--badbg:#fceceb;--warn:#8a5a00;--warnbg:#fff4dc;--saffron:#e39a13}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans Tamil","Latha","Nirmala UI",Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
+header{background:linear-gradient(90deg,#14407f,#1f5fae);color:#fff;padding:16px 14px}
+header .in{max-width:520px;margin:0 auto}
+header h1{margin:0;font-size:1.35rem}
+header p{margin:0;font-size:.9rem;opacity:.85}
+main{max-width:520px;margin:16px auto;padding:0 12px 40px}
+.card{display:flex;align-items:center;gap:12px;width:100%;border:0;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#fff;font:inherit;text-align:left;cursor:pointer;box-shadow:0 2px 8px rgba(15,42,92,.15)}
+.card b{display:block;font-size:1.1rem}.card span{font-size:.88rem;opacity:.9}
+.card.reg{background:#1f5fae}.card.his{background:#1e8a4c}
+.card i{font-style:normal;font-size:1.6rem;background:rgba(255,255,255,.2);border-radius:10px;padding:6px 10px}
+.today{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(15,42,92,.12);overflow:hidden}
+.today h2{margin:0;padding:12px 14px;background:#1f5fae;color:#fff;font-size:1.05rem;display:flex;gap:8px;align-items:center}
+.pill{background:rgba(255,255,255,.25);border-radius:12px;padding:0 10px;font-size:.85rem}
+.today button{margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer}
+.list{max-height:340px;overflow-y:auto}
+.it{display:flex;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:#fff}
+.it small{display:block;color:var(--muted)}
+.tag{flex:none;align-self:center;font-size:.8rem;text-align:center;border-radius:8px;padding:3px 8px;background:#e3edfb;color:#144a94}
+.tag.medical{background:#fde0e0;color:#a31616}.tag.earned{background:#ffeccd;color:#8a5a00}.tag.religious{background:#efe3fb;color:#5b1f94}.tag.casual{background:#dff3e6;color:#176237}
+.page{display:none}.page.on{display:block}
+.box{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(15,42,92,.12);padding:14px}
+.back{display:inline-block;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
+label{display:block;font-weight:700;margin:12px 0 4px}
+select,input[type=date],input[type=number]{width:100%;font:inherit;font-size:1rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.sub{background:#f2f7ff;border:1px solid #cfe0f7;border-radius:10px;padding:10px 12px;margin-top:12px}
+.sub h4{margin:0 0 6px;color:var(--navy);font-size:.95rem}
+.opt{display:flex;gap:8px;align-items:flex-start;padding:7px 4px;font-weight:400;margin:0;cursor:pointer}
+.opt input{margin-top:6px}
+.btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-size:1.05rem;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.6}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-weight:600;white-space:pre-line}
+.msg.ok{background:#e3f6ea;color:var(--ok)}.msg.bad{background:var(--badbg);color:var(--bad)}.msg.warn{background:var(--warnbg);color:var(--warn)}
+.info{font-size:.9rem;color:var(--muted);margin-top:6px}
+.hide{display:none}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--sky);color:var(--navy)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips span{background:#efe3fb;color:#5b1f94;border-radius:12px;padding:2px 10px;font-size:.85rem}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.stats div{background:#f2f7ff;border-radius:10px;padding:8px 10px}.stats b{display:block;font-size:1.2rem;color:var(--navy)}
+</style>
+</head>
+<body>
+<header><div class="in"><h1>நூலகர் விடுப்பு மேலாண்மை</h1><p>Library Leave Management System</p></div></header>
+<main>
+
+<!-- முகப்பு -->
+<section class="page on" id="p-home">
+  <button class="card reg" data-go="register"><i>📝</i><div><b>பணியாளர் விடுப்பு பதிவு</b><span>விடுப்பு விண்ணப்பத்தை பதிவு செய்யவும்</span></div></button>
+  <button class="card his" data-go="history"><i>📋</i><div><b>இதுவரை எடுத்த விடுப்பு விவரங்கள்</b><span>பணியாளர் விடுப்பு சுருக்கம் காண்க</span></div></button>
+  <div class="today"><h2>📅 இன்று விடுப்பில் உள்ளவர்கள் <span class="pill" id="todayCount">–</span><button id="todayRefresh" type="button" title="புதுப்பி">⟳</button></h2>
+    <div class="list" id="todayList"><div class="it">ஏற்றப்படுகிறது…</div></div></div>
+</section>
+
+<!-- விடுப்புப் பதிவு -->
+<section class="page" id="p-register">
+  <button class="back" data-go="home">🏠 முகப்புக்கு திரும்புக</button>
+  <div class="box">
+    <h2 style="margin:0 0 4px">📝 பணியாளர் விடுப்பு பதிவு</h2>
+    <label for="rLib">நூலகம் *</label><select id="rLib"><option value="">-- நூலகத்தைத் தேர்வு செய்யவும் --</option></select>
+    <label for="rStaff">பணியாளர் *</label><select id="rStaff" disabled><option value="">-- பணியாளரைத் தேர்வு செய்யவும் --</option></select>
+    <label for="rType">விடுப்பு வகை *</label><select id="rType" disabled><option value="">-- விடுப்பு வகையைத் தேர்வு செய்யவும் --</option></select>
+
+    <div class="sub hide" id="subPerm">
+      <h4>அனுமதி விடுப்பு — நேரம் தேர்வு</h4>
+      <label style="margin-top:0">பணி துவங்கும் முன்னரா / முடியும்போதா? *</label>
+      <label class="opt"><input type="radio" name="pk" value="start"> பணி துவங்கும் போது</label>
+      <label class="opt"><input type="radio" name="pk" value="end"> பணி முடியும்போது</label>
+      <div id="slotWrap" class="hide"><label for="rSlot">நேர இடைவெளி *</label><select id="rSlot"></select></div>
+    </div>
+
+    <div class="sub hide" id="subCasual">
+      <h4>தற்செயல் விடுப்பு — நாள் தேர்வு</h4>
+      <label class="opt"><input type="radio" name="dp" value="FN"> முற்பகல் அரை நாள்</label>
+      <label class="opt"><input type="radio" name="dp" value="AN"> பிற்பகல் அரை நாள்</label>
+      <label class="opt"><input type="radio" name="dp" value="FULL"> முழு நாள்</label>
+    </div>
+
+    <div class="sub hide" id="subRel"><h4>மத விடுப்புக்கு அனுமதிக்கப்பட்ட தேதிகள்</h4><div class="chips" id="relChips"></div></div>
+
+    <div id="dateWrap" class="hide">
+      <label for="rStart" id="lStart">தொடக்க தேதி *</label><input type="date" id="rStart">
+      <div id="endWrap"><label for="rEnd">முடிவு தேதி *</label><input type="date" id="rEnd"></div>
+    </div>
+    <div class="info" id="balInfo"></div>
+    <button class="btn" id="rSubmit" type="button">விடுப்பைப் பதிவு செய்</button>
+    <div id="rMsg"></div>
+  </div>
+</section>
+
+<!-- விவரங்கள் -->
+<section class="page" id="p-history">
+  <button class="back" data-go="home">🏠 முகப்புக்கு திரும்புக</button>
+  <div class="box">
+    <h2 style="margin:0 0 4px">📋 இதுவரை எடுத்த விடுப்பு விவரங்கள்</h2>
+    <label for="hLib">நூலகம்</label><select id="hLib"><option value="">-- நூலகத்தைத் தேர்வு செய்யவும் --</option></select>
+    <label for="hStaff">பணியாளர்</label><select id="hStaff" disabled><option value="">-- பணியாளரைத் தேர்வு செய்யவும் --</option></select>
+    <label for="hYear">ஆண்டு</label><select id="hYear"></select>
+    <div id="hOut"></div>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = iso => iso.split('-').reverse().join('/');
+const TYPES = {permission:'அனுமதி விடுப்பு', casual:'தற்செயல் விடுப்பு', religious:'மத விடுப்பு', earned:'ஈட்டிய விடுப்பு', medical:'மருத்துவ விடுப்பு'};
+async function api(url, body){
+  const r = await fetch(url, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)} : undefined);
+  try { return await r.json(); } catch(e){ return {success:false, message:'Server பதில் புரியவில்லை'}; }
+}
+function go(p){
+  document.querySelectorAll('.page').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  if (p === 'home') loadToday();
+  if (location.hash !== '#' + p) history.replaceState(null, '', p === 'home' ? location.pathname : '#' + p);
+  window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+
+/* ---- இன்று விடுப்பில் ---- */
+async function loadToday(){
+  const j = await api('/leave/api/today');
+  if (!j.success){ $('#todayList').innerHTML = '<div class="it">' + esc(j.message || 'பிழை') + '</div>'; return; }
+  $('#todayCount').textContent = j.count + ' பேர்';
+  $('#todayList').innerHTML = j.rows.length ? j.rows.map(r =>
+    '<div class="it"><div><b>' + esc(r.label) + '</b><small>' + esc(r.library) + '</small></div><div class="tag ' + esc(r.type) + '">' +
+    esc(r.typeLabel) + '<br>' + esc(r.type === 'permission' ? 'அனுமதி' : r.detail) + '</div></div>').join('')
+    : '<div class="it">இன்று யாரும் விடுப்பில் இல்லை.</div>';
+}
+$('#todayRefresh').addEventListener('click', loadToday);
+
+/* ---- நூலகம் / பணியாளர் தேர்வு (பதிவு + விவரம் இரண்டுக்கும்) ---- */
+let libsLoaded = false;
+async function loadLibs(){
+  if (libsLoaded) return;
+  const j = await api('/leave/api/libraries');
+  if (!j.success) return;
+  const html = j.groups.map(g => '<optgroup label="' + esc(g.title) + '">' + g.libraries.map(l => '<option value="' + l.id + '">' + esc(l.name) + '</option>').join('') + '</optgroup>').join('');
+  $('#rLib').insertAdjacentHTML('beforeend', html); $('#hLib').insertAdjacentHTML('beforeend', html);
+  libsLoaded = true;
+}
+let libInfo = null;
+async function loadStaff(libSel, staffSel){
+  staffSel.innerHTML = '<option value="">-- பணியாளரைத் தேர்வு செய்யவும் --</option>'; staffSel.disabled = true;
+  if (!libSel.value) return null;
+  const j = await api('/leave/api/staff?library_id=' + libSel.value);
+  if (!j.success) return null;
+  staffSel.insertAdjacentHTML('beforeend', j.staff.map(s => '<option value="' + s.id + '">' + esc(s.label) + '</option>').join(''));
+  staffSel.disabled = false;
+  return j;
+}
+
+/* ---- பதிவுப் படிவம் ---- */
+const rLib = $('#rLib'), rStaff = $('#rStaff'), rType = $('#rType');
+function chosen(name){ const x = document.querySelector('input[name=' + name + ']:checked'); return x ? x.value : ''; }
+function resetForm(){
+  ['#subPerm', '#subCasual', '#subRel', '#dateWrap', '#slotWrap'].forEach(s => $(s).classList.add('hide'));
+  document.querySelectorAll('input[type=radio]').forEach(x => x.checked = false);
+  $('#rStart').value = ''; $('#rEnd').value = ''; $('#balInfo').textContent = ''; $('#rMsg').innerHTML = '';
+}
+rLib.addEventListener('change', async () => {
+  rType.innerHTML = '<option value="">-- விடுப்பு வகையைத் தேர்வு செய்யவும் --</option>'; rType.disabled = true; resetForm();
+  libInfo = await loadStaff(rLib, rStaff);
+});
+rStaff.addEventListener('change', () => {
+  resetForm(); rType.innerHTML = '<option value="">-- விடுப்பு வகையைத் தேர்வு செய்யவும் --</option>';
+  if (!rStaff.value || !libInfo){ rType.disabled = true; return; }
+  rType.insertAdjacentHTML('beforeend', libInfo.types.map(t => '<option value="' + t + '">' + esc(TYPES[t]) + '</option>').join(''));
+  rType.disabled = false; showBalance();
+});
+rType.addEventListener('change', async () => {
+  const t = rType.value; resetForm();
+  if (!t) return;
+  $('#dateWrap').classList.remove('hide');
+  $('#subPerm').classList.toggle('hide', t !== 'permission');
+  $('#subCasual').classList.toggle('hide', t !== 'casual');
+  $('#subRel').classList.toggle('hide', t !== 'religious');
+  $('#endWrap').classList.toggle('hide', t === 'permission' || t === 'casual');
+  $('#lStart').textContent = (t === 'permission' || t === 'casual') ? 'தேதி *' : 'தொடக்க தேதி *';
+  if (t === 'religious'){
+    const j = await api('/leave/api/religious');
+    $('#relChips').innerHTML = j.success && j.rows.length ? j.rows.map(r => '<span>' + esc(fmt(r.date)) + (r.name ? ' · ' + esc(r.name) : '') + '</span>').join('') : '<span>தேதிகள் ஏற்றப்படவில்லை</span>';
+  }
+  showBalance();
+});
+document.querySelectorAll('input[name=pk]').forEach(x => x.addEventListener('change', () => {
+  const list = libInfo.slots[x.value];
+  $('#rSlot').innerHTML = '<option value="">-- தேர்வு செய்யவும் --</option>' + list.map(s => '<option>' + esc(s) + '</option>').join('');
+  $('#slotWrap').classList.remove('hide');
+}));
+document.querySelectorAll('input[name=dp]').forEach(x => x.addEventListener('change', () => {
+  $('#endWrap').classList.toggle('hide', x.value !== 'FULL'); showBalance();
+}));
+$('#rStart').addEventListener('change', showBalance);
+async function showBalance(){
+  if (!rStaff.value) return;
+  const t = rType.value, on = $('#rStart').value;
+  if (t !== 'casual' && t !== 'permission'){ $('#balInfo').textContent = ''; return; }
+  const j = await api('/leave/api/balance?staff_id=' + rStaff.value + (on ? '&date=' + on : ''));
+  if (!j.success) return;
+  $('#balInfo').textContent = t === 'casual'
+    ? 'தற்செயல் விடுப்பு ' + j.year + ': எடுத்தது ' + j.casual_used + ' · மீதம் ' + (j.casual_total - j.casual_used) + ' நாட்கள் (மொத்தம் ' + j.casual_total + ')'
+    : 'இம்மாத அனுமதி விடுப்பு: ' + j.permission_used + ' / ' + j.permission_max;
+}
+$('#rSubmit').addEventListener('click', async () => {
+  const t = rType.value, out = $('#rMsg');
+  const body = {staff_id: +rStaff.value, leave_type: t, start_date: $('#rStart').value, end_date: $('#rEnd').value || $('#rStart').value};
+  if (!rStaff.value || !t){ out.innerHTML = '<div class="msg bad">நூலகம், பணியாளர், விடுப்பு வகையைத் தேர்ந்தெடுக்கவும்.</div>'; return; }
+  if (!body.start_date){ out.innerHTML = '<div class="msg bad">தேதியைத் தேர்ந்தெடுக்கவும்.</div>'; return; }
+  if (t === 'permission'){ body.perm_kind = chosen('pk'); body.perm_slot = $('#rSlot').value; }
+  if (t === 'casual'){ body.day_part = chosen('dp'); }
+  const btn = $('#rSubmit'); btn.disabled = true;
+  const j = await api('/leave/api/register', body);
+  btn.disabled = false;
+  if (j.success){ out.innerHTML = '<div class="msg ok">✅ ' + esc(j.message) + '</div>'; showBalance(); }
+  else { out.innerHTML = '<div class="msg ' + (/ஏற்கனவே இம்மாதத்திற்கு/.test(j.message) ? 'warn' : 'bad') + '">⚠️ ' + esc(j.message) + '</div>'; }
+});
+
+/* ---- விவரப் பக்கம் ---- */
+const hLib = $('#hLib'), hStaff = $('#hStaff'), hYear = $('#hYear');
+(function(){ const y = new Date().getFullYear(); for (let i = y; i >= y - 3; i--) hYear.insertAdjacentHTML('beforeend', '<option>' + i + '</option>'); })();
+hLib.addEventListener('change', async () => { $('#hOut').innerHTML = ''; await loadStaff(hLib, hStaff); });
+hStaff.addEventListener('change', loadHistory); hYear.addEventListener('change', loadHistory);
+const MON = ['', 'ஜன', 'பிப்', 'மார்', 'ஏப்', 'மே', 'ஜூன்', 'ஜூலை', 'ஆக', 'செப்', 'அக்', 'நவ', 'டிச'];
+async function loadHistory(){
+  if (!hStaff.value){ $('#hOut').innerHTML = ''; return; }
+  const j = await api('/leave/api/history?staff_id=' + hStaff.value + '&year=' + hYear.value);
+  if (!j.success){ $('#hOut').innerHTML = '<div class="msg bad">' + esc(j.message) + '</div>'; return; }
+  const s = j.summary, left = j.casualTotal - s.casual;
+  const perm = Object.keys(j.permByMonth).map(m => MON[m] + ' ' + j.permByMonth[m]).join(' · ');
+  $('#hOut').innerHTML =
+    '<div class="stats"><div>தற்செயல் (எடுத்தது)<b>' + s.casual + '</b></div><div>தற்செயல் (மீதம்)<b>' + left + '</b></div>' +
+    '<div>அனுமதி விடுப்பு<b>' + s.permission + '</b></div><div>மத விடுப்பு (நாட்கள்)<b>' + s.religious + '</b></div>' +
+    '<div>ஈட்டிய (நாட்கள்)<b>' + s.earned + '</b></div><div>மருத்துவ (நாட்கள்)<b>' + s.medical + '</b></div></div>' +
+    (perm ? '<div class="info">அனுமதி விடுப்பு மாதவாரி: ' + esc(perm) + '</div>' : '') +
+    '<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>தேதி</th><th>வகை</th><th>விவரம்</th><th>நாட்கள்</th></tr></thead><tbody>' +
+    (j.records.length ? j.records.map(r => '<tr><td>' + esc(fmt(r.start)) + (r.start === r.end ? '' : '<br>– ' + esc(fmt(r.end))) + '</td><td>' + esc(r.typeLabel) + '</td><td>' + esc(r.detail) + '</td><td>' + (r.type === 'permission' ? '–' : r.days) + '</td></tr>').join('')
+      : '<tr><td colspan="4">இந்த ஆண்டில் விடுப்புப் பதிவுகள் இல்லை.</td></tr>') + '</tbody></table></div>';
+}
+
+loadLibs();
+const first = (location.hash || '').slice(1);
+go(['register', 'history'].includes(first) ? first : 'home');
+</script>
+</body>
+</html>

@@ -107,3 +107,338 @@ def religious_delete():
         return jsonify(success=False, message='தேதி தெரியவில்லை')
     db.execute('DELETE FROM religious_holidays WHERE holiday_date = %s', (day,))
     return jsonify(success=True)
+
+
+# ======================================================================
+#  Phase 2 — விடுப்புப் பதிவு விதிகள் + பொதுப் பக்கம் /leave (கடவுச்சொல் இல்லை)
+# ======================================================================
+from zoneinfo import ZoneInfo
+from flask import render_template
+from receipts_module import _group_of, LIB_GROUPS
+
+IST = ZoneInfo('Asia/Kolkata')
+CL_YEARLY = 12                      # தற்செயல் விடுப்பு — ஆண்டுக்கு (ஜனவரி–டிசம்பர்)
+PERMISSION_MAX_PER_MONTH = 2
+
+LEAVE_TYPES = {
+    'permission': 'அனுமதி விடுப்பு', 'casual': 'தற்செயல் விடுப்பு', 'religious': 'மத விடுப்பு',
+    'earned': 'ஈட்டிய விடுப்பு', 'medical': 'மருத்துவ விடுப்பு',
+}
+DAY_PARTS = {'FN': 'முற்பகல் அரை நாள்', 'AN': 'பிற்பகல் அரை நாள்', 'FULL': 'முழு நாள்'}
+PERM_KINDS = {'start': 'பணி துவங்கும் போது', 'end': 'பணி முடியும்போது'}
+
+# அனுமதி விடுப்பு நேர இடைவெளிகள் — A: மாவட்ட மைய + முழு நேர கிளை, B: கிளை, C: ஊர்ப்புற (மற்றவையும்)
+SLOTS = {
+    'A': {'start': ['காலை 8.00 மணி முதல் 9.00 மணி வரை', 'காலை 10.00 மணி முதல் 11.00 மணி வரை', 'மதியம் 2.00 மணி முதல் 3.00 மணி வரை'],
+          'end': ['பிற்பகல் 1.00 மணி முதல் பிற்பகல் 2.00 மணி வரை', 'பிற்பகல் 4.00 மணி முதல் பிற்பகல் 5.00 மணி வரை', 'இரவு 7.00 மணி முதல் இரவு 8.00 மணி வரை']},
+    'B': {'start': ['காலை 9.00 மணி முதல் 10.00 மணி வரை'],
+          'end': ['மாலை 5.00 மணி முதல் 6.00 மணி வரை', 'மாலை 6.00 மணி முதல் 7.00 மணி வரை']},
+    'C': {'start': ['காலை 9.00 மணி முதல் 10.00 மணி வரை'],
+          'end': ['மாலை 5.30 மணி முதல் 6.30 மணி வரை']},
+}
+
+
+def category_of(lib_type):
+    g = _group_of(lib_type)
+    if g in ('மாவட்ட மைய நூலகம்', 'முழு நேர நூலகங்கள்'): return 'A'
+    if g == 'கிளை நூலகங்கள்': return 'B'
+    return 'C'
+
+
+def allowed_types(lib_type):
+    """ஈட்டிய, மருத்துவ விடுப்பு ஊர்ப்புற நூலகப் பணியாளர்களுக்குக் கிடையாது."""
+    rural = _group_of(lib_type) == 'ஊர்ப்புற நூலகங்கள்'
+    return [k for k in LEAVE_TYPES if not (rural and k in ('earned', 'medical'))]
+
+
+def _today():
+    return dt.datetime.now(IST).date()
+
+
+def _d(v, what='தேதி'):
+    try:
+        return dt.date.fromisoformat(str(v or ''))
+    except ValueError:
+        raise ValueError(f'{what} சரியாக இல்லை.')
+
+
+def _fmt(d):
+    return d.strftime('%d/%m/%Y')
+
+
+def describe(r):
+    """ஒரு பதிவின் சுருக்க விளக்கம்."""
+    t = LEAVE_TYPES.get(r['leave_type'], r['leave_type'])
+    if r['leave_type'] == 'permission':
+        return f"{PERM_KINDS.get(r['perm_kind'], '')}: {r['perm_slot']}"
+    if r['leave_type'] == 'casual':
+        return DAY_PARTS.get(r['day_part'], '')
+    return 'முழு நாள்' if r['start_date'] == r['end_date'] else f"{_fmt(r['start_date'])} – {_fmt(r['end_date'])}"
+
+
+def _staff_row(sid):
+    row = db.fetch_one(
+        "SELECT s.id, s.staff_name, s.staff_no, s.is_daily_wage, s.active, l.name AS lib, l.lib_type "
+        "FROM library_staff s JOIN libraries l ON l.id = s.library_id WHERE s.id = %s", (sid,))
+    if not row or not row['active']:
+        raise ValueError('பணியாளர் தெரியவில்லை.')
+    return row
+
+
+def casual_used(staff_id, year, exclude_id=None):
+    r = db.fetch_one("SELECT COALESCE(SUM(days), 0) AS n FROM staff_leave_records WHERE staff_id = %s AND leave_type = 'casual' "
+                     "AND EXTRACT(YEAR FROM start_date) = %s AND id IS DISTINCT FROM %s", (staff_id, year, exclude_id))
+    return float(r['n'])
+
+
+def permissions_in_month(staff_id, year, month, exclude_id=None):
+    r = db.fetch_one("SELECT COUNT(*) AS n FROM staff_leave_records WHERE staff_id = %s AND leave_type = 'permission' "
+                     "AND EXTRACT(YEAR FROM start_date) = %s AND EXTRACT(MONTH FROM start_date) = %s AND id IS DISTINCT FROM %s",
+                     (staff_id, year, month, exclude_id))
+    return r['n']
+
+
+def validate(p, exclude_id=None):
+    """விடுப்பு விதிகள் அனைத்தையும் சரிபார்த்து, சேமிக்கத் தயாரான dict திருப்பும்; தவறெனில் ValueError(செய்தி)."""
+    try:
+        sid = int(p.get('staff_id'))
+    except (TypeError, ValueError):
+        raise ValueError('பணியாளரைத் தேர்ந்தெடுக்கவும்.')
+    staff = _staff_row(sid)
+    lt = str(p.get('leave_type') or '')
+    if lt not in LEAVE_TYPES:
+        raise ValueError('விடுப்பு வகையைத் தேர்ந்தெடுக்கவும்.')
+    if lt not in allowed_types(staff['lib_type']):
+        raise ValueError(f'{LEAVE_TYPES[lt]} ஊர்ப்புற நூலகப் பணியாளர்களுக்குக் கிடையாது.')
+    start = _d(p.get('start_date'), 'தொடக்க தேதி')
+    end = _d(p.get('end_date') or p.get('start_date'), 'முடிவு தேதி')
+    rec = {'staff_id': sid, 'leave_type': lt, 'day_part': None, 'perm_kind': None, 'perm_slot': ''}
+
+    if lt == 'permission':
+        kind, slot = str(p.get('perm_kind') or ''), str(p.get('perm_slot') or '')
+        if kind not in PERM_KINDS:
+            raise ValueError('பணி துவங்கும் போதா / பணி முடியும்போதா என்பதைத் தேர்ந்தெடுக்கவும்.')
+        if slot not in SLOTS[category_of(staff['lib_type'])][kind]:
+            raise ValueError('நேர இடைவெளியைத் தேர்ந்தெடுக்கவும்.')
+        end, days = start, 0
+        used = permissions_in_month(sid, start.year, start.month, exclude_id)
+        if used >= PERMISSION_MAX_PER_MONTH:
+            raise ValueError(f'நீங்கள் ஏற்கனவே இம்மாதத்திற்கு {PERMISSION_MAX_PER_MONTH} அனுமதி விடுப்புகளை எடுத்துள்ளீர்கள்.')
+        rec.update(perm_kind=kind, perm_slot=slot)
+    elif lt == 'casual':
+        part = str(p.get('day_part') or '')
+        if part not in DAY_PARTS:
+            raise ValueError('முற்பகல் / பிற்பகல் / முழு நாள் — ஒன்றைத் தேர்ந்தெடுக்கவும்.')
+        if part == 'FULL':
+            if end < start: raise ValueError('முடிவு தேதி தொடக்க தேதிக்கு முன் இருக்க முடியாது.')
+            if end.year != start.year: raise ValueError('ஆண்டு மாறும் தற்செயல் விடுப்பை இரண்டு பதிவுகளாகச் செய்யவும்.')
+            days = (end - start).days + 1
+        else:
+            end, days = start, 0.5
+        used = casual_used(sid, start.year, exclude_id)
+        if used + days > CL_YEARLY:
+            raise ValueError(f'தற்செயல் விடுப்பு {start.year}-ல் மீதம் {CL_YEARLY - used:g} நாட்கள் மட்டுமே; கேட்பது {days:g} நாட்கள்.')
+        rec['day_part'] = part
+    else:
+        if end < start: raise ValueError('முடிவு தேதி தொடக்க தேதிக்கு முன் இருக்க முடியாது.')
+        days = (end - start).days + 1
+        if lt == 'religious':
+            have = {r['holiday_date'] for r in db.fetch_all(
+                'SELECT holiday_date FROM religious_holidays WHERE holiday_date BETWEEN %s AND %s', (start, end))}
+            if not db.fetch_one('SELECT 1 AS x FROM religious_holidays LIMIT 1'):
+                raise ValueError('மத விடுப்புத் தேதிகள் இன்னும் ஏற்றப்படவில்லை.')
+            d = start
+            while d <= end:
+                if d not in have:
+                    raise ValueError(f'{_fmt(d)} மத விடுப்பு நாள் அல்ல. மத விடுப்பு அனுமதிக்கப்பட்ட தேதிகளில் மட்டுமே எடுக்க முடியும்.')
+                d += dt.timedelta(days=1)
+    if (end - start).days > 366:
+        raise ValueError('விடுப்புக் காலம் மிக நீளமாக உள்ளது.')
+
+    # ஒன்றோடொன்று மேற்பொருந்தும் பதிவு — தற்செயல் முற்பகல் + பிற்பகல் (ஒரே நாள்) தவிர
+    for r in db.fetch_all(
+            "SELECT id, leave_type, start_date, end_date, day_part FROM staff_leave_records "
+            "WHERE staff_id = %s AND start_date <= %s AND end_date >= %s AND id IS DISTINCT FROM %s", (sid, end, start, exclude_id)):
+        half_pair = (lt == 'casual' and rec['day_part'] in ('FN', 'AN') and r['leave_type'] == 'casual'
+                     and r['day_part'] in ('FN', 'AN') and r['day_part'] != rec['day_part'])
+        if not half_pair:
+            raise ValueError(f"{_fmt(r['start_date'])} முதல் {_fmt(r['end_date'])} வரை ஏற்கனவே {LEAVE_TYPES[r['leave_type']]} பதிவாகியுள்ளது.")
+    rec.update(start_date=start, end_date=end, days=days)
+    return rec
+
+
+def _balance(sid, on):
+    return {'casual_used': casual_used(sid, on.year), 'casual_total': CL_YEARLY,
+            'permission_used': permissions_in_month(sid, on.year, on.month), 'permission_max': PERMISSION_MAX_PER_MONTH,
+            'year': on.year, 'month': on.month}
+
+
+# ---------------------------------------------------------------- பொது API (/leave)
+@leave.get('/leave')
+def leave_page():
+    return render_template('leave.html')
+
+
+@leave.get('/leave/api/meta')
+def leave_meta():
+    return jsonify(success=True, leaveTypes=LEAVE_TYPES, dayParts=DAY_PARTS, permKinds=PERM_KINDS)
+
+
+@leave.get('/leave/api/libraries')
+def leave_libraries():
+    rows = db.fetch_all(
+        "SELECT l.id, l.name, l.lib_type FROM libraries l WHERE NOT l.is_test "
+        "AND (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) "
+        "AND EXISTS (SELECT 1 FROM library_staff s WHERE s.library_id = l.id AND s.active) ORDER BY l.id")
+    order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
+    groups = {t: [] for t in order}
+    for r in rows:
+        groups[_group_of(r['lib_type'])].append({'id': r['id'], 'name': r['name']})
+    return jsonify(success=True, groups=[{'title': t, 'libraries': groups[t]} for t in order if groups[t]])
+
+
+@leave.get('/leave/api/staff')
+def leave_staff():
+    try:
+        lid = int(request.args.get('library_id'))
+    except (TypeError, ValueError):
+        return jsonify(success=False, message='நூலகத்தைத் தேர்ந்தெடுக்கவும்.')
+    lib = db.fetch_one('SELECT name, lib_type FROM libraries WHERE id = %s', (lid,))
+    if not lib:
+        return jsonify(success=False, message='நூலகம் தெரியவில்லை.')
+    rows = db.fetch_all('SELECT id, staff_name, staff_no, is_daily_wage FROM library_staff WHERE library_id = %s AND active '
+                        'ORDER BY is_daily_wage, id', (lid,))
+    cat = category_of(lib['lib_type'])
+    return jsonify(success=True, category=cat, slots=SLOTS[cat], types=allowed_types(lib['lib_type']),
+                   staff=[{'id': r['id'], 'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], lib['name'])} for r in rows])
+
+
+@leave.get('/leave/api/balance')
+def leave_balance():
+    try:
+        sid = int(request.args.get('staff_id'))
+        on = _d(request.args.get('date')) if request.args.get('date') else _today()
+        _staff_row(sid)
+    except ValueError as e:
+        return jsonify(success=False, message=str(e) if 'தேதி' in str(e) else 'பணியாளர் தெரியவில்லை.')
+    except TypeError:
+        return jsonify(success=False, message='பணியாளர் தெரியவில்லை.')
+    return jsonify(success=True, **_balance(sid, on))
+
+
+@leave.get('/leave/api/religious')
+def leave_religious_dates():
+    rows = db.fetch_all('SELECT holiday_date, name FROM religious_holidays WHERE holiday_date >= %s ORDER BY holiday_date', (_today() - dt.timedelta(days=30),))
+    return jsonify(success=True, rows=[{'date': r['holiday_date'].isoformat(), 'name': r['name']} for r in rows])
+
+
+@leave.post('/leave/api/register')
+def leave_register():
+    p = request.get_json(silent=True) or {}
+    try:
+        rec = validate(p)
+    except ValueError as e:
+        return jsonify(success=False, message=str(e))
+    row = db.fetch_one(
+        "INSERT INTO staff_leave_records (staff_id, leave_type, start_date, end_date, days, day_part, perm_kind, perm_slot) "
+        "VALUES (%(staff_id)s, %(leave_type)s, %(start_date)s, %(end_date)s, %(days)s, %(day_part)s, %(perm_kind)s, %(perm_slot)s) RETURNING id", rec)
+    msg = f"{LEAVE_TYPES[rec['leave_type']]} பதிவு செய்யப்பட்டது ({_fmt(rec['start_date'])}" + \
+          ('' if rec['start_date'] == rec['end_date'] else f" – {_fmt(rec['end_date'])}") + ')'
+    return jsonify(success=True, id=row['id'], message=msg, **_balance(rec['staff_id'], rec['start_date']))
+
+
+def _record_json(r):
+    return {'id': r['id'], 'type': r['leave_type'], 'typeLabel': LEAVE_TYPES.get(r['leave_type'], ''),
+            'start': r['start_date'].isoformat(), 'end': r['end_date'].isoformat(), 'days': float(r['days']),
+            'dayPart': r['day_part'], 'permKind': r['perm_kind'], 'permSlot': r['perm_slot'], 'detail': describe(r)}
+
+
+@leave.get('/leave/api/history')
+def leave_history():
+    try:
+        sid = int(request.args.get('staff_id'))
+        year = int(request.args.get('year') or _today().year)
+        staff = _staff_row(sid)
+    except (TypeError, ValueError):
+        return jsonify(success=False, message='பணியாளரைத் தேர்ந்தெடுக்கவும்.')
+    rows = db.fetch_all("SELECT * FROM staff_leave_records WHERE staff_id = %s AND EXTRACT(YEAR FROM start_date) = %s "
+                        "ORDER BY start_date DESC, id DESC", (sid, year))
+    summary = {k: 0.0 for k in LEAVE_TYPES}
+    perm_by_month = {}
+    for r in rows:
+        if r['leave_type'] == 'permission':
+            summary['permission'] += 1
+            perm_by_month[r['start_date'].month] = perm_by_month.get(r['start_date'].month, 0) + 1
+        else:
+            summary[r['leave_type']] += float(r['days'])
+    return jsonify(success=True, year=year, library=staff['lib'], label=staff_label(staff['staff_name'], staff['staff_no'], staff['is_daily_wage'], staff['lib']),
+                   summary=summary, casualTotal=CL_YEARLY, permByMonth=perm_by_month, records=[_record_json(r) for r in rows])
+
+
+@leave.get('/leave/api/today')
+def leave_today():
+    today = _today()
+    rows = db.fetch_all(
+        "SELECT r.*, s.staff_name, s.staff_no, s.is_daily_wage, l.name AS lib FROM staff_leave_records r "
+        "JOIN library_staff s ON s.id = r.staff_id JOIN libraries l ON l.id = s.library_id "
+        "WHERE NOT l.is_test AND r.start_date <= %s AND r.end_date >= %s ORDER BY l.id, r.id", (today, today))
+    return jsonify(success=True, date=today.isoformat(), count=len(rows), rows=[{
+        'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib']), 'library': r['lib'],
+        'type': r['leave_type'], 'typeLabel': LEAVE_TYPES[r['leave_type']], 'detail': describe(r)} for r in rows])
+
+
+# ---------------------------------------------------------------- Admin — பதிவுகளைப் பார்க்க / திருத்த / நீக்க
+@leave.get('/admin/api/leave-records')
+def admin_records():
+    d = _deny()
+    if d: return d
+    try:
+        y, m = int(request.args.get('year')), int(request.args.get('month'))
+        first = dt.date(y, m, 1)
+    except (TypeError, ValueError):
+        return jsonify(success=False, message='மாதத்தைத் தேர்ந்தெடுக்கவும்.')
+    last = (first.replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(days=1)
+    rows = db.fetch_all(
+        "SELECT r.*, s.staff_name, s.staff_no, s.is_daily_wage, l.name AS lib, l.lib_type FROM staff_leave_records r "
+        "JOIN library_staff s ON s.id = r.staff_id JOIN libraries l ON l.id = s.library_id "
+        "WHERE r.start_date <= %s AND r.end_date >= %s ORDER BY r.start_date DESC, l.id, r.id", (last, first))
+    out = []
+    for r in rows:
+        j = _record_json(r)
+        cat = category_of(r['lib_type'])
+        j.update(staffId=r['staff_id'], library=r['lib'], label=staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib']),
+                 slots=SLOTS[cat], types=allowed_types(r['lib_type']))
+        out.append(j)
+    return jsonify(success=True, rows=out, leaveTypes=LEAVE_TYPES, dayParts=DAY_PARTS, permKinds=PERM_KINDS)
+
+
+@leave.post('/admin/api/leave-records/update')
+def admin_record_update():
+    d = _deny()
+    if d: return d
+    p = request.get_json(silent=True) or {}
+    try:
+        rid = int(p.get('id'))
+        cur = db.fetch_one('SELECT staff_id FROM staff_leave_records WHERE id = %s', (rid,))
+        if not cur:
+            return jsonify(success=False, message='பதிவு இல்லை.')
+        p['staff_id'] = cur['staff_id']
+        rec = validate(p, exclude_id=rid)
+    except (TypeError, ValueError) as e:
+        return jsonify(success=False, message=str(e) if isinstance(e, ValueError) and str(e) else 'பதிவு தெரியவில்லை.')
+    rec['id'] = rid
+    db.execute("UPDATE staff_leave_records SET leave_type = %(leave_type)s, start_date = %(start_date)s, end_date = %(end_date)s, "
+               "days = %(days)s, day_part = %(day_part)s, perm_kind = %(perm_kind)s, perm_slot = %(perm_slot)s WHERE id = %(id)s", rec)
+    return jsonify(success=True, message='திருத்தப்பட்டது.')
+
+
+@leave.post('/admin/api/leave-records/delete')
+def admin_record_delete():
+    d = _deny()
+    if d: return d
+    try:
+        rid = int((request.get_json(silent=True) or {}).get('id'))
+    except (TypeError, ValueError):
+        return jsonify(success=False, message='பதிவு தெரியவில்லை.')
+    db.execute('DELETE FROM staff_leave_records WHERE id = %s', (rid,))
+    return jsonify(success=True, message='நீக்கப்பட்டது.')

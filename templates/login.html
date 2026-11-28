@@ -100,6 +100,22 @@ label{display:block;font-weight:600;margin:0 0 5px}
 .err:empty{display:none}
 .hint{margin:14px 0 0;font-size:.85rem;color:var(--muted)}
 
+/* ---- நூலகர் விடுப்பு மேலாண்மை (உள்நுழைவுக்குக் கீழே) ---- */
+.rcol{position:sticky;top:16px}
+.rcol .login{position:static}
+.lvbox{margin-top:20px;background:var(--white);border:1px solid var(--line);border-top:5px solid var(--blue);box-shadow:0 6px 20px rgba(15,42,92,.10)}
+.lvbox header{background:var(--blue);color:#fff;padding:12px 20px}
+.lvbox header h2{margin:0;font-size:1.1rem}.lvbox header p{margin:0;font-size:.82rem;color:#dbe7fa}
+.lvbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 6px}
+.lvbtns a{display:block;text-align:center;text-decoration:none;color:#fff;font-weight:700;padding:11px 8px;border-radius:6px;font-size:.95rem;line-height:1.4}
+.lvbtns a.r{background:var(--blue)}.lvbtns a.h{background:var(--ok)}
+.lvtoday{margin:8px 16px 16px;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.lvtoday h3{margin:0;padding:8px 12px;background:var(--sky);font-size:.95rem;color:var(--navy);display:flex;justify-content:space-between}
+.lvlist{max-height:220px;overflow-y:auto;font-size:.9rem}
+.lvlist div{display:flex;justify-content:space-between;gap:8px;padding:7px 12px;border-top:1px solid var(--line)}
+.lvlist small{color:var(--muted);display:block}.lvlist em{font-style:normal;flex:none;font-size:.8rem;background:#e3edfb;color:#144a94;border-radius:6px;padding:1px 8px;align-self:center}
+@media (max-width:860px){.rcol{position:static}}
+
 /* ---- அடிக்குறிப்பு ---- */
 footer{background:var(--navy);color:#c5d3ee;font-size:.88rem}
 footer .in{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -199,6 +215,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
     </div></div>
   </section>
 
+  <div class="rcol">
   <section class="login" id="login" aria-labelledby="h-login">
     <header><h2 id="h-login">உள்நுழைவு</h2><p>பயனர் வகையைத் தேர்ந்தெடுக்கவும்</p></header>
     __ERR__
@@ -231,6 +248,14 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
       </form>
     </div>
   </section>
+
+  <section class="lvbox" aria-labelledby="h-leave">
+    <header><h2 id="h-leave">நூலகர் விடுப்பு மேலாண்மை</h2><p>கடவுச்சொல் தேவையில்லை</p></header>
+    <div class="lvbtns"><a class="r" href="/leave#register">📝 பணியாளர் விடுப்பு பதிவு</a><a class="h" href="/leave#history">📋 இதுவரை எடுத்த விடுப்பு விவரங்கள்</a></div>
+    <div class="lvtoday"><h3><span>📅 இன்று விடுப்பில் உள்ளவர்கள்</span><span id="lvCount"></span></h3>
+      <div class="lvlist" id="lvList"><div>ஏற்றப்படுகிறது…</div></div></div>
+  </section>
+  </div>
 </main>
 
 <footer><div class="in">
@@ -270,6 +295,19 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
   }
   btns.forEach(function(b){ b.addEventListener('click', function(){ setFs(b.dataset.fs); }); });
   try { var saved = localStorage.getItem('fs'); if (saved) setFs(saved); } catch(e){}
+})();
+</script>
+<script>
+(function(){
+  var list = document.getElementById('lvList'), cnt = document.getElementById('lvCount');
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  fetch('/leave/api/today').then(function(r){ return r.json(); }).then(function(j){
+    if (!j.success){ list.innerHTML = '<div>—</div>'; return; }
+    cnt.textContent = j.count + ' பேர்';
+    list.innerHTML = j.rows.length ? j.rows.map(function(r){
+      return '<div><span><b>' + esc(r.label) + '</b><small>' + esc(r.library) + '</small></span><em>' + esc(r.typeLabel) + '</em></div>'; }).join('')
+      : '<div>இன்று யாரும் விடுப்பில் இல்லை.</div>';
+  }).catch(function(){ list.innerHTML = '<div>—</div>'; });
 })();
 </script>
 </body>

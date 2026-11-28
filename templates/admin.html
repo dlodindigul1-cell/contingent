@@ -501,6 +501,7 @@ img{max-width:100%}
   <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
   <a href="#staff" data-v="staff"><span class="n">2F</span><span>பணியாளர் விவரம் ஏற்று<small>பெயர் · எண் · தினக்கூலி — விடுப்பு மேலாண்மைக்கு</small></span></a>
   <a href="#religious" data-v="religious"><span class="n">2G</span><span>மத விடுப்புப் பட்டியல் ஏற்று<small>மத விடுப்புக்கு அனுமதித்த தேதிகள்</small></span></a>
+  <a href="#leaverecs" data-v="leaverecs"><span class="n">2H</span><span>பணியாளர் விடுப்புப் பதிவுகள்<small>பார்க்க · திருத்த · நீக்க</small></span></a>
   <a href="#claimsimport" data-v="claimsimport"><span class="n">2A</span><span>சில்லறை செலவின அனுமதித் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே அனுமதித்தவை</small></span></a>
   <a href="#receiptsimport" data-v="receiptsimport"><span class="n">2B</span><span>வரவினத் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே பதிவானவை</small></span></a>
   <a href="#inactive" data-v="inactive"><span class="n">2D</span><span>செயல்படாத நூலகங்கள்<small>தற்காலிகமாக நிறுத்த · நாள் முதல்</small></span></a>
@@ -1121,6 +1122,37 @@ a.vd-lib{cursor:pointer;font-weight:600}
   </div>
   <div class="panel"><h3>மத விடுப்புத் தேதிகள் <span id="relCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd tw" style="max-height:480px">
     <table><thead><tr><th>தேதி</th><th>பெயர்</th><th style="width:90px"></th></tr></thead><tbody id="relBody"><tr><td colspan="3">ஏற்றப்படுகிறது…</td></tr></tbody></table>
+  </div></div>
+</section>
+
+<!-- ================= 2H. பணியாளர் விடுப்புப் பதிவுகள் ================= -->
+<section class="view" id="v-leaverecs">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › பணியாளர் விடுப்புப் பதிவுகள்</p>
+  <h2 class="pt">2H. பணியாளர் விடுப்புப் பதிவுகள்</h2>
+  <p class="lead">நூலகர்கள் /leave பக்கத்தில் பதிந்த விடுப்புகளை மாதம் வாரியாகப் பார்க்கலாம்; தவறான பதிவுகளைத் திருத்தலாம் அல்லது நீக்கலாம். திருத்தும்போதும் அனைத்து விதிகளும் (அனுமதி விடுப்பு மாதம் 2, தற்செயல் விடுப்பு 12, மத விடுப்புத் தேதிகள்) சரிபார்க்கப்படும்.</p>
+  <div class="panel"><h3>மாதம் தேர்வு</h3><div class="bd">
+    <div class="row"><div style="flex:0 0 200px"><input type="month" id="lrMonth" aria-label="மாதம்"></div>
+    <div style="flex:1 1 220px"><input type="search" id="lrSearch" placeholder="நூலகம் / பணியாளர் தேடுக" aria-label="தேடுக"></div>
+    <button class="btn go" id="lrShow" type="button">காட்டு</button></div>
+    <div id="m_lr"></div>
+  </div></div>
+  <div class="panel hide" id="lrEditor" style="display:none"><h3>பதிவைத் திருத்த — <span id="lrEdLabel"></span></h3><div class="bd">
+    <div class="row">
+      <div style="flex:1 1 180px"><label for="lrEdType">வகை</label><select id="lrEdType"></select></div>
+      <div style="flex:1 1 150px"><label for="lrEdStart">தொடக்க தேதி</label><input type="date" id="lrEdStart"></div>
+      <div style="flex:1 1 150px"><label for="lrEdEnd">முடிவு தேதி</label><input type="date" id="lrEdEnd"></div>
+    </div>
+    <div class="row">
+      <div style="flex:1 1 180px" id="lrEdPartW"><label for="lrEdPart">நாள் (தற்செயல்)</label><select id="lrEdPart"></select></div>
+      <div style="flex:1 1 180px" id="lrEdKindW"><label for="lrEdKind">பணி துவங்கும்/முடியும் (அனுமதி)</label><select id="lrEdKind"></select></div>
+      <div style="flex:2 1 260px" id="lrEdSlotW"><label for="lrEdSlot">நேர இடைவெளி (அனுமதி)</label><select id="lrEdSlot"></select></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn go" id="lrEdSave" type="button">சேமி</button><button class="btn alt" id="lrEdCancel" type="button">மூடு</button></div>
+    <div id="m_lrEd"></div>
+  </div></div>
+  <div class="panel"><h3>விடுப்புப் பதிவுகள் <span id="lrCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd tw">
+    <table><thead><tr><th>தேதி</th><th>நூலகம்</th><th>பணியாளர்</th><th>வகை</th><th>விவரம்</th><th>நாட்கள்</th><th style="width:150px">செயல்</th></tr></thead>
+    <tbody id="lrBody"><tr><td colspan="7">மாதத்தைத் தேர்ந்தெடுத்து “காட்டு” அழுத்தவும்.</td></tr></tbody></table>
   </div></div>
 </section>
 
@@ -2033,6 +2065,7 @@ function route(){
   if (v === 'leave') loadLeave();
   if (v === 'staff') loadStaff();
   if (v === 'religious') loadReligious();
+  if (v === 'leaverecs') lrInit();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
   if (v === 'claimsimport') loadCoverage('claims');
@@ -2228,6 +2261,74 @@ $('#relBody').addEventListener('click', async ev => {
   if (!b || !confirm('இந்தத் தேதியை நீக்கலாமா?')) return;
   try{ await postJSON('/admin/api/religious/delete', {date: b.dataset.rdel}); loadReligious(); }
   catch(e){ note($('#m_relAdd'), 'bad', e.message); }
+});
+
+
+/* ---------- 2H பணியாளர் விடுப்புப் பதிவுகள் ---------- */
+let lrRows = [], lrMeta = null, lrEdit = null;
+function lrInit(){ if (!$('#lrMonth').value){ $('#lrMonth').value = curMonthInput(); lrLoad(); } }
+async function lrLoad(){
+  const mv = $('#lrMonth').value, out = $('#m_lr');
+  if (!mv){ note(out, 'bad', 'மாதத்தைத் தேர்ந்தெடுக்கவும்.'); return; }
+  const [y, m] = mv.split('-');
+  try{
+    const j = await getJSON('/admin/api/leave-records?year=' + y + '&month=' + (+m));
+    if (!j.success) throw new Error(j.message);
+    out.innerHTML = ''; lrRows = j.rows; lrMeta = j; lrRender();
+  }catch(e){ note(out, 'bad', e.message); }
+}
+function lrRender(){
+  const q = $('#lrSearch').value.trim().toLowerCase();
+  const rows = lrRows.filter(r => !q || (r.library + ' ' + r.label).toLowerCase().includes(q));
+  $('#lrCount').textContent = '(' + rows.length + ')';
+  const f = iso => iso.split('-').reverse().join('/');
+  $('#lrBody').innerHTML = rows.length ? rows.map(r =>
+    '<tr><td>' + esc(f(r.start)) + (r.start === r.end ? '' : '<br>– ' + esc(f(r.end))) + '</td><td>' + esc(r.library) + '</td><td>' + esc(r.label) +
+    '</td><td>' + esc(r.typeLabel) + '</td><td>' + esc(r.detail) + '</td><td>' + (r.type === 'permission' ? '–' : r.days) + '</td><td>' +
+    '<button type="button" class="btn alt sm" data-lredit="' + r.id + '">திருத்து</button> <button type="button" class="btn alt sm" data-lrdel="' + r.id + '">நீக்கு</button></td></tr>').join('')
+    : '<tr><td colspan="7">பதிவுகள் இல்லை.</td></tr>';
+}
+$('#lrShow').addEventListener('click', lrLoad);
+$('#lrSearch').addEventListener('input', lrRender);
+function lrFillSlots(){
+  const r = lrEdit, kind = $('#lrEdKind').value || 'start';
+  $('#lrEdSlot').innerHTML = (r.slots[kind] || []).map(x => '<option' + (x === r.permSlot ? ' selected' : '') + '>' + esc(x) + '</option>').join('');
+}
+function lrToggle(){
+  const t = $('#lrEdType').value;
+  $('#lrEdPartW').style.display = t === 'casual' ? '' : 'none';
+  $('#lrEdKindW').style.display = $('#lrEdSlotW').style.display = t === 'permission' ? '' : 'none';
+}
+$('#lrEdType').addEventListener('change', lrToggle);
+$('#lrEdKind').addEventListener('change', lrFillSlots);
+$('#lrBody').addEventListener('click', async ev => {
+  const e = ev.target.closest('[data-lredit]'), d = ev.target.closest('[data-lrdel]');
+  if (d){
+    if (!confirm('இந்த விடுப்புப் பதிவை நீக்கலாமா?')) return;
+    const j = await postJSON('/admin/api/leave-records/delete', {id: +d.dataset.lrdel});
+    note($('#m_lr'), j.success ? 'ok' : 'bad', j.message); if (j.success) lrLoad(); return;
+  }
+  if (!e) return;
+  const r = lrRows.find(x => x.id === +e.dataset.lredit); if (!r) return;
+  lrEdit = r;
+  $('#lrEdLabel').textContent = r.label + ' — ' + r.library;
+  $('#lrEdType').innerHTML = r.types.map(t => '<option value="' + t + '"' + (t === r.type ? ' selected' : '') + '>' + esc(lrMeta.leaveTypes[t]) + '</option>').join('');
+  $('#lrEdPart').innerHTML = Object.keys(lrMeta.dayParts).map(k => '<option value="' + k + '"' + (k === r.dayPart ? ' selected' : '') + '>' + esc(lrMeta.dayParts[k]) + '</option>').join('');
+  $('#lrEdKind').innerHTML = Object.keys(lrMeta.permKinds).map(k => '<option value="' + k + '"' + (k === r.permKind ? ' selected' : '') + '>' + esc(lrMeta.permKinds[k]) + '</option>').join('');
+  $('#lrEdStart').value = r.start; $('#lrEdEnd').value = r.end;
+  lrFillSlots(); lrToggle(); $('#m_lrEd').innerHTML = '';
+  $('#lrEditor').style.display = ''; $('#lrEditor').scrollIntoView({behavior: 'smooth', block: 'center'});
+});
+$('#lrEdCancel').addEventListener('click', () => { $('#lrEditor').style.display = 'none'; lrEdit = null; });
+$('#lrEdSave').addEventListener('click', async () => {
+  if (!lrEdit) return;
+  const body = {id: lrEdit.id, leave_type: $('#lrEdType').value, start_date: $('#lrEdStart').value, end_date: $('#lrEdEnd').value || $('#lrEdStart').value,
+    day_part: $('#lrEdPart').value, perm_kind: $('#lrEdKind').value, perm_slot: $('#lrEdSlot').value};
+  try{
+    const j = await postJSON('/admin/api/leave-records/update', body);
+    if (!j.success){ note($('#m_lrEd'), 'bad', j.message); return; }
+    $('#lrEditor').style.display = 'none'; lrEdit = null; note($('#m_lr'), 'ok', j.message); lrLoad();
+  }catch(e2){ note($('#m_lrEd'), 'bad', e2.message); }
 });
 
 /* ---------- தரவு ஏற்றம்: இதுவரை உள்ள மாதங்கள் ---------- */
