@@ -119,6 +119,7 @@ from receipts_module import _group_of, LIB_GROUPS
 IST = ZoneInfo('Asia/Kolkata')
 CL_YEARLY = 12                      # தற்செயல் விடுப்பு — ஆண்டுக்கு (ஜனவரி–டிசம்பர்)
 PERMISSION_MAX_PER_MONTH = 2
+DAILY_BLOCKED_TYPES = ('permission', 'religious')   # தினக்கூலிப் பணியாளருக்கு இல்லாத விடுப்பு வகைகள்
 
 LEAVE_TYPES = {
     'permission': 'அனுமதி விடுப்பு', 'casual': 'தற்செயல் விடுப்பு', 'religious': 'மத விடுப்பு',
@@ -145,10 +146,13 @@ def category_of(lib_type):
     return 'C'
 
 
-def allowed_types(lib_type):
-    """ஈட்டிய, மருத்துவ விடுப்பு ஊர்ப்புற நூலகப் பணியாளர்களுக்குக் கிடையாது."""
+def allowed_types(lib_type, daily=False):
+    """ஈட்டிய, மருத்துவ விடுப்பு ஊர்ப்புற நூலகப் பணியாளர்களுக்குக் கிடையாது.
+    தினக்கூலிப் பணியாளர்களுக்கு அனுமதி விடுப்பு, மத விடுப்பு இரண்டும் கிடையாது."""
     rural = _group_of(lib_type) == 'ஊர்ப்புற நூலகங்கள்'
-    return [k for k in LEAVE_TYPES if not (rural and k in ('earned', 'medical'))]
+    return [k for k in LEAVE_TYPES
+            if not (rural and k in ('earned', 'medical'))
+            and not (daily and k in DAILY_BLOCKED_TYPES)]
 
 
 def _today():
@@ -208,7 +212,10 @@ def validate(p, exclude_id=None):
     lt = str(p.get('leave_type') or '')
     if lt not in LEAVE_TYPES:
         raise ValueError('விடுப்பு வகையைத் தேர்ந்தெடுக்கவும்.')
-    if lt not in allowed_types(staff['lib_type']):
+    daily = bool(staff['is_daily_wage'])
+    if daily and lt in DAILY_BLOCKED_TYPES:
+        raise ValueError(f'{LEAVE_TYPES[lt]} தினக்கூலிப் பணியாளர்களுக்குக் கிடையாது.')
+    if lt not in allowed_types(staff['lib_type'], daily):
         raise ValueError(f'{LEAVE_TYPES[lt]} ஊர்ப்புற நூலகப் பணியாளர்களுக்குக் கிடையாது.')
     start = _d(p.get('start_date'), 'தொடக்க தேதி')
     end = _d(p.get('end_date') or p.get('start_date'), 'முடிவு தேதி')
@@ -229,6 +236,8 @@ def validate(p, exclude_id=None):
         part = str(p.get('day_part') or '')
         if part not in DAY_PARTS:
             raise ValueError('முற்பகல் / பிற்பகல் / முழு நாள் — ஒன்றைத் தேர்ந்தெடுக்கவும்.')
+        if daily and part != 'FULL':
+            raise ValueError('தினக்கூலிப் பணியாளர்களுக்குத் தற்செயல் விடுப்பு முழு நாள் மட்டுமே.')
         if part == 'FULL':
             if end < start: raise ValueError('முடிவு தேதி தொடக்க தேதிக்கு முன் இருக்க முடியாது.')
             if end.year != start.year: raise ValueError('ஆண்டு மாறும் தற்செயல் விடுப்பை இரண்டு பதிவுகளாகச் செய்யவும்.')
@@ -310,7 +319,10 @@ def leave_staff():
                         'ORDER BY is_daily_wage, id', (lid,))
     cat = category_of(lib['lib_type'])
     return jsonify(success=True, category=cat, slots=SLOTS[cat], types=allowed_types(lib['lib_type']),
-                   staff=[{'id': r['id'], 'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], lib['name'])} for r in rows])
+                   staff=[{'id': r['id'], 'daily': bool(r['is_daily_wage']),
+                           'types': allowed_types(lib['lib_type'], bool(r['is_daily_wage'])),
+                           'fullDayOnly': bool(r['is_daily_wage']),
+                           'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], lib['name'])} for r in rows])
 
 
 @leave.get('/leave/api/balance')
@@ -407,7 +419,8 @@ def admin_records():
         j = _record_json(r)
         cat = category_of(r['lib_type'])
         j.update(staffId=r['staff_id'], library=r['lib'], label=staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib']),
-                 slots=SLOTS[cat], types=allowed_types(r['lib_type']))
+                 slots=SLOTS[cat], daily=bool(r['is_daily_wage']),
+                 types=allowed_types(r['lib_type'], bool(r['is_daily_wage'])))
         out.append(j)
     return jsonify(success=True, rows=out, leaveTypes=LEAVE_TYPES, dayParts=DAY_PARTS, permKinds=PERM_KINDS)
 

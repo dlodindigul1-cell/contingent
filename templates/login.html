@@ -138,7 +138,8 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 @media (max-width:900px){
   main{grid-template-columns:minmax(0,1fr);gap:24px;padding-top:20px}
   .info,.login,.panel,details.panel{min-width:0;max-width:100%}
-  .login{order:-1;position:static}
+  .rcol{order:-1;position:static}   /* கைபேசி: அறிவிப்புப் பட்டைக்குக் கீழே முதலில் உள்நுழைவு + விடுப்புப் பெட்டி */
+  .login{position:static}
   .masthead img{height:54px}
   .masthead h1{font-size:1.3rem}
   .masthead .sub{font-size:.85rem}

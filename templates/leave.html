@@ -83,6 +83,7 @@ th{background:var(--sky);color:var(--navy)}
 
     <div class="sub hide" id="subCasual">
       <h4>தற்செயல் விடுப்பு — நாள் தேர்வு</h4>
+      <div class="info hide" id="dailyNote" style="margin:0 0 6px">தினக்கூலிப் பணியாளருக்குத் தற்செயல் விடுப்பு முழு நாள் மட்டுமே; அனுமதி விடுப்பு, மத விடுப்பு கிடையாது.</div>
       <label class="opt"><input type="radio" name="dp" value="FN"> முற்பகல் அரை நாள்</label>
       <label class="opt"><input type="radio" name="dp" value="AN"> பிற்பகல் அரை நாள்</label>
       <label class="opt"><input type="radio" name="dp" value="FULL"> முழு நாள்</label>
@@ -152,7 +153,7 @@ async function loadLibs(){
   $('#rLib').insertAdjacentHTML('beforeend', html); $('#hLib').insertAdjacentHTML('beforeend', html);
   libsLoaded = true;
 }
-let libInfo = null;
+let libInfo = null, curStaff = null;
 async function loadStaff(libSel, staffSel){
   staffSel.innerHTML = '<option value="">-- பணியாளரைத் தேர்வு செய்யவும் --</option>'; staffSel.disabled = true;
   if (!libSel.value) return null;
@@ -168,7 +169,8 @@ const rLib = $('#rLib'), rStaff = $('#rStaff'), rType = $('#rType');
 function chosen(name){ const x = document.querySelector('input[name=' + name + ']:checked'); return x ? x.value : ''; }
 function resetForm(){
   ['#subPerm', '#subCasual', '#subRel', '#dateWrap', '#slotWrap'].forEach(s => $(s).classList.add('hide'));
-  document.querySelectorAll('input[type=radio]').forEach(x => x.checked = false);
+  document.querySelectorAll('input[type=radio]').forEach(x => { x.checked = false; x.closest('label').classList.remove('hide'); });
+  $('#dailyNote').classList.add('hide');
   $('#rStart').value = ''; $('#rEnd').value = ''; $('#balInfo').textContent = ''; $('#rMsg').innerHTML = '';
 }
 rLib.addEventListener('change', async () => {
@@ -177,8 +179,10 @@ rLib.addEventListener('change', async () => {
 });
 rStaff.addEventListener('change', () => {
   resetForm(); rType.innerHTML = '<option value="">-- விடுப்பு வகையைத் தேர்வு செய்யவும் --</option>';
-  if (!rStaff.value || !libInfo){ rType.disabled = true; return; }
-  rType.insertAdjacentHTML('beforeend', libInfo.types.map(t => '<option value="' + t + '">' + esc(TYPES[t]) + '</option>').join(''));
+  curStaff = libInfo && libInfo.staff.find(s => String(s.id) === rStaff.value) || null;
+  if (!rStaff.value || !curStaff){ rType.disabled = true; return; }
+  // தினக்கூலிப் பணியாளருக்கு அனுமதி விடுப்பு, மத விடுப்பு இல்லை — பணியாளர் வாரியாக வகைகள்
+  rType.insertAdjacentHTML('beforeend', curStaff.types.map(t => '<option value="' + t + '">' + esc(TYPES[t]) + '</option>').join(''));
   rType.disabled = false; showBalance();
 });
 rType.addEventListener('change', async () => {
@@ -187,6 +191,7 @@ rType.addEventListener('change', async () => {
   $('#dateWrap').classList.remove('hide');
   $('#subPerm').classList.toggle('hide', t !== 'permission');
   $('#subCasual').classList.toggle('hide', t !== 'casual');
+  if (t === 'casual') applyCasualRule();
   $('#subRel').classList.toggle('hide', t !== 'religious');
   $('#endWrap').classList.toggle('hide', t === 'permission' || t === 'casual');
   $('#lStart').textContent = (t === 'permission' || t === 'casual') ? 'தேதி *' : 'தொடக்க தேதி *';
@@ -196,6 +201,15 @@ rType.addEventListener('change', async () => {
   }
   showBalance();
 });
+/* தினக்கூலிப் பணியாளர்: தற்செயல் விடுப்பு முழு நாள் மட்டும் (முற்பகல் / பிற்பகல் மறைக்கப்படும்) */
+function applyCasualRule(){
+  const full = !!(curStaff && curStaff.fullDayOnly);
+  document.querySelectorAll('input[name=dp]').forEach(x => {
+    const lab = x.closest('label'); if (x.value !== 'FULL') lab.classList.toggle('hide', full);
+    if (full && x.value === 'FULL'){ x.checked = true; $('#endWrap').classList.remove('hide'); }
+  });
+  $('#dailyNote').classList.toggle('hide', !full);
+}
 document.querySelectorAll('input[name=pk]').forEach(x => x.addEventListener('change', () => {
   const list = libInfo.slots[x.value];
   $('#rSlot').innerHTML = '<option value="">-- தேர்வு செய்யவும் --</option>' + list.map(s => '<option>' + esc(s) + '</option>').join('');

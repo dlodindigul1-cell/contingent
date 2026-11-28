@@ -2313,7 +2313,7 @@ $('#lrBody').addEventListener('click', async ev => {
   lrEdit = r;
   $('#lrEdLabel').textContent = r.label + ' — ' + r.library;
   $('#lrEdType').innerHTML = r.types.map(t => '<option value="' + t + '"' + (t === r.type ? ' selected' : '') + '>' + esc(lrMeta.leaveTypes[t]) + '</option>').join('');
-  $('#lrEdPart').innerHTML = Object.keys(lrMeta.dayParts).map(k => '<option value="' + k + '"' + (k === r.dayPart ? ' selected' : '') + '>' + esc(lrMeta.dayParts[k]) + '</option>').join('');
+  $('#lrEdPart').innerHTML = Object.keys(lrMeta.dayParts).filter(k => !r.daily || k === 'FULL').map(k => '<option value="' + k + '"' + (k === r.dayPart ? ' selected' : '') + '>' + esc(lrMeta.dayParts[k]) + '</option>').join('');
   $('#lrEdKind').innerHTML = Object.keys(lrMeta.permKinds).map(k => '<option value="' + k + '"' + (k === r.permKind ? ' selected' : '') + '>' + esc(lrMeta.permKinds[k]) + '</option>').join('');
   $('#lrEdStart').value = r.start; $('#lrEdEnd').value = r.end;
   lrFillSlots(); lrToggle(); $('#m_lrEd').innerHTML = '';
