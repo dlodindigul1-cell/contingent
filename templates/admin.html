@@ -499,6 +499,8 @@ img{max-width:100%}
   <div class="sub">
   <a href="#libraries" data-v="libraries"><span class="n">1</span><span>நூலக விவரம் ஏற்று<small>நூலகர் உள்நுழைவுக்கு அடிப்படை</small></span></a>
   <a href="#leave" data-v="leave"><span class="n">2</span><span>விடுப்பு விவரம் ஏற்று</span></a>
+  <a href="#staff" data-v="staff"><span class="n">2F</span><span>பணியாளர் விவரம் ஏற்று<small>பெயர் · எண் · தினக்கூலி — விடுப்பு மேலாண்மைக்கு</small></span></a>
+  <a href="#religious" data-v="religious"><span class="n">2G</span><span>மத விடுப்புப் பட்டியல் ஏற்று<small>மத விடுப்புக்கு அனுமதித்த தேதிகள்</small></span></a>
   <a href="#claimsimport" data-v="claimsimport"><span class="n">2A</span><span>சில்லறை செலவின அனுமதித் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே அனுமதித்தவை</small></span></a>
   <a href="#receiptsimport" data-v="receiptsimport"><span class="n">2B</span><span>வரவினத் தரவு ஏற்றம்<small>2024-25 முதல் · ஏற்கனவே பதிவானவை</small></span></a>
   <a href="#inactive" data-v="inactive"><span class="n">2D</span><span>செயல்படாத நூலகங்கள்<small>தற்காலிகமாக நிறுத்த · நாள் முதல்</small></span></a>
@@ -1077,6 +1079,49 @@ a.vd-lib{cursor:pointer;font-weight:600}
       <table><thead><tr><th>மாதம் (காலம்)</th><th>மொத்தம்</th><th>வெள்ளி</th><th>2-ஆம் சனி</th><th>விடுமுறை</th><th>பணி நாட்கள்</th></tr></thead><tbody id="wdBody"><tr><td colspan="6">ஏற்றப்படுகிறது…</td></tr></tbody></table>
     </div></div>
   </div>
+</section>
+
+<!-- ================= 2F. பணியாளர் விவரம் ================= -->
+<section class="view" id="v-staff">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › பணியாளர் விவரம்</p>
+  <h2 class="pt">2F. பணியாளர் விவரம் ஏற்று</h2>
+  <p class="lead">இங்கு ஏற்றும் பணியாளர்களே பணியாளர் விடுப்புப் பதிவில் தோன்றுவர். ஒரு நூலகத்துக்கு இரண்டு அல்லது அதற்கு மேற்பட்டோரை (ஒவ்வொருவருக்கும் தனி வரி) இடலாம். <b>தினக்கூலிப் பணியாளர்</b> எனில் "பணியாளர் பெயர்" நெடுவரிசையில் நூலகத்தின் பெயரையே இடவும்; எண் தேவையில்லை — அவர் "தினக்கூலி-நூலகப் பெயர்" என்று காட்டப்படுவார்.</p>
+  <div class="panel"><h3>Excel ஏற்ற</h3><div class="bd">
+    <p class="small" style="margin-top:0">நெடுவரிசைகள்: <code>A வ.எண்.</code> <code>B நூலகத்தின் பெயர்</code> <code>C பணியாளர் பெயர்</code> <code>D பணியாளர் எண்</code>. முதல் வரி தலைப்பு. நூலகப் பெயர் "நூலக விவரம்" பட்டியலில் உள்ளபடியே இருக்க வேண்டும். மீண்டும் ஏற்றினால் புதுப்பிக்கும்; யாரையும் நீக்காது. <a href="/admin/template/staff.xlsx">மாதிரி Excel (ஏற்றியவர்களுடன்)</a></p>
+    <input type="file" id="f_staff" accept=".xlsx,.xls,.csv" aria-label="பணியாளர் Excel" style="margin-bottom:10px">
+    <button class="btn go" id="b_staff" type="button">Excel ஏற்று</button>
+    <div id="m_staff"></div>
+  </div></div>
+  <div class="panel"><h3>ஏற்றப்பட்ட பணியாளர்கள் <span id="staffCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd">
+    <div class="row" style="margin-bottom:10px"><div style="flex:1 1 260px"><input type="search" id="staffSearch" placeholder="நூலகம் / பெயர் / எண் மூலம் தேடுக" aria-label="பணியாளர் தேடுக"></div></div>
+    <div id="m_staffList"></div>
+    <div class="tw"><table><thead><tr><th style="width:56px">வ.எ.</th><th>நூலகம்</th><th>விடுப்புப் பதிவில் காட்டும் பெயர்</th><th>பதிவுகள்</th><th style="width:150px">செயல்</th></tr></thead>
+    <tbody id="staffBody"><tr><td colspan="5">ஏற்றப்படுகிறது…</td></tr></tbody></table></div>
+  </div></div>
+</section>
+
+<!-- ================= 2G. மத விடுப்புப் பட்டியல் ================= -->
+<section class="view" id="v-religious">
+  <p class="crumb">நிர்வாகம் › தரவு ஏற்றம் › மத விடுப்புப் பட்டியல்</p>
+  <h2 class="pt">2G. மத விடுப்புப் பட்டியல் ஏற்று</h2>
+  <p class="lead">பணியாளர் "மத விடுப்பு" தேர்ந்தெடுத்தால், இங்கு ஏற்றிய தேதிகளுக்கு மட்டுமே விடுப்பு அனுமதிக்கப்படும். இது அரசு விடுமுறைப் பட்டியலிலிருந்து தனியானது.</p>
+  <div class="two">
+    <div class="panel"><h3>தேதியைச் சேர்க்க</h3><div class="bd">
+      <label for="relDate">தேதி</label><input type="date" id="relDate" style="margin-bottom:10px">
+      <label for="relName">பெயர் (விருப்பம்)</label><input type="text" id="relName" placeholder="எ.கா. பக்ரீத்" style="margin-bottom:12px">
+      <button class="btn go" id="btnAddRel" type="button">சேர்</button>
+      <div id="m_relAdd"></div>
+    </div></div>
+    <div class="panel"><h3>Excel மூலம் ஏற்ற</h3><div class="bd">
+      <p class="small" style="margin-top:0">நெடுவரிசைகள்: <code>A தேதி (dd/mm/yyyy)</code> <code>B பெயர்</code>. முதல் வரி தலைப்பு. <a href="/admin/template/religious.xlsx">மாதிரி Excel</a></p>
+      <input type="file" id="f_religious" accept=".xlsx,.xls,.csv" aria-label="மத விடுப்பு Excel" style="margin-bottom:10px">
+      <button class="btn go" id="b_religious" type="button">Excel ஏற்று</button>
+      <div id="m_religious"></div>
+    </div></div>
+  </div>
+  <div class="panel"><h3>மத விடுப்புத் தேதிகள் <span id="relCount" style="font-weight:400;color:var(--muted)"></span></h3><div class="bd tw" style="max-height:480px">
+    <table><thead><tr><th>தேதி</th><th>பெயர்</th><th style="width:90px"></th></tr></thead><tbody id="relBody"><tr><td colspan="3">ஏற்றப்படுகிறது…</td></tr></tbody></table>
+  </div></div>
 </section>
 
 <section class="view" id="v-inactive">
@@ -1986,6 +2031,8 @@ function route(){
   if (v === 'wages' || v === 'cleaner') loadWages();
   if (v === 'holidays') loadHolidays();
   if (v === 'leave') loadLeave();
+  if (v === 'staff') loadStaff();
+  if (v === 'religious') loadReligious();
   if (v === 'status') loadStatus();
   if (v === 'approval') loadApproval();
   if (v === 'claimsimport') loadCoverage('claims');
@@ -2106,6 +2153,8 @@ function bindUpload(kind){
         if (kind === 'libraries'){ loaded.libs = false; asLibs = []; loadLibraries(true); if ($('#v-manage').classList.contains('on')) loadManage(); }
         if (kind === 'holidays') loadHolidays();
         if (kind === 'leave') loadLeave();
+        if (kind === 'staff') loadStaff();
+        if (kind === 'religious') loadReligious();
         if (kind.indexOf('vendors_') === 0) loadVendors();
         if (kind === 'claims_approved') loadCoverage('claims');
         if (kind === 'receipts_approved') loadCoverage('receipts');
@@ -2114,7 +2163,72 @@ function bindUpload(kind){
     btn.disabled = false;
   });
 }
-['libraries','leave','dailywage','holidays','claims_approved','receipts_approved','stats_base','vendors_paper','vendors_rent'].forEach(bindUpload);
+['libraries','leave','staff','religious','dailywage','holidays','claims_approved','receipts_approved','stats_base','vendors_paper','vendors_rent'].forEach(bindUpload);
+
+
+/* ---------- 2F பணியாளர் விவரம் · 2G மத விடுப்புப் பட்டியல் ---------- */
+let staffRows = [];
+async function loadStaff(){
+  try{
+    const j = await getJSON('/admin/api/staff');
+    if (!j.success) throw new Error(j.message);
+    staffRows = j.rows; staffRender();
+  }catch(e){ $('#staffBody').innerHTML = '<tr><td colspan="5"><div class="msg bad">' + esc(e.message) + '</div></td></tr>'; }
+}
+function staffRender(){
+  const q = $('#staffSearch').value.trim().toLowerCase();
+  const rows = staffRows.filter(r => !q || (r.library + ' ' + r.label).toLowerCase().includes(q));
+  $('#staffCount').textContent = '(' + staffRows.length + ' பணியாளர்கள்)';
+  $('#staffBody').innerHTML = rows.length ? rows.map((r, i) =>
+    '<tr' + (r.active ? '' : ' style="opacity:.55"') + '><td>' + (i + 1) + '</td><td>' + esc(r.library) + '</td><td>' + esc(r.label) +
+    (r.active ? '' : ' <span class="small">(செயலற்றவர்)</span>') + '</td><td>' + r.records + '</td><td>' +
+    (r.active ? '<button type="button" class="btn alt sm" data-sdel="' + r.id + '">நீக்கு</button>'
+              : '<button type="button" class="btn alt sm" data-sact="' + r.id + '">மீண்டும் செயல்படுத்து</button>') +
+    '</td></tr>').join('') : '<tr><td colspan="5">பணியாளர்கள் இல்லை. மேலே Excel ஏற்றவும்.</td></tr>';
+}
+$('#staffSearch').addEventListener('input', staffRender);
+$('#staffBody').addEventListener('click', async ev => {
+  const d = ev.target.closest('[data-sdel]'), a = ev.target.closest('[data-sact]');
+  if (!d && !a) return;
+  const out = $('#m_staffList');
+  try{
+    if (d){
+      if (!confirm('இந்தப் பணியாளரை நீக்கலாமா? (விடுப்புப் பதிவுகள் இருந்தால் செயலற்றதாக்கப்படும்)')) return;
+      const j = await postJSON('/admin/api/staff/delete', {id: +d.dataset.sdel});
+      note(out, j.success ? 'ok' : 'bad', j.message || '');
+    }else{
+      await postJSON('/admin/api/staff/activate', {id: +a.dataset.sact, active: true});
+    }
+    loadStaff();
+  }catch(e){ note(out, 'bad', e.message); }
+});
+
+async function loadReligious(){
+  try{
+    const j = await getJSON('/admin/api/religious');
+    if (!j.success) throw new Error(j.message);
+    $('#relCount').textContent = '(' + j.rows.length + ' நாட்கள்)';
+    $('#relBody').innerHTML = j.rows.length ? j.rows.map(r =>
+      '<tr><td>' + esc(r.date.split('-').reverse().join('/')) + '</td><td>' + esc(r.name) +
+      '</td><td><button type="button" class="btn alt sm" data-rdel="' + esc(r.date) + '">நீக்கு</button></td></tr>').join('')
+      : '<tr><td colspan="3">மத விடுப்புத் தேதிகள் இல்லை. மேலே சேர்க்கவும்.</td></tr>';
+  }catch(e){ $('#relBody').innerHTML = '<tr><td colspan="3"><div class="msg bad">' + esc(e.message) + '</div></td></tr>'; }
+}
+$('#btnAddRel').addEventListener('click', async () => {
+  const d = $('#relDate').value, out = $('#m_relAdd');
+  if (!d){ note(out, 'bad', 'தேதியைத் தேர்ந்தெடுக்கவும்.'); return; }
+  try{
+    const j = await postJSON('/admin/api/religious/add', {date: d, name: $('#relName').value});
+    if (!j.success){ note(out, 'bad', j.message); return; }
+    $('#relName').value = ''; note(out, 'ok', 'சேர்க்கப்பட்டது.'); loadReligious();
+  }catch(e){ note(out, 'bad', e.message); }
+});
+$('#relBody').addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-rdel]');
+  if (!b || !confirm('இந்தத் தேதியை நீக்கலாமா?')) return;
+  try{ await postJSON('/admin/api/religious/delete', {date: b.dataset.rdel}); loadReligious(); }
+  catch(e){ note($('#m_relAdd'), 'bad', e.message); }
+});
 
 /* ---------- தரவு ஏற்றம்: இதுவரை உள்ள மாதங்கள் ---------- */
 function fyOf(my){ const m = +my.slice(0,2), y = +my.slice(3); const s = m >= 4 ? y : y - 1; return s + '-' + String((s + 1) % 100).padStart(2,'0'); }

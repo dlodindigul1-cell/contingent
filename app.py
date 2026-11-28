@@ -2409,6 +2409,14 @@ TEMPLATE_XLSX = {
               [["நூலகர் விடுப்பு விவரம்", ""], ["நூலகத்தின் பெயர்", "விடுப்பு நாட்கள்"]],
               ["எடுத்துக்காட்டு நூலகம்", 0],
               [38, 18]),
+    "staff": ("staff_template.xlsx",
+              [["வ.எண்.", "நூலகத்தின் பெயர்", "பணியாளர் பெயர் (தினக்கூலி எனில் நூலகப் பெயரையே இடவும்)", "பணியாளர் எண்"]],
+              [1, "எடுத்துக்காட்டு நூலகம்", "எடுத்துக்காட்டு பணியாளர்", "12345678901"],
+              [8, 38, 44, 22]),
+    "religious": ("religious_holidays_template.xlsx",
+                  [["மத விடுப்பு தேதி (dd/mm/yyyy)", "விடுப்பு பெயர்"]],
+                  ["12/11/2026", "எடுத்துக்காட்டு பண்டிகை"],
+                  [30, 34]),
     "dailywage": ("dailywage_template.xlsx",
                   [["தினக்கூலி பணியாளர் அனுமதிக்கப்பட்ட நூலகங்கள்", "பணியாளர் எண்ணிக்கை"]],
                   ["எடுத்துக்காட்டு நூலகம்", 1],
@@ -2449,6 +2457,16 @@ def _template_rows(kind):
             return [[r["name"], jnum(r["leave_days"])] for r in
                     db.fetch_all("SELECT l.name, s.leave_days FROM staff_leave_days s "
                                  "JOIN libraries l ON l.id = s.library_id WHERE NOT l.is_test ORDER BY l.id")]
+        if kind == "staff":
+            out = []
+            for n, r in enumerate(db.fetch_all(
+                    "SELECT l.name AS lib, s.staff_name, s.staff_no, s.is_daily_wage FROM library_staff s "
+                    "JOIN libraries l ON l.id = s.library_id WHERE NOT l.is_test ORDER BY l.id, s.is_daily_wage, s.id"), 1):
+                out.append([n, r["lib"], r["lib"] if r["is_daily_wage"] else r["staff_name"], r["staff_no"]])
+            return out
+        if kind == "religious":
+            return [[r["holiday_date"].strftime("%d/%m/%Y"), r["name"]] for r in
+                    db.fetch_all("SELECT holiday_date, name FROM religious_holidays ORDER BY holiday_date")]
         if kind == "dailywage":
             return [[r["name"], int(r["workers"])] for r in
                     db.fetch_all("SELECT l.name, d.workers FROM daily_wage_permission d "
@@ -2502,6 +2520,9 @@ def build_template(kind):
     if kind == "libraries":
         for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             ws.cell(r, 2).number_format = "@"
+    if kind == "staff":                 # பணியாளர் எண் உரையாகவே இருக்க
+        for r in range(len(heads) + 1, max(ws.max_row, 600) + 1):
+            ws.cell(r, 4).number_format = "@"
     if kind in ("vendors_paper", "vendors_rent"):      # குறியீடு / PAN / IFSC / கணக்கு எண் உரையாகவே இருக்க (முன் பூஜ்யம் போகாமல்)
         for r in range(len(heads) + 1, max(ws.max_row, 400) + 1):
             for c in range(1, 9):
@@ -3019,6 +3040,10 @@ def admin_vendor_copy():
 from receipts_module import receipts as receipts_blueprint, register_rpc as _register_receipt_rpc
 app.register_blueprint(receipts_blueprint)
 _register_receipt_rpc(RPC)
+
+# பணியாளர் விடுப்பு மேலாண்மை (தனித்த Module)
+from leave_module import leave as leave_blueprint
+app.register_blueprint(leave_blueprint)
 
 
 @app.get("/healthz")

@@ -432,3 +432,51 @@ CREATE TABLE IF NOT EXISTS library_direct_pdf (
   enabled_by   TEXT NOT NULL DEFAULT '',
   enabled_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- ============================================================
+--  பணியாளர் விடுப்பு மேலாண்மை (Phase 1: தரவு)
+-- ============================================================
+-- நூலகப் பணியாளர்கள் (ஒரு நூலகத்துக்கு 2 அல்லது அதற்கு மேற்பட்டோர்).
+-- தினக்கூலிப் பணியாளருக்கு எண் இல்லை: is_daily_wage = TRUE, காட்டும் பெயர் "தினக்கூலி-<நூலகப் பெயர்>"
+CREATE TABLE IF NOT EXISTS library_staff (
+  id            SERIAL PRIMARY KEY,
+  library_id    INT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  staff_name    TEXT NOT NULL DEFAULT '',
+  staff_no      TEXT NOT NULL DEFAULT '',
+  is_daily_wage BOOLEAN NOT NULL DEFAULT FALSE,
+  seq           INT NOT NULL DEFAULT 1,          -- தினக்கூலி: ஒரு நூலகத்தில் 1, 2 ...
+  active        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_staff_no
+  ON library_staff(library_id, staff_no) WHERE NOT is_daily_wage;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_staff_daily
+  ON library_staff(library_id, seq) WHERE is_daily_wage;
+CREATE INDEX IF NOT EXISTS idx_staff_library ON library_staff(library_id);
+
+-- மத விடுப்புக்கு அனுமதிக்கப்பட்ட தேதிகள் (Admin ஏற்றுவது)
+CREATE TABLE IF NOT EXISTS religious_holidays (
+  holiday_date DATE PRIMARY KEY,
+  name         TEXT NOT NULL DEFAULT ''
+);
+
+-- பணியாளர் விடுப்புப் பதிவுகள் (Phase 2-ல் பயன்படும்)
+--  leave_type: permission = அனுமதி, casual = தற்செயல், religious = மத, earned = ஈட்டிய, medical = மருத்துவ
+--  day_part  : casual-க்கு FN (முற்பகல்) / AN (பிற்பகல்) / FULL (முழு நாள்); மற்றவைக்கு NULL
+--  perm_kind : permission-க்கு 'start' (பணி துவங்கும்போது) / 'end' (பணி முடியும்போது)
+CREATE TABLE IF NOT EXISTS staff_leave_records (
+  id          BIGSERIAL PRIMARY KEY,
+  staff_id    INT NOT NULL REFERENCES library_staff(id) ON DELETE RESTRICT,
+  leave_type  TEXT NOT NULL CHECK (leave_type IN ('permission','casual','religious','earned','medical')),
+  start_date  DATE NOT NULL,
+  end_date    DATE NOT NULL,
+  days        NUMERIC(5,1) NOT NULL DEFAULT 1,
+  day_part    TEXT CHECK (day_part IN ('FN','AN','FULL')),
+  perm_kind   TEXT CHECK (perm_kind IN ('start','end')),
+  perm_slot   TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (end_date >= start_date)
+);
+CREATE INDEX IF NOT EXISTS idx_slr_staff_start ON staff_leave_records(staff_id, start_date);
+CREATE INDEX IF NOT EXISTS idx_slr_dates ON staff_leave_records(start_date, end_date);

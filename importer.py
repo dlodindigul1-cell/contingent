@@ -185,6 +185,57 @@ def do_holidays(raw):
     return result(len(items), skipped)
 
 
+def do_staff(raw):
+    """பணியாளர் விவரம்: A வ.எண்., B நூலகப் பெயர், C பணியாளர் பெயர், D பணியாளர் எண். முதல் வரி தலைப்பு.
+    தினக்கூலி: C-ல் நூலகப் பெயரையே இட்டால் (அல்லது 'தினக்கூலி' என்று தொடங்கினால்) எண் தேவையில்லை.
+    ஒரு நூலகத்துக்கு எத்தனை வரிகளும் இடலாம். மீண்டும் ஏற்றினால் புதுப்பிக்கும்; நீக்காது."""
+    ids, skipped = library_ids(), []
+    regular, daily, seen_no, daily_count = [], [], set(), {}
+    for r in read_rows(raw):
+        lib, name, no = cell(r, 1), cell(r, 2), cell(r, 3)
+        if not lib and not name and not no:
+            continue
+        if lib not in ids:
+            skipped.append(f"{lib or '(நூலகப் பெயர் இல்லை)'}: நூலகப் பட்டியலில் இல்லை")
+            continue
+        if not name or name == lib or name.startswith("தினக்கூலி"):
+            daily_count[lib] = daily_count.get(lib, 0) + 1
+            daily.append((ids[lib], "", "", True, daily_count[lib]))
+            continue
+        if not no:
+            skipped.append(f"{lib} — {name}: பணியாளர் எண் இல்லை (தினக்கூலி எனில் பணியாளர் பெயர் இடத்தில் நூலகப் பெயரை இடவும்)")
+            continue
+        if (lib, no) in seen_no:
+            skipped.append(f"{lib} — {name}: எண் {no} கோப்பில் மீண்டும் வருகிறது")
+            continue
+        seen_no.add((lib, no))
+        regular.append((ids[lib], name, no, False, 1))
+    run_batch("INSERT INTO library_staff (library_id, staff_name, staff_no, is_daily_wage, seq) VALUES %s "
+              "ON CONFLICT (library_id, staff_no) WHERE NOT is_daily_wage DO UPDATE "
+              "SET staff_name = EXCLUDED.staff_name, active = TRUE", regular)
+    run_batch("INSERT INTO library_staff (library_id, staff_name, staff_no, is_daily_wage, seq) VALUES %s "
+              "ON CONFLICT (library_id, seq) WHERE is_daily_wage DO UPDATE SET active = TRUE", daily)
+    return result(len(regular) + len(daily), skipped)
+
+
+def do_religious(raw):
+    """மத விடுப்பு தேதிகள்: A தேதி, B பெயர் (விருப்பம்). முதல் வரி தலைப்பு."""
+    items, skipped = {}, []
+    for r in read_rows(raw):
+        v = cell(r, 0)
+        if not v:
+            continue
+        d = parse_date(v)
+        if d:
+            items[d] = cell(r, 1) or items.get(d, "")
+        else:
+            skipped.append(f"தேதி புரியவில்லை: {v}")
+    run_batch("INSERT INTO religious_holidays (holiday_date, name) VALUES %s ON CONFLICT (holiday_date) DO UPDATE "
+              "SET name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE religious_holidays.name END",
+              sorted(items.items()))
+    return result(len(items), skipped)
+
+
 def do_leave(raw, month=None):
     """A நூலகப் பெயர், B விடுப்பு நாட்கள் — தேர்ந்தெடுத்த மாதத்திற்கு (முந்தைய மாதம் 16 -> அந்த மாதம் 15)."""
     if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", str(month or "")):
@@ -805,6 +856,8 @@ IMPORTERS = {
     "map":        (do_map,        "நூலகம்-நாளிதழ் இணைப்பு (LIBRARY NEWSPAPER MAP)"),
     "holidays":   (do_holidays,   "அரசு விடுமுறை (HOLIDAYS)"),
     "leave":      (do_leave,      "பணியாளர் விடுப்பு (staff leave days)"),
+    "staff":      (do_staff,      "நூலகப் பணியாளர் விவரம்"),
+    "religious":  (do_religious,  "மத விடுப்பு தேதிகள்"),
     "rent":       (do_rent,       "வாடகை (RENT)"),
     "dailywage":  (do_dailywage,  "தினக்கூலி அனுமதி (DAILYWAGES PERMISSION)"),
     "claims":     (do_claims,     "பழைய contingent பதிவுகள் (contingent)"),
