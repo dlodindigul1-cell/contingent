@@ -26,6 +26,8 @@ main{max-width:520px;margin:16px auto;padding:0 12px 40px}
 .it small{display:block;color:var(--muted)}
 .tag{flex:none;align-self:center;font-size:.8rem;text-align:center;border-radius:8px;padding:3px 8px;background:#e3edfb;color:#144a94}
 .tag.medical{background:#fde0e0;color:#a31616}.tag.earned{background:#ffeccd;color:#8a5a00}.tag.religious{background:#efe3fb;color:#5b1f94}.tag.casual{background:#dff3e6;color:#176237}
+.exit{display:block;width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:#8c1d2c;color:#fff;font:inherit;font-size:1.05rem;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+.exit:hover{background:#6f1623}
 .page{display:none}.page.on{display:block}
 .box{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(15,42,92,.12);padding:14px}
 .back{display:inline-block;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
@@ -59,6 +61,7 @@ th{background:var(--sky);color:var(--navy)}
   <button class="card his" data-go="history"><i>📋</i><div><b>இதுவரை எடுத்த விடுப்பு விவரங்கள்</b><span>பணியாளர் விடுப்பு சுருக்கம் காண்க</span></div></button>
   <div class="today"><h2>📅 இன்று விடுப்பில் உள்ளவர்கள் <span class="pill" id="todayCount">–</span><button id="todayRefresh" type="button" title="புதுப்பி">⟳</button></h2>
     <div class="list" id="todayList"><div class="it">ஏற்றப்படுகிறது…</div></div></div>
+  <a class="exit" href="/">🚪 வெளியேறு</a>
 </section>
 
 <!-- விடுப்புப் பதிவு -->
