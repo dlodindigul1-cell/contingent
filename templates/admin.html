@@ -469,6 +469,20 @@ img{max-width:100%}
   th,td{padding:7px 8px;font-size:14px}
   footer{padding:12px 12px 24px}
 }
+
+/* ---- மெனு தேடல் பெட்டி ---- */
+.msearch{background:var(--sky);border-bottom:1px solid var(--line)}
+.msearch .in{max-width:1240px;margin:0 auto;padding:10px 16px;position:relative}
+.msearch input{width:100%;max-width:560px;display:block;margin:0 auto;padding:10px 14px;font:inherit;font-size:15px;border:2px solid var(--navy);border-radius:var(--r);background:#fff}
+.msearch input:focus{outline:3px solid var(--saffron);outline-offset:1px}
+#msRes{display:none;position:absolute;left:50%;transform:translateX(-50%);top:calc(100% - 4px);width:calc(100% - 32px);max-width:560px;max-height:60vh;overflow-y:auto;background:#fff;border:1px solid var(--navy);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:50}
+#msRes.open{display:block}
+#msRes button{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;padding:10px 14px;font:inherit;font-size:15px;cursor:pointer;color:var(--ink)}
+#msRes button:last-child{border-bottom:0}
+#msRes button:hover,#msRes button.act{background:var(--sky)}
+#msRes .n{flex:none;min-width:26px;height:26px;padding:0 4px;border-radius:13px;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;display:grid;place-items:center;margin-top:1px}
+#msRes .p{display:block;color:var(--muted);font-size:12.5px}
+#msRes .none{padding:12px 14px;color:var(--muted);font-size:14px}
 </style>
 </head>
 <body>
@@ -483,6 +497,11 @@ img{max-width:100%}
   <img src="https://drive.google.com/thumbnail?id=18TDopjRYV_uiSQxxM861-hgQiKoBP_Ap&sz=w160" alt="தமிழ்நாடு அரசு சின்னம்" onerror="this.style.display='none'">
   <div class="who"><b>நிர்வாகி</b><a href="/logout">வெளியேறு</a></div>
 </div></header>
+
+<div class="msearch"><div class="in">
+  <input type="search" id="msInput" placeholder="🔍 மெனு தேடுக — தமிழ் அல்லது English (எ.கா. நாளிதழ், newspaper, vendor)" autocomplete="off" aria-label="மெனு தேடுக" aria-controls="msRes">
+  <div id="msRes" role="listbox"></div>
+</div></div>
 
 <div class="shell">
 <nav class="side" id="nav" aria-label="நிர்வாக மெனு">
@@ -2146,6 +2165,70 @@ $('#frTypes').addEventListener('click', e => {
 });
 
 window.addEventListener('hashchange', route);
+
+/* ===================== மெனு தேடல் ===================== */
+(function(){
+  const inp = document.getElementById('msInput'), box = document.getElementById('msRes');
+  let KW = {}, items = [], shown = [], act = -1;
+  const norm = t => (t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  function build(){
+    items = Array.from(document.querySelectorAll('#nav a')).map(a => {
+      const spans = a.querySelectorAll(':scope > span'), small = a.querySelector('small');
+      const num = spans[0] ? spans[0].textContent.trim() : '';
+      const nameEl = spans[1] ? spans[1].cloneNode(true) : null; if (nameEl){ const sm = nameEl.querySelector('small'); if (sm) sm.remove(); }
+      const name = nameEl ? nameEl.textContent.trim() : a.textContent.trim();
+      const groups = []; for (let sub = a.closest('.sub'); sub; sub = sub.parentElement.closest('.sub')){ const g = sub.previousElementSibling; if (g && g.classList.contains('grp')) groups.unshift(g.textContent.trim()); }
+      const href = a.getAttribute('href');
+      return {a, href, num, name, sm: small ? small.textContent.trim() : '', path: groups.join(' › '), kw: KW[href] || []};
+    });
+  }
+  function score(it, q, toks){
+    const nm = norm(it.name), numL = norm(it.num);
+    const hay = norm([it.name, it.sm, it.path, it.num].join(' ')) + ' | ' + it.kw.join(' | ');
+    if (!toks.every(t => hay.includes(t))) return -1;
+    let s = 10;
+    if (numL === q) s = 120;
+    else if (nm.startsWith(q)) s = 110;
+    else if (nm.includes(q)) s = 100;
+    else if (it.kw.some(k => k === q)) s = 90;
+    else if (it.kw.some(k => k.startsWith(q))) s = 80;
+    else if (it.kw.some(k => k.includes(q))) s = 60;
+    else if (norm(it.sm).includes(q)) s = 40;
+    return s;
+  }
+  function search(){
+    const q = norm(inp.value); act = -1;
+    if (!q){ close(); return; }
+    if (!items.length) build();
+    const toks = q.split(' ');
+    shown = items.map(it => ({it, s: score(it, q, toks)})).filter(x => x.s >= 0).sort((x, y) => y.s - x.s).slice(0, 12).map(x => x.it);
+    box.innerHTML = shown.length ? shown.map((it, i) => '<button type="button" role="option" data-i="' + i + '"><span class="n">' + esc(it.num || '⌂') + '</span><span><b>' + esc(it.name) + '</b>' + (it.sm ? '<small class="p">' + esc(it.sm) + '</small>' : '') + (it.path ? '<span class="p">' + esc(it.path) + '</span>' : '') + '</span></button>').join('') : '<div class="none">பொருந்தும் மெனு இல்லை</div>';
+    box.classList.add('open');
+  }
+  function close(){ box.classList.remove('open'); box.innerHTML = ''; shown = []; act = -1; }
+  function go(it){
+    if (!it) return;
+    inp.value = ''; close(); inp.blur();
+    const href = it.href;
+    if (href.charAt(0) === '#'){ if (location.hash === href) route(); else location.hash = href; }
+    else location.href = href;
+  }
+  function mark(){ box.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('act', i === act); if (i === act) b.scrollIntoView({block: 'nearest'}); }); }
+  inp.addEventListener('input', search);
+  inp.addEventListener('focus', () => { if (norm(inp.value)) search(); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown'){ e.preventDefault(); if (shown.length){ act = (act + 1) % shown.length; mark(); } }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); if (shown.length){ act = (act - 1 + shown.length) % shown.length; mark(); } }
+    else if (e.key === 'Enter'){ e.preventDefault(); go(shown[act >= 0 ? act : 0]); }
+    else if (e.key === 'Escape'){ inp.value = ''; close(); }
+  });
+  box.addEventListener('mousedown', e => e.preventDefault());
+  box.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (b) go(shown[+b.dataset.i]); });
+  document.addEventListener('click', e => { if (!e.target.closest('.msearch')) close(); });
+  /* ஆங்கிலச் சொற்கள் தேடலுக்கு மட்டும் — திரையில் காட்டப்படுவதில்லை */
+  fetch('/static/menu_keywords.json').then(r => r.json()).then(j => { KW = j || {}; items = []; }).catch(() => {});
+})();
+
 
 /* ---------- முகப்பு ---------- */
 async function loadSummary(){
