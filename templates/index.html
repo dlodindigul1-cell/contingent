@@ -1622,7 +1622,7 @@ let selectedEmails = [];
 let selectedEmail = "";
 let bankAmount = 0;
 let remainingAmount = 0;
-let dayLimits = { partner: 0, staff: 0, leave: 0, totalWD: 0 };
+let dayLimits = { partner: 0, staff: 0, leave: 0, totalWD: 0, partnerLeave: 0, staffLeave: 0, partTimeLeave: 0, notes: [] };
 let staffWorkers = 1;   // Admin அனுமதித்த தினக்கூலி பணியாளர் எண்ணிக்கை (isDailyWagePermissionAllowed)
 let workingPeriodText = ""; // ஒரு முறை மட்டும் போதும்
 let maxWorkingDays = 0;     // ஒரு முறை மட்டும் போதும்
@@ -4383,37 +4383,23 @@ function validateWorkingDays(inputElement) {
   let label = inputElement.previousElementSibling;
   let id = inputElement.id;
 
-  // பாதுகாப்பிற்காக எண்களாக மாற்றுதல்
+  // நூலக வகை விதிப்படி சர்வரில் கணக்கிட்ட விடுப்புக் குறைப்பு (partnerLeave / staffLeave / partTimeLeave)
   let totalWD = parseInt(dayLimits.totalWD) || 0;
-  let leave = parseInt(dayLimits.leave) || 0;
-  let netPartnerLimit = totalWD - leave;
-  
-  // கூட்டுநர் என்றால் நிகர நாட்களையும், பணியாளர் என்றால் மொத்த நாட்களையும் லிமிட்டாக கொள்ளுதல்
-  // --- staff limit calculation ---
-let staffLimit = parseInt(dayLimits.staff) || 0;
-
-// 👇 அனுமதிக்கப்பட்ட பணியாளர் எண்ணிக்கைக்கு ஏற்ப நாட்கள் (ONLY staffDays)
-if (id === 'staffDays') {
-  staffLimit = staffLimit * (staffWorkers || 1);
-}
-
-// --- final max limit ---
-
-
-let maxLimit = (id === 'partnerDays') 
-  ? netPartnerLimit 
-  : staffLimit;
+  let partnerLeave = Number(dayLimits.partnerLeave) || 0;
+  let staffLeave = Number(dayLimits.staffLeave) || 0;
+  let partTimeLeave = Number(dayLimits.partTimeLeave) || 0;
+  let leaveForField = 0, maxLimit = 0;
+  if (id === 'partnerDays') { leaveForField = partnerLeave; maxLimit = totalWD - partnerLeave; }
+  else if (id === 'staffDays') { leaveForField = staffLeave; maxLimit = totalWD * (staffWorkers || 1) - staffLeave; }
+  else { leaveForField = partTimeLeave; maxLimit = totalWD - partTimeLeave; }   // partTimeStaffDays
 
   if (enteredDays > maxLimit) {
-    let errorMsg = "";
-    if (id === 'partnerDays') {
-      errorMsg = workingPeriodText + " ஆகிய தேதிகளுக்கு இடைப்பட்ட மொத்த பணி நாட்கள் " + totalWD + 
-                 " மற்றும் நீங்கள் எடுத்த விடுப்பு நாட்கள் " + leave + 
-                 ". எனவே நிகர பணி நாட்கள் " + netPartnerLimit + 
-                 " மட்டுமே. இதற்கு மட்டுமே ஊதியம் கோர இயலும்.";
+    let errorMsg = workingPeriodText + " ஆகிய தேதிகளுக்கு இடைப்பட்ட மொத்த பணி நாட்கள் " + totalWD + ".";
+    if (leaveForField > 0) {
+      errorMsg += " விடுப்புக்காகக் குறைக்கப்பட்ட நாட்கள் " + leaveForField + ". எனவே நிகர பணி நாட்கள் " + maxLimit +
+                  " மட்டுமே. இதற்கு மட்டுமே ஊதியம் கோர இயலும்.";
     } else {
-      errorMsg = workingPeriodText + " ஆகிய தேதிகளுக்கு இடைப்பட்ட பணி நாட்கள் " + maxLimit + 
-                 " மட்டுமே.";
+      errorMsg += " எனவே " + maxLimit + " நாட்கள் மட்டுமே கோர இயலும்.";
     }
 
     alert(errorMsg);
@@ -4438,7 +4424,20 @@ function fetchWorkingDays() {
     dayLimits.staff = res.staffLimit;
     dayLimits.leave = res.leaveTaken;
     dayLimits.totalWD = res.totalWD;
+    dayLimits.partnerLeave = res.partnerLeave || 0;
+    dayLimits.staffLeave = res.staffLeave || 0;
+    dayLimits.partTimeLeave = res.partTimeLeave || 0;
+    dayLimits.notes = res.notes || [];
     workingPeriodText = res.period;
+    // விடுப்புக்கான ஊதியப் பிடித்தம் இருந்தால் தினக்கூலிப் பக்கத்தில் காட்டு
+    const wd = document.getElementById('wdInfo');
+    if (wd) {
+      if (dayLimits.notes.length) {
+        wd.innerHTML = '<b>விடுப்பு — ஊதியப் பிடித்தம்</b> (' + escHtml(workingPeriodText) + ')<br>' +
+          dayLimits.notes.map(escHtml).join('<br>');
+        wd.style.display = 'block';
+      } else { wd.style.display = 'none'; }
+    }
     console.log("பணி நாட்கள் விவரம் பெறப்பட்டது:", dayLimits);
   }).getWorkingDaysCount(libName);
 }

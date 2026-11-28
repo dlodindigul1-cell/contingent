@@ -26,16 +26,16 @@ def staff_list():
     if d: return d
     try:
         rows = db.fetch_all(
-            "SELECT s.id, s.staff_name, s.staff_no, s.is_daily_wage, s.seq, s.active, l.name AS lib, l.lib_type, "
+            "SELECT s.id, s.staff_name, s.staff_no, s.is_daily_wage, s.seq, s.active, l.name AS lib, l.lib_type, l.is_test, "
             "(SELECT COUNT(*) FROM staff_leave_records r WHERE r.staff_id = s.id) AS recs "
-            "FROM library_staff s JOIN libraries l ON l.id = s.library_id WHERE NOT l.is_test "
-            "ORDER BY l.id, s.is_daily_wage, s.id")
+            "FROM library_staff s JOIN libraries l ON l.id = s.library_id "
+            "ORDER BY l.is_test, l.id, s.is_daily_wage, s.id")
     except Exception as e:
         hint = 'Database அட்டவணைகள் இன்னும் உருவாக்கப்படவில்லை (Admin 1 → அட்டவணைகளை உருவாக்கு).' if 'does not exist' in str(e) else 'Database பிழை.'
         return jsonify(success=False, message=hint)
     return jsonify(success=True, rows=[{
         'id': r['id'], 'library': r['lib'], 'type': r['lib_type'], 'name': r['staff_name'], 'no': r['staff_no'],
-        'daily': r['is_daily_wage'], 'active': r['active'], 'records': r['recs'],
+        'daily': r['is_daily_wage'], 'active': r['active'], 'records': r['recs'], 'test': bool(r['is_test']),
         'label': staff_label(r['staff_name'], r['staff_no'], r['is_daily_wage'], r['lib'])} for r in rows])
 
 
@@ -282,6 +282,88 @@ def _balance(sid, on):
             'year': on.year, 'month': on.month}
 
 
+# ======================================================================
+#  ஊதியப் பிடித்தம் — விடுப்புக்கு ஏற்பப் பணி நாட்கள் குறைப்பு (சில்லறைச் செலவினப் படிவத்துக்கு)
+#  காலம்: முந்தைய மாதம் 16 -> நடப்பு மாதம் 15. வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை நாட்களில் எடுத்த விடுப்பு கணக்கில் வராது.
+#   1. மாவட்ட மைய நூலகம்  : எந்த விடுப்புக்கும் பணி நாள் குறையாது.
+#   2. முழு நேர நூலகம்     : தினக்கூலிப் பணியாளர் விடுப்பு -> அவருக்கு மட்டும் குறையும் (கூட்டுநருக்கு இல்லை).
+#   3. கிளை / ஊர்ப்புற      : பணியாளர் முற்பகல் (அல்லது முழு நாள்) விடுப்பு -> கூட்டுநருக்கு அந்த நாள் 1 நாள் குறையும்;
+#                             பிற்பகல் விடுப்பு -> குறையாது. பணியாளரே இல்லாத நூலகத்தில் தினக்கூலிப் பணியாளர் விடுப்பு ->
+#                             தினக்கூலிப் பணியாளர், கூட்டுநர் இருவருக்கும் குறையும்.
+#   4. பகுதி நேர நூலகம்    : தினக்கூலிப் பணியாளர் விடுப்பு -> அவருக்குக் குறையும் (கூட்டுநர் இல்லை).
+#  அனுமதி விடுப்பு (மணி நேரம்) எந்த நாளையும் குறைக்காது.
+# ======================================================================
+FORENOON_OFF = ('FN', 'FULL', None)     # casual: முற்பகல் / முழு நாள்; religious / earned / medical: day_part = None (முழு நாள்)
+
+
+def _is_work_day(d, holidays):
+    """app.period_breakdown-ல் உள்ள அதே விதி: வெள்ளி, இரண்டாம் சனி (8-14), அரசு விடுமுறை நீங்கலாக."""
+    if d.weekday() == 4: return False
+    if d.weekday() == 5 and 7 < d.day <= 14: return False
+    return d not in holidays
+
+
+def _absence(rows, start, end, holidays):
+    """rows (ஒரே பணியாளரின் பதிவுகள்) -> {தேதி: (நாள் பகுதி, முற்பகல் இல்லையா)}"""
+    out = {}
+    for r in rows:
+        if r['leave_type'] == 'permission':
+            continue
+        portion = 0.5 if (r['leave_type'] == 'casual' and r['day_part'] in ('FN', 'AN')) else 1.0
+        forenoon = r['leave_type'] != 'casual' or r['day_part'] in FORENOON_OFF
+        d = max(r['start_date'], start)
+        while d <= min(r['end_date'], end):
+            if _is_work_day(d, holidays):
+                out[d] = (portion, forenoon)
+            d += dt.timedelta(days=1)
+    return out
+
+
+def leave_deductions(library_id, lib_type, start, end, holidays):
+    """{'partner', 'staff', 'part_time': குறைக்க வேண்டிய நாட்கள், 'notes': [விளக்கம்]}"""
+    res = {'partner': 0.0, 'staff': 0.0, 'part_time': 0.0, 'notes': []}
+    group = _group_of(lib_type)
+    if group == 'மாவட்ட மைய நூலகம்':
+        return res
+    staff = db.fetch_all('SELECT id, is_daily_wage FROM library_staff WHERE library_id = %s AND active', (library_id,))
+    if not staff:
+        return res
+    recs = db.fetch_all(
+        "SELECT r.* FROM staff_leave_records r JOIN library_staff s ON s.id = r.staff_id "
+        "WHERE s.library_id = %s AND s.active AND r.start_date <= %s AND r.end_date >= %s", (library_id, end, start))
+    by_staff = {}
+    for r in recs:
+        by_staff.setdefault(r['staff_id'], []).append(r)
+    ab = {s['id']: _absence(by_staff.get(s['id'], []), start, end, holidays) for s in staff}
+    regular = [s['id'] for s in staff if not s['is_daily_wage']]
+    daily = [s['id'] for s in staff if s['is_daily_wage']]
+    daily_days = sum(p for sid in daily for p, _ in ab[sid].values())
+
+    if group == 'பகுதி நேர நூலகங்கள்':
+        res['part_time'] = daily_days
+        if daily_days: res['notes'].append(f'தினக்கூலிப் பணியாளர் விடுப்பு {daily_days:g} நாட்கள் — பணி நாட்களில் குறைக்கப்பட்டது.')
+    elif group == 'முழு நேர நூலகங்கள்':
+        res['staff'] = daily_days
+        if daily_days: res['notes'].append(f'தினக்கூலிப் பணியாளர் விடுப்பு {daily_days:g} நாட்கள் — அவரது பணி நாட்களில் குறைக்கப்பட்டது (கூட்டுநருக்கு இல்லை).')
+    elif group in ('கிளை நூலகங்கள்', 'ஊர்ப்புற நூலகங்கள்'):
+        if regular:
+            # எல்லாப் பணியாளரும் முற்பகலில் இல்லாத நாட்கள் -> கூட்டுநருக்கு அன்று 1 நாள் குறைப்பு
+            dates = set.intersection(*[{d for d, (_, fn) in ab[sid].items() if fn} for sid in regular])
+            res['partner'] = float(len(dates))
+            res['staff'] = daily_days
+            if dates: res['notes'].append(f'பணியாளர் முற்பகல் / முழு நாள் விடுப்பு {len(dates)} நாட்கள் — கூட்டுநர் பணி நாட்களில் குறைக்கப்பட்டது.')
+            if daily_days: res['notes'].append(f'தினக்கூலிப் பணியாளர் விடுப்பு {daily_days:g} நாட்கள் — அவரது பணி நாட்களில் குறைக்கப்பட்டது.')
+        elif daily:
+            # பணியாளர் யாரும் இல்லை: தினக்கூலிப் பணியாளர் விடுப்பு இருவருக்கும்
+            dates = set.intersection(*[set(ab[sid]) for sid in daily])
+            res['partner'] = sum(min(ab[sid][d][0] for sid in daily) for d in dates)
+            res['staff'] = daily_days
+            if daily_days: res['notes'].append(f'தினக்கூலிப் பணியாளர் விடுப்பு {daily_days:g} நாட்கள் — பணியாளர், கூட்டுநர் இருவரின் பணி நாட்களிலும் குறைக்கப்பட்டது.')
+    else:
+        res['staff'] = daily_days
+    return res
+
+
 # ---------------------------------------------------------------- பொது API (/leave)
 @leave.get('/leave')
 def leave_page():
@@ -296,9 +378,10 @@ def leave_meta():
 @leave.get('/leave/api/libraries')
 def leave_libraries():
     rows = db.fetch_all(
-        "SELECT l.id, l.name, l.lib_type FROM libraries l WHERE NOT l.is_test "
+        "SELECT l.id, l.name, l.lib_type FROM libraries l WHERE (NOT l.is_test OR %s) "
         "AND (l.inactive_from IS NULL OR l.inactive_from > CURRENT_DATE) "
-        "AND EXISTS (SELECT 1 FROM library_staff s WHERE s.library_id = l.id AND s.active) ORDER BY l.id")
+        "AND EXISTS (SELECT 1 FROM library_staff s WHERE s.library_id = l.id AND s.active) ORDER BY l.id",
+        (bool(session.get('tester') or session.get('admin')),))
     order = [t for _, t in LIB_GROUPS] + ['பிற நூலகங்கள்']
     groups = {t: [] for t in order}
     for r in rows:

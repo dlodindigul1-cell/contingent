@@ -1316,23 +1316,24 @@ def _period_text(start, end):
 
 @rpc
 def getWorkingDaysCount(libName):
+    """பணி நாட்கள் + விடுப்புக்கான ஊதியப் பிடித்தம். விடுப்பு, பணியாளர் விடுப்புப் பதிவுகளிலிருந்து (staff_leave_records)
+    நூலக வகை விதிப்படி கணக்கிடப்படும் — விதிகள்: leave_module.leave_deductions. (பழைய மாதாந்திர 'விடுப்பு' CSV இனி பயன்படாது.)"""
+    from leave_module import leave_deductions
     start, end = working_period(dt.datetime.now(IST).date())
-    total = count_working_days(start, end, _holiday_set(start, end))
+    holidays = _holiday_set(start, end)
+    total = count_working_days(start, end, holidays)
     name = str(libName or "").strip()
-    my = f"{end.month:02d}/{end.year}"          # காலம் முடியும் மாதம்
-    row = db.fetch_one(
-        "SELECT s.leave_days FROM staff_leave_monthly s JOIN libraries l ON l.id = s.library_id "
-        "WHERE l.name = %s AND s.month_year = %s", (name, my))
-    if not row:   # இந்த மாதத்திற்கு ஏற்றாவிட்டால் பழைய (மாதமற்ற) மதிப்பு
-        row = db.fetch_one(
-            "SELECT s.leave_days FROM staff_leave_days s JOIN libraries l ON l.id = s.library_id "
-            "WHERE l.name = %s", (name,))
-    leave = jnum(row["leave_days"]) if row else 0
+    lib = db.fetch_one("SELECT id, lib_type FROM libraries WHERE name = %s", (name,))
+    ded = leave_deductions(lib["id"], lib["lib_type"], start, end, holidays) if lib else \
+        {"partner": 0.0, "staff": 0.0, "part_time": 0.0, "notes": []}
     return {
         "totalWD": total,
-        "partnerLimit": total - leave,
-        "staffLimit": total - leave,
-        "leaveTaken": leave,
+        "partnerLeave": ded["partner"], "staffLeave": ded["staff"], "partTimeLeave": ded["part_time"],
+        "partnerLimit": total - ded["partner"],
+        "staffLimit": total - ded["staff"],
+        "partTimeLimit": total - ded["part_time"],
+        "leaveTaken": ded["partner"],
+        "notes": ded["notes"],
         "period": _period_text(start, end),
     }
 

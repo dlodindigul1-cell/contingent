@@ -480,3 +480,16 @@ CREATE TABLE IF NOT EXISTS staff_leave_records (
 );
 CREATE INDEX IF NOT EXISTS idx_slr_staff_start ON staff_leave_records(staff_id, start_date);
 CREATE INDEX IF NOT EXISTS idx_slr_dates ON staff_leave_records(start_date, end_date);
+
+
+-- ============================================================
+--  சோதனைப் பணியாளர்கள் (சோதனை நூலகத்துக்கு) — விடுப்பு / ஊதியப் பிடித்த விதிகளைச் சோதிக்க
+--  TEST EMPLOYEE = நிரந்தரப் பணியாளர்; "தினக்கூலி-சோதனை நூலகம்" = தினக்கூலிப் பணியாளர்.
+--  Admin > பணியாளர் விவரம்-ல் செயலற்றதாக்கினால் "பணியாளர் இல்லாத நூலகம்" நிலையைச் சோதிக்கலாம்.
+-- ============================================================
+INSERT INTO library_staff (library_id, staff_name, staff_no, is_daily_wage, seq)
+  SELECT id, 'TEST EMPLOYEE', 'TEST0001', FALSE, 1 FROM libraries WHERE name = 'சோதனை நூலகம்'
+  ON CONFLICT (library_id, staff_no) WHERE NOT is_daily_wage DO NOTHING;
+INSERT INTO library_staff (library_id, staff_name, staff_no, is_daily_wage, seq)
+  SELECT id, '', '', TRUE, 1 FROM libraries WHERE name = 'சோதனை நூலகம்'
+  ON CONFLICT (library_id, seq) WHERE is_daily_wage DO NOTHING;
