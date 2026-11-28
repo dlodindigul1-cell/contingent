@@ -117,6 +117,7 @@ from flask import render_template
 from receipts_module import _group_of, LIB_GROUPS
 
 IST = ZoneInfo('Asia/Kolkata')
+RL_YEARLY = 3                       # மத (வரையறுக்கப்பட்ட) விடுப்பு — ஆண்டுக்கு அதிகபட்சம் 3 நாட்கள் (ஜனவரி–டிசம்பர்)
 CL_YEARLY = 12                      # தற்செயல் விடுப்பு — ஆண்டுக்கு (ஜனவரி–டிசம்பர்)
 PERMISSION_MAX_PER_MONTH = 2
 DAILY_BLOCKED_TYPES = ('permission', 'religious')   # தினக்கூலிப் பணியாளருக்கு இல்லாத விடுப்பு வகைகள்
@@ -195,11 +196,60 @@ def casual_used(staff_id, year, exclude_id=None):
     return float(r['n'])
 
 
+def religious_used(staff_id, year, exclude_id=None):
+    r = db.fetch_one("SELECT COALESCE(SUM(days), 0) AS n FROM staff_leave_records WHERE staff_id = %s AND leave_type = 'religious' "
+                     "AND EXTRACT(YEAR FROM start_date) = %s AND id IS DISTINCT FROM %s", (staff_id, year, exclude_id))
+    return float(r['n'])
+
+
 def permissions_in_month(staff_id, year, month, exclude_id=None):
     r = db.fetch_one("SELECT COUNT(*) AS n FROM staff_leave_records WHERE staff_id = %s AND leave_type = 'permission' "
                      "AND EXTRACT(YEAR FROM start_date) = %s AND EXTRACT(MONTH FROM start_date) = %s AND id IS DISTINCT FROM %s",
                      (staff_id, year, month, exclude_id))
     return r['n']
+
+
+# ---------------------------------------------------------------- விடுமுறை நாள் உதவிகள் (விண்ணப்பம் + நாள் கணக்கு)
+def holiday_map(a, b):
+    """அரசு விடுமுறை நாட்கள் {தேதி: பெயர்} — a முதல் b வரை."""
+    return {r['holiday_date']: (r['name'] or '') for r in db.fetch_all(
+        'SELECT holiday_date, name FROM holidays WHERE holiday_date BETWEEN %s AND %s', (a, b))}
+
+
+def off_label(d, hmap):
+    """வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை எனில் அதன் பெயர்; பணி நாள் எனில் None."""
+    parts = []
+    if d in hmap: parts.append(hmap[d] or 'அரசு விடுமுறை')
+    if d.weekday() == 4: parts.append('வெள்ளி')
+    elif d.weekday() == 5 and 7 < d.day <= 14: parts.append('இரண்டாம் சனி')
+    return ' / '.join(parts) if parts else None
+
+
+def trim_trailing(start, end, hmap):
+    """விடுப்பு முடியும் நாள் வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை எனில் அவற்றைக் கணக்கிலிருந்து நீக்கும்
+    (இடையில் வருபவை கணக்கில் சேரும்). -> (பயனுள்ள கடைசி நாள், [(தேதி, பெயர்)])"""
+    eff, cut = end, []
+    while eff >= start and off_label(eff, hmap):
+        cut.insert(0, (eff, off_label(eff, hmap)))
+        eff -= dt.timedelta(days=1)
+    return eff, cut
+
+
+def attached_days(start, end, hmap, trimmed=()):
+    """விடுப்புக்கு முந்தைய / அடுத்த தொடர்ச்சியான வார விடுமுறை, அரசு விடுமுறை நாட்கள் [(தேதி, பெயர்)] (தேதி வரிசையில்)."""
+    out = list(trimmed)
+    d = start - dt.timedelta(days=1)
+    while off_label(d, hmap):
+        out.append((d, off_label(d, hmap))); d -= dt.timedelta(days=1)
+    d = end + dt.timedelta(days=1)
+    while off_label(d, hmap):
+        out.append((d, off_label(d, hmap))); d += dt.timedelta(days=1)
+    return sorted(set(out))
+
+
+def religious_name(d):
+    r = db.fetch_one('SELECT name FROM religious_holidays WHERE holiday_date = %s', (d,))
+    return (r['name'] or '') if r else ''
 
 
 def validate(p, exclude_id=None):
@@ -248,19 +298,22 @@ def validate(p, exclude_id=None):
         if used + days > CL_YEARLY:
             raise ValueError(f'தற்செயல் விடுப்பு {start.year}-ல் மீதம் {CL_YEARLY - used:g} நாட்கள் மட்டுமே; கேட்பது {days:g} நாட்கள்.')
         rec['day_part'] = part
+    elif lt == 'religious':
+        end, days = start, 1                 # மத விடுப்பு — குறிப்பிட்ட ஒரே நாள் மட்டும்
+        if not db.fetch_one('SELECT 1 AS x FROM religious_holidays LIMIT 1'):
+            raise ValueError('மத விடுப்புத் தேதிகள் இன்னும் ஏற்றப்படவில்லை.')
+        if not db.fetch_one('SELECT 1 AS x FROM religious_holidays WHERE holiday_date = %s', (start,)):
+            raise ValueError(f'{_fmt(start)} மத விடுப்பு நாள் அல்ல. மத விடுப்பு அனுமதிக்கப்பட்ட தேதியில் மட்டுமே எடுக்க முடியும்.')
+        used = religious_used(sid, start.year, exclude_id)
+        if used + 1 > RL_YEARLY:
+            raise ValueError(f'மத விடுப்பு ஆண்டுக்கு அதிகபட்சம் {RL_YEARLY} நாட்கள் மட்டுமே; {start.year}-ல் ஏற்கனவே {used:g} நாட்கள் எடுத்துள்ளீர்கள்.')
     else:
         if end < start: raise ValueError('முடிவு தேதி தொடக்க தேதிக்கு முன் இருக்க முடியாது.')
-        days = (end - start).days + 1
-        if lt == 'religious':
-            have = {r['holiday_date'] for r in db.fetch_all(
-                'SELECT holiday_date FROM religious_holidays WHERE holiday_date BETWEEN %s AND %s', (start, end))}
-            if not db.fetch_one('SELECT 1 AS x FROM religious_holidays LIMIT 1'):
-                raise ValueError('மத விடுப்புத் தேதிகள் இன்னும் ஏற்றப்படவில்லை.')
-            d = start
-            while d <= end:
-                if d not in have:
-                    raise ValueError(f'{_fmt(d)} மத விடுப்பு நாள் அல்ல. மத விடுப்பு அனுமதிக்கப்பட்ட தேதிகளில் மட்டுமே எடுக்க முடியும்.')
-                d += dt.timedelta(days=1)
+        # ஈட்டிய / மருத்துவ: முடியும் நாள் வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை எனில் கணக்கில் சேராது
+        eff, _cut = trim_trailing(start, end, holiday_map(start - dt.timedelta(days=1), end))
+        if eff < start:
+            raise ValueError('தேர்ந்தெடுத்த நாட்கள் அனைத்தும் வார விடுமுறை / அரசு விடுமுறை; விடுப்பு எடுக்கத் தேவையில்லை.')
+        days = (eff - start).days + 1
     if (end - start).days > 366:
         raise ValueError('விடுப்புக் காலம் மிக நீளமாக உள்ளது.')
 
@@ -278,6 +331,7 @@ def validate(p, exclude_id=None):
 
 def _balance(sid, on):
     return {'casual_used': casual_used(sid, on.year), 'casual_total': CL_YEARLY,
+            'religious_used': religious_used(sid, on.year), 'religious_total': RL_YEARLY,
             'permission_used': permissions_in_month(sid, on.year, on.month), 'permission_max': PERMISSION_MAX_PER_MONTH,
             'year': on.year, 'month': on.month}
 
@@ -467,7 +521,7 @@ def leave_history():
         else:
             summary[r['leave_type']] += float(r['days'])
     return jsonify(success=True, year=year, library=staff['lib'], label=staff_label(staff['staff_name'], staff['staff_no'], staff['is_daily_wage'], staff['lib']),
-                   summary=summary, casualTotal=CL_YEARLY, permByMonth=perm_by_month, records=[_record_json(r) for r in rows])
+                   summary=summary, casualTotal=CL_YEARLY, religiousTotal=RL_YEARLY, permByMonth=perm_by_month, records=[_record_json(r) for r in rows])
 
 
 @leave.get('/leave/api/today')

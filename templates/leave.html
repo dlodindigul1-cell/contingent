@@ -94,7 +94,8 @@ textarea,input[type=text],input[type=email]{width:100%;font:inherit;font-size:1r
       <label class="opt"><input type="radio" name="dp" value="FULL"> முழு நாள்</label>
     </div>
 
-    <div class="sub hide" id="subRel"><h4>மத விடுப்புக்கு அனுமதிக்கப்பட்ட தேதிகள்</h4><div class="chips" id="relChips"></div></div>
+    <div class="sub hide" id="subRel"><h4>மத விடுப்பு — அனுமதிக்கப்பட்ட நாளைத் தேர்ந்தெடுக்கவும் (ஒரு நாள் மட்டும்)</h4>
+      <select id="rRel"><option value="">-- மத விடுப்பு நாளைத் தேர்வு செய்யவும் --</option></select></div>
 
     <div id="dateWrap" class="hide">
       <label for="rStart" id="lStart">தொடக்க தேதி *</label><input type="date" id="rStart">
@@ -115,14 +116,13 @@ textarea,input[type=text],input[type=email]{width:100%;font:inherit;font-size:1r
     <label for="apSalary">ஊதியம் (ரூ.)</label><input type="text" id="apSalary" inputmode="numeric" placeholder="எ.கா. 35400">
     <div id="apMedWrap"><label>மருத்துவ சான்று இணைக்கப்பட்டுள்ளதா?</label>
       <label class="opt"><input type="radio" name="apmed" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="apmed" value="இல்லை" checked> இல்லை</label></div>
-    <label>வார விடுமுறை / அரசு விடுமுறை இணைப்பு உத்தேசிக்கப்பட்டுள்ளதா?</label>
-    <label class="opt"><input type="radio" name="apgov" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="apgov" value="இல்லை" checked> இல்லை</label>
-    <input type="text" id="apGovDate" class="hide" placeholder="விடுமுறை தேதி / விவரம்">
+    <div class="info">வார விடுமுறை / அரசு விடுமுறை இணைப்பு விண்ணப்பத்தில் தானாக நிரப்பப்படும்.</div>
     <label for="apPrev">இதற்கு முன் எடுத்த விடுப்பு (விட்டால் பதிவுகளிலிருந்து தானாக நிரப்பப்படும்)</label><input type="text" id="apPrev">
     <label>விதி 5 கீழ் விதிமுறை 4-ன்படி உறுதிமொழி இணைக்கப்பட்டுள்ளதா?</label>
     <label class="opt"><input type="radio" name="aprule" value="ஆம்"> ஆம்</label><label class="opt"><input type="radio" name="aprule" value="இல்லை" checked> இல்லை</label>
   </div>
-  <label for="apReason">விடுப்பிற்கான காரணம் *</label><textarea id="apReason" rows="2"></textarea>
+  <div id="apReasonWrap"><label for="apReason">விடுப்பிற்கான காரணம் *</label><textarea id="apReason" rows="2"></textarea></div>
+  <div class="info hide" id="apRelNote">காரணம் மத விடுப்பு நாளிலிருந்து தானாக நிரப்பப்படும் (எ.கா. 24/11/2026 · கார்த்திகை தீபம் முன்னிட்டு).</div>
   <label for="apAddr">விடுப்பின் போது முகவரி *</label><textarea id="apAddr" rows="2"></textarea>
   <label for="apDate">விண்ணப்ப நாள்</label><input type="date" id="apDate">
   <button class="btn" id="apPdf" type="button">⬇️ PDF பதிவிறக்கு</button>
@@ -200,6 +200,7 @@ const rLib = $('#rLib'), rStaff = $('#rStaff'), rType = $('#rType');
 function chosen(name){ const x = document.querySelector('input[name=' + name + ']:checked'); return x ? x.value : ''; }
 function resetForm(){
   ['#subPerm', '#subCasual', '#subRel', '#dateWrap', '#slotWrap'].forEach(s => $(s).classList.add('hide'));
+  $('#rRel').innerHTML = '<option value="">-- மத விடுப்பு நாளைத் தேர்வு செய்யவும் --</option>';
   document.querySelectorAll('input[type=radio]').forEach(x => { x.checked = false; x.closest('label').classList.remove('hide'); });
   $('#dailyNote').classList.add('hide');
   $('#rStart').value = ''; $('#rEnd').value = ''; $('#balInfo').textContent = ''; $('#rMsg').innerHTML = '';
@@ -219,16 +220,17 @@ rStaff.addEventListener('change', () => {
 rType.addEventListener('change', async () => {
   const t = rType.value; resetForm();
   if (!t) return;
-  $('#dateWrap').classList.remove('hide');
+  $('#dateWrap').classList.toggle('hide', t === 'religious');
   $('#subPerm').classList.toggle('hide', t !== 'permission');
   $('#subCasual').classList.toggle('hide', t !== 'casual');
   if (t === 'casual') applyCasualRule();
   $('#subRel').classList.toggle('hide', t !== 'religious');
-  $('#endWrap').classList.toggle('hide', t === 'permission' || t === 'casual');
+  $('#endWrap').classList.toggle('hide', t === 'permission' || t === 'casual' || t === 'religious');
   $('#lStart').textContent = (t === 'permission' || t === 'casual') ? 'தேதி *' : 'தொடக்க தேதி *';
   if (t === 'religious'){
     const j = await api('/leave/api/religious');
-    $('#relChips').innerHTML = j.success && j.rows.length ? j.rows.map(r => '<span>' + esc(fmt(r.date)) + (r.name ? ' · ' + esc(r.name) : '') + '</span>').join('') : '<span>தேதிகள் ஏற்றப்படவில்லை</span>';
+    if (j.success && j.rows.length) $('#rRel').insertAdjacentHTML('beforeend', j.rows.map(r => '<option value="' + esc(r.date) + '">' + esc(fmt(r.date)) + (r.name ? ' · ' + esc(r.name) : '') + '</option>').join(''));
+    else $('#rRel').innerHTML = '<option value="">மத விடுப்புத் தேதிகள் ஏற்றப்படவில்லை</option>';
   }
   showBalance();
 });
@@ -250,21 +252,25 @@ document.querySelectorAll('input[name=dp]').forEach(x => x.addEventListener('cha
   $('#endWrap').classList.toggle('hide', x.value !== 'FULL'); showBalance();
 }));
 $('#rStart').addEventListener('change', showBalance);
+$('#rRel').addEventListener('change', () => { $('#rStart').value = $('#rRel').value; $('#rEnd').value = $('#rRel').value; showBalance(); });
 async function showBalance(){
   if (!rStaff.value) return;
   const t = rType.value, on = $('#rStart').value;
-  if (t !== 'casual' && t !== 'permission'){ $('#balInfo').textContent = ''; return; }
+  if (t !== 'casual' && t !== 'permission' && t !== 'religious'){ $('#balInfo').textContent = ''; return; }
   const j = await api('/leave/api/balance?staff_id=' + rStaff.value + (on ? '&date=' + on : ''));
   if (!j.success) return;
   $('#balInfo').textContent = t === 'casual'
     ? 'தற்செயல் விடுப்பு ' + j.year + ': எடுத்தது ' + j.casual_used + ' · மீதம் ' + (j.casual_total - j.casual_used) + ' நாட்கள் (மொத்தம் ' + j.casual_total + ')'
+    : t === 'religious'
+    ? 'மத விடுப்பு ' + j.year + ': எடுத்தது ' + j.religious_used + ' · மீதம் ' + (j.religious_total - j.religious_used) + ' நாட்கள் (மொத்தம் ' + j.religious_total + ')'
     : 'இம்மாத அனுமதி விடுப்பு: ' + j.permission_used + ' / ' + j.permission_max;
 }
 $('#rSubmit').addEventListener('click', async () => {
   const t = rType.value, out = $('#rMsg');
   const body = {staff_id: +rStaff.value, leave_type: t, start_date: $('#rStart').value, end_date: $('#rEnd').value || $('#rStart').value};
   if (!rStaff.value || !t){ out.innerHTML = '<div class="msg bad">நூலகம், பணியாளர், விடுப்பு வகையைத் தேர்ந்தெடுக்கவும்.</div>'; return; }
-  if (!body.start_date){ out.innerHTML = '<div class="msg bad">தேதியைத் தேர்ந்தெடுக்கவும்.</div>'; return; }
+  if (t === 'religious'){ body.start_date = body.end_date = $('#rRel').value; }
+  if (!body.start_date){ out.innerHTML = '<div class="msg bad">' + (t === 'religious' ? 'மத விடுப்பு நாளைத் தேர்ந்தெடுக்கவும்.' : 'தேதியைத் தேர்ந்தெடுக்கவும்.') + '</div>'; return; }
   if (t === 'permission'){ body.perm_kind = chosen('pk'); body.perm_slot = $('#rSlot').value; }
   if (t === 'casual'){ body.day_part = chosen('dp'); }
   const btn = $('#rSubmit'); btn.disabled = true;
@@ -272,7 +278,7 @@ $('#rSubmit').addEventListener('click', async () => {
   btn.disabled = false;
   if (j.success){
     out.innerHTML = '<div class="msg ok">✅ ' + esc(j.message) + '</div>'; showBalance();
-    if (curStaff && !curStaff.daily && ['casual', 'earned', 'medical'].includes(t)){
+    if (curStaff && !curStaff.daily && ['casual', 'religious', 'earned', 'medical'].includes(t)){
       out.insertAdjacentHTML('beforeend', '<button class="btn alt" type="button" id="apOpen">📄 விடுப்பு விண்ணப்பம் தயாரிக்க</button>');
       $('#apOpen').addEventListener('click', () => openApply(j.id));
     }
@@ -288,7 +294,7 @@ hStaff.addEventListener('change', loadHistory); hYear.addEventListener('change',
 const MON = ['', 'ஜன', 'பிப்', 'மார்', 'ஏப்', 'மே', 'ஜூன்', 'ஜூலை', 'ஆக', 'செப்', 'அக்', 'நவ', 'டிச'];
 function canApply(r){
   const st = hInfo && hInfo.staff.find(x => String(x.id) === hStaff.value);
-  return !!st && !st.daily && ['casual', 'earned', 'medical'].includes(r.type);
+  return !!st && !st.daily && ['casual', 'religious', 'earned', 'medical'].includes(r.type);
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-apply]'); if (b) openApply(b.dataset.apply); });
 async function loadHistory(){
@@ -299,7 +305,7 @@ async function loadHistory(){
   const perm = Object.keys(j.permByMonth).map(m => MON[m] + ' ' + j.permByMonth[m]).join(' · ');
   $('#hOut').innerHTML =
     '<div class="stats"><div>தற்செயல் (எடுத்தது)<b>' + s.casual + '</b></div><div>தற்செயல் (மீதம்)<b>' + left + '</b></div>' +
-    '<div>அனுமதி விடுப்பு<b>' + s.permission + '</b></div><div>மத விடுப்பு (நாட்கள்)<b>' + s.religious + '</b></div>' +
+    '<div>அனுமதி விடுப்பு<b>' + s.permission + '</b></div><div>மத விடுப்பு (எடுத்தது / ' + j.religiousTotal + ')<b>' + s.religious + '</b></div>' +
     '<div>ஈட்டிய (நாட்கள்)<b>' + s.earned + '</b></div><div>மருத்துவ (நாட்கள்)<b>' + s.medical + '</b></div></div>' +
     (perm ? '<div class="info">அனுமதி விடுப்பு மாதவாரி: ' + esc(perm) + '</div>' : '') +
     '<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>தேதி</th><th>வகை</th><th>விவரம்</th><th>நாட்கள்</th></tr></thead><tbody>' +
@@ -316,7 +322,9 @@ async function openApply(id){
   $('#apTitle').textContent = '📄 ' + j.title;
   $('#apSummary').textContent = j.name + ' · ' + j.library + ' · ' + j.period;
   $('#apDesig').innerHTML = '<option value="">-- பதவியைத் தேர்வு செய்யவும் --</option>' + j.designations.map(d => '<option>' + esc(d) + '</option>').join('');
-  $('#apElml').classList.toggle('hide', j.leaveType === 'casual');
+  $('#apElml').classList.toggle('hide', j.leaveType === 'casual' || j.leaveType === 'religious');
+  $('#apReasonWrap').classList.toggle('hide', j.leaveType === 'religious');
+  $('#apRelNote').classList.toggle('hide', j.leaveType !== 'religious');
   $('#apMedWrap').classList.toggle('hide', j.leaveType !== 'medical');
   $('#apDate').value = j.today; $('#apMsg').innerHTML = '';
   $('#apDate').dataset.t = j.leaveType;
@@ -324,13 +332,11 @@ async function openApply(id){
 }
 function apBody(){
   const b = {record_id: apRec, designation: $('#apDesig').value, reason: $('#apReason').value, address: $('#apAddr').value, apply_date: $('#apDate').value};
-  if ($('#apDate').dataset.t !== 'casual'){
-    Object.assign(b, {salary: $('#apSalary').value, med_cert: chosen('apmed'), gov_holiday: chosen('apgov'), gov_holiday_date: $('#apGovDate').value,
-      prev_leave: $('#apPrev').value, tamil_rule: chosen('aprule')});
+  if (['earned', 'medical'].includes($('#apDate').dataset.t)){
+    Object.assign(b, {salary: $('#apSalary').value, med_cert: chosen('apmed'), prev_leave: $('#apPrev').value, tamil_rule: chosen('aprule')});
   }
   return b;
 }
-document.querySelectorAll('input[name=apgov]').forEach(x => x.addEventListener('change', () => $('#apGovDate').classList.toggle('hide', chosen('apgov') !== 'ஆம்')));
 $('#apClose').addEventListener('click', () => $('#applyModal').classList.remove('on'));
 $('#apPdf').addEventListener('click', async () => {
   const btn = $('#apPdf'), out = $('#apMsg'); btn.disabled = true;

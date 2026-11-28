@@ -9,15 +9,16 @@ from flask import Blueprint, jsonify, request, Response
 
 import db
 import mailer
-from leave_module import _staff_row, casual_used, permissions_in_month, _fmt, _today, CL_YEARLY, DAY_PARTS
+from leave_module import (_staff_row, casual_used, _fmt, _today, CL_YEARLY, RL_YEARLY, religious_used, DAY_PARTS,
+                          holiday_map, trim_trailing, attached_days, religious_name)
 from pdfs import _new_pdf
 
 leave_apply = Blueprint('leave_apply', __name__)
 
-APPLY_TYPES = ('casual', 'earned', 'medical')
+APPLY_TYPES = ('casual', 'religious', 'earned', 'medical')
 DESIGNATIONS = ['நூலக ஆய்வாளர்', 'முதல் நிலை நூலகர்', 'கண்காணிப்பாளர்', 'உதவியாளர்', 'கணக்கர்',
                 'இரண்டாம் நிலை நூலகர்', 'இளநிலை உதவியாளர்', 'மூன்றாம் நிலை நூலகர்', 'பதிவறை எழுத்தர்', 'ஊர்ப்புற நூலகர்']
-TITLES = {'casual': 'தற்செயல் விடுப்பு விண்ணப்பம்', 'earned': 'ஈட்டிய விடுப்பு விண்ணப்பம்',
+TITLES = {'casual': 'தற்செயல் விடுப்பு விண்ணப்பம்', 'religious': 'வரையறுக்கப்பட்ட விடுப்பு விண்ணப்பம்', 'earned': 'ஈட்டிய விடுப்பு விண்ணப்பம்',
           'medical': 'மருத்துவ விடுப்பு விண்ணப்பம்'}
 
 _MAIL_LOG = {}            # staff_id -> [நேரங்கள்] — பொதுப் பக்கம் என்பதால் மின்னஞ்சல் தவறாகப் பயன்படுவதைத் தடுக்க
@@ -41,17 +42,34 @@ def _record(rid):
     if staff['is_daily_wage'] or not str(staff['staff_no'] or '').strip():
         raise ValueError('விடுப்பு விண்ணப்பம் நிரந்தரப் பணியாளர்களுக்கு (பணியாளர் எண் உள்ளவர்) மட்டுமே.')
     if r['leave_type'] not in APPLY_TYPES:
-        raise ValueError('தற்செயல், ஈட்டிய, மருத்துவ விடுப்புகளுக்கு மட்டுமே விண்ணப்பம் தயாராகும்.')
+        raise ValueError('தற்செயல், வரையறுக்கப்பட்ட (மத), ஈட்டிய, மருத்துவ விடுப்புகளுக்கு மட்டுமே விண்ணப்பம் தயாராகும்.')
     return r, staff
 
 
-def _period_text(r):
+def _hmap(r):
+    return holiday_map(r['start_date'] - dt.timedelta(days=15), r['end_date'] + dt.timedelta(days=15))
+
+
+def _lbl(items):
+    return ', '.join(f'{_fmt(d)} ({n})' for d, n in items)
+
+
+def _period_text(r, hmap=None):
     if r['leave_type'] == 'casual' and r['day_part'] in ('FN', 'AN'):
         return f"{_fmt(r['start_date'])} ({DAY_PARTS[r['day_part']]})"
-    if r['start_date'] == r['end_date']:
+    if r['leave_type'] == 'religious':
+        nm = religious_name(r['start_date'])
+        return f"{_fmt(r['start_date'])}" + (f' ({nm})' if nm else '') + ' (1 நாள்)'
+    if r['leave_type'] in ('earned', 'medical'):     # முடியும் நாள் வார / அரசு விடுமுறை எனில் கணக்கில் இல்லை
+        eff, _ = trim_trailing(r['start_date'], r['end_date'], hmap if hmap is not None else _hmap(r))
+        if eff < r['start_date']: eff = r['start_date']
+        end = eff
+    else:
+        end = r['end_date']
+    if r['start_date'] == end:
         return f"{_fmt(r['start_date'])} (1 நாள்)"
-    n = (r['end_date'] - r['start_date']).days + 1
-    return f"{_fmt(r['start_date'])} முதல் {_fmt(r['end_date'])} வரை ({n} நாட்கள்)"
+    n = (end - r['start_date']).days + 1
+    return f"{_fmt(r['start_date'])} முதல் {_fmt(end)} வரை ({n} நாட்கள்)"
 
 
 def _form(r, staff, f):
@@ -61,31 +79,43 @@ def _form(r, staff, f):
         apply_date = _fmt(dt.date.fromisoformat(apply_date))
     except ValueError:
         apply_date = _fmt(_today())
-    desig, reason, addr = _s(f.get('designation'), 60), _s(f.get('reason')), _s(f.get('address'))
+    desig, addr = _s(f.get('designation'), 60), _s(f.get('address'))
+    lt, name, work = r['leave_type'], staff['staff_name'], staff['lib']
     if desig not in DESIGNATIONS:
         raise ValueError('பதவியைத் தேர்ந்தெடுக்கவும்.')
-    if not reason:
-        raise ValueError('விடுப்பிற்கான காரணத்தை எழுதவும்.')
     if not addr:
         raise ValueError('விடுப்பின் போது முகவரியை எழுதவும்.')
-    lt, name, work = r['leave_type'], staff['staff_name'], staff['lib']
-    period = _period_text(r)
+    hmap = _hmap(r)
+    period = _period_text(r, hmap)
 
-    if lt == 'casual':
-        used = casual_used(staff['id'], r['start_date'].year, r['id'])
-        perm = permissions_in_month(staff['id'], r['start_date'].year, r['start_date'].month)
+    if lt == 'religious':       # காரணம் தானாக: "24/11/2026 · கார்த்திகை தீபம் முன்னிட்டு"
+        nm = religious_name(r['start_date'])
+        reason = f"{_fmt(r['start_date'])}" + (f' · {nm}' if nm else '') + ' முன்னிட்டு'
+    else:
+        reason = _s(f.get('reason'))
+        if not reason:
+            raise ValueError('விடுப்பிற்கான காரணத்தை எழுதவும்.')
+
+    if lt in ('casual', 'religious'):
+        yr = r['start_date'].year
+        if lt == 'casual':
+            used = casual_used(staff['id'], yr, r['id'])
+            tot, used_s, rem = str(CL_YEARLY), f'{used:g}', f'{CL_YEARLY - used:g}'
+            tot = f'{CL_YEARLY} (தற்செயல் விடுப்பு — {yr})'
+        else:
+            u = religious_used(staff['id'], yr, r['id'])
+            tot, used_s, rem = f'{RL_YEARLY} (மத விடுப்பு — {yr})', f'{u:g}', f'{RL_YEARLY - u:g}'
+        att = attached_days(r['start_date'], r['end_date'], hmap)
         rows = [('1. பணியாளர் பெயர்', name), ('2. பதவி', desig), ('3. பணியாற்றும் இடம்', work),
-                ('4. மொத்த விடுப்பு நாட்கள்', f'{CL_YEARLY} (தற்செயல் விடுப்பு — {r["start_date"].year})'),
-                ('5. இதுவரை எடுத்த விடுப்பு நாட்கள்', f'{used:g}'),
-                ('6. மீதமுள்ள விடுப்பு நாட்கள்', f'{CL_YEARLY - used:g}'),
-                ('7. தற்போது தேவைப்படும் விடுப்பு நாட்கள்', period),
-                ('8. அனுமதி விடுப்பு நாட்கள்', f'இம்மாதம் எடுத்தவை: {perm}'),
+                ('4. மொத்த விடுப்பு நாட்கள்', tot), ('5. இதுவரை எடுத்த விடுப்பு நாட்கள்', used_s),
+                ('6. மீதமுள்ள விடுப்பு நாட்கள்', rem), ('7. தற்போது தேவைப்படும் விடுப்பு நாட்கள்', period),
+                ('8. அனுமதி விடுப்பு நாட்கள்', ('ஆம் — ' + _lbl(att)) if att else 'இல்லை'),
                 ('9. விடுப்பிற்கான காரணம்', reason), ('10. விடுப்பின் போது முகவரி', addr)]
     else:
         med = _s(f.get('med_cert'), 4) == 'ஆம்'
-        gov = _s(f.get('gov_holiday'), 4) == 'ஆம்'
-        gdate = _s(f.get('gov_holiday_date'), 80)
-        gov_txt = ('ஆம்' + (f' ({gdate})' if gdate else '')) if gov else 'இல்லை'
+        eff, cut = trim_trailing(r['start_date'], r['end_date'], hmap)
+        att = attached_days(r['start_date'], r['end_date'], hmap, cut)
+        gov_txt = ('ஆம் — ' + _lbl(att)) if att else 'இல்லை'
         prev = db.fetch_all(
             "SELECT leave_type, start_date, end_date FROM staff_leave_records WHERE staff_id = %s AND leave_type IN ('earned','medical') "
             "AND id <> %s AND start_date < %s ORDER BY start_date DESC LIMIT 3", (staff['id'], r['id'], r['start_date']))
