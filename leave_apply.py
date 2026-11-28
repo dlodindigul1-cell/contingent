@@ -68,8 +68,18 @@ def _period_text(r, hmap=None):
         end = r['end_date']
     if r['start_date'] == end:
         return f"{_fmt(r['start_date'])} (1 நாள்)"
-    if r['leave_type'] == 'casual':        # இடையில் வரும் வார / அரசு விடுமுறை நாட்கள் கணக்கில் இல்லை
-        n = counted_days(r['start_date'], end, hmap if hmap is not None else _hmap(r))
+    if r['leave_type'] == 'casual':        # பணி நாட்கள் மட்டும் (வெள்ளி / இரண்டாம் சனி / அரசு விடுமுறை நீங்கலாக)
+        hm = hmap if hmap is not None else _hmap(r)
+        work, d = [], r['start_date']
+        while d <= end:
+            if not off_label(d, hm): work.append(d)
+            d += dt.timedelta(days=1)
+        runs = []
+        for d in work:                      # தொடர்ச்சியான நாட்களை "முதல் … வரை" எனக் குழுவாக்கு
+            if runs and (d - runs[-1][1]).days == 1: runs[-1][1] = d
+            else: runs.append([d, d])
+        txt = ', '.join(_fmt(a) if a == b else f'{_fmt(a)} முதல் {_fmt(b)} வரை' for a, b in runs)
+        return f'{txt} ({len(work)} நாட்கள்)'
     else:
         n = (end - r['start_date']).days + 1
     return f"{_fmt(r['start_date'])} முதல் {_fmt(end)} வரை ({n:g} நாட்கள்)"
